@@ -3,6 +3,8 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score, accuracy_score
+import seaborn as sns
+import matplotlib.pyplot as plt
 import logging
 
 # Configure logging
@@ -98,6 +100,23 @@ class CovariateShiftDetector:
         
         if accuracy > 0.5 and roc_auc > 0.5:
             logger.warning("Covariate shift detected. The classifier can distinguish between training and production data.")
+        
+        self.visualize_shift()
+
+    def visualize_shift(self) -> None:
+        """
+        Visualize the differences between the training and production data distributions.
+        """
+        combined = self.df_combined.copy()
+        combined['origin'] = combined['origin'].map({0: 'Training', 1: 'Production'})
+        
+        for col in self.df_prior.columns:
+            if col != 'origin':
+                plt.figure(figsize=(10, 5))
+                sns.kdeplot(data=combined, x=col, hue='origin', fill=True)
+                plt.title(f'Distribution of {col}')
+                plt.savefig(f'distribution_{col}.png')
+                plt.show()
 
 # Usage Example
 if __name__ == "__main__":
