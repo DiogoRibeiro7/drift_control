@@ -26,23 +26,80 @@ A package for monitoring and controlling data drift in machine learning models.
 pip install drift_control
 ```
 
-## Usage
+## Example Usage
 
 ```python
-from drift_control import DriftDetector, Alert, load_data
+import pandas as pd
+from DataDriftDetector import DataDriftDetector
 
-# Load data
-reference_data = load_data('reference_data.csv')
-current_data = load_data('current_data.csv')
+# Load your datasets
+df_prior = pd.read_csv('path/to/prior_dataset.csv')
+df_post = pd.read_csv('path/to/post_dataset.csv')
 
-# Detect drift
-detector = DriftDetector(threshold=0.5)
-drift_detected, error = detector.detect_drift(reference_data, current_data)
+# Initialize the detector
+drift_detector = DataDriftDetector(df_prior, df_post)
 
-# Handle alerts
-alert = Alert()
-if drift_detected:
-    alert.add_alert("Drift detected")
+# Calculate data drift
+drift_results = drift_detector.calculate_drift()
+print(drift_results)
 
-print(alert.get_alerts())
+# Plot categorical to numeric relationships
+categorical_to_numeric_plot = drift_detector.plot_categorical_to_numeric()
+categorical_to_numeric_plot.savefig('categorical_to_numeric_plot.png')
+
+# Plot numeric to numeric relationships
+numeric_to_numeric_plot = drift_detector.plot_numeric_to_numeric()
+numeric_to_numeric_plot.savefig('numeric_to_numeric_plot.png')
+
+# Plot categorical distributions
+categorical_plot = drift_detector.plot_categorical()
+categorical_plot.savefig('categorical_plot.png')
+
+# Compare ML efficacy
+target_column = 'target'
+ml_report = drift_detector.compare_ml_efficacy(target_column)
+print(ml_report)
+```
+
+## Monitoring Data Drift in a Customer Churn Prediction Model
+
+Assume you have two datasets:
+
+churn_data_prior.csv - Historical data used to train a customer churn prediction model.
+churn_data_post.csv - Recent data collected from current customers.
+You want to monitor data drift and ensure your model's efficacy remains high.
+
+```python
+import pandas as pd
+from DataDriftDetector import DataDriftDetector
+
+# Load your datasets
+df_prior = pd.read_csv('path/to/churn_data_prior.csv')
+df_post = pd.read_csv('path/to/churn_data_post.csv')
+
+# Initialize the detector
+drift_detector = DataDriftDetector(df_prior, df_post)
+
+# Calculate data drift
+drift_results = drift_detector.calculate_drift()
+print("Drift Results:")
+print(drift_results)
+
+# Plot categorical to numeric relationships
+categorical_to_numeric_plot = drift_detector.plot_categorical_to_numeric()
+categorical_to_numeric_plot.savefig('churn_categorical_to_numeric_plot.png')
+
+# Plot numeric to numeric relationships
+numeric_to_numeric_plot = drift_detector.plot_numeric_to_numeric()
+numeric_to_numeric_plot.savefig('churn_numeric_to_numeric_plot.png')
+
+# Plot categorical distributions
+categorical_plot = drift_detector.plot_categorical()
+categorical_plot.savefig('churn_categorical_plot.png')
+
+# Compare ML efficacy
+target_column = 'churn'
+ml_report = drift_detector.compare_ml_efficacy(target_column)
+print("ML Efficacy Report:")
+print(ml_report)
 ```
