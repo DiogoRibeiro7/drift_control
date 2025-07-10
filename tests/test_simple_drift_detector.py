@@ -1,6 +1,5 @@
-# tests/test_drift_detector.py
 import unittest
-from drift_control.drift_detector import DriftDetector
+from drift_control import DriftDetector
 
 class TestDriftDetector(unittest.TestCase):
     def test_drift_detection(self):
