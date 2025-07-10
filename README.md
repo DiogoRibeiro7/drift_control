@@ -1,105 +1,47 @@
-# structure
+# Drift Control
 
+A lightweight package for monitoring and controlling data drift in machine learning models.
+
+## Project layout
+
+```
 drift_control/
 ├── drift_control/
 │   ├── __init__.py
-│   ├── drift_detector.py
 │   ├── alert.py
-│   ├── utils.py
+│   ├── config.py
+│   ├── drift_detector.py
+│   ├── multivariate_drift_detector.py
+│   ├── simple_drift_detector.py
+│   └── utils.py
 ├── tests/
 │   ├── __init__.py
-│   ├── test_drift_detector.py
 │   ├── test_alert.py
-│   ├── test_utils.py
-├── setup.py
-├── README.md
-├── LICENSE
-└── requirements.txt
-
-# Drift Control
-
-A package for monitoring and controlling data drift in machine learning models.
+│   └── test_simple_drift_detector.py
+├── requirements.txt
+└── setup.py
+```
 
 ## Installation
 
+Install the package and its dependencies in editable mode:
+
 ```bash
-pip install drift_control
+pip install -r requirements.txt
+pip install -e .
 ```
 
 ## Example Usage
 
 ```python
-import pandas as pd
-from DataDriftDetector import DataDriftDetector
+from drift_control import DriftDetector, DataDriftDetector
 
-# Load your datasets
-df_prior = pd.read_csv('path/to/prior_dataset.csv')
-df_post = pd.read_csv('path/to/post_dataset.csv')
+# Simple MSE based detector
+reference = [1, 2, 3, 4, 5]
+current = [1.1, 2.1, 3.1, 4.1, 5.1]
 
-# Initialize the detector
-drift_detector = DataDriftDetector(df_prior, df_post)
-
-# Calculate data drift
-drift_results = drift_detector.calculate_drift()
-print(drift_results)
-
-# Plot categorical to numeric relationships
-categorical_to_numeric_plot = drift_detector.plot_categorical_to_numeric()
-categorical_to_numeric_plot.savefig('categorical_to_numeric_plot.png')
-
-# Plot numeric to numeric relationships
-numeric_to_numeric_plot = drift_detector.plot_numeric_to_numeric()
-numeric_to_numeric_plot.savefig('numeric_to_numeric_plot.png')
-
-# Plot categorical distributions
-categorical_plot = drift_detector.plot_categorical()
-categorical_plot.savefig('categorical_plot.png')
-
-# Compare ML efficacy
-target_column = 'target'
-ml_report = drift_detector.compare_ml_efficacy(target_column)
-print(ml_report)
+simple_detector = DriftDetector(threshold=0.5)
+print(simple_detector.detect_drift(reference, current))
 ```
 
-## Monitoring Data Drift in a Customer Churn Prediction Model
-
-Assume you have two datasets:
-
-churn_data_prior.csv - Historical data used to train a customer churn prediction model.
-churn_data_post.csv - Recent data collected from current customers.
-You want to monitor data drift and ensure your model's efficacy remains high.
-
-```python
-import pandas as pd
-from DataDriftDetector import DataDriftDetector
-
-# Load your datasets
-df_prior = pd.read_csv('path/to/churn_data_prior.csv')
-df_post = pd.read_csv('path/to/churn_data_post.csv')
-
-# Initialize the detector
-drift_detector = DataDriftDetector(df_prior, df_post)
-
-# Calculate data drift
-drift_results = drift_detector.calculate_drift()
-print("Drift Results:")
-print(drift_results)
-
-# Plot categorical to numeric relationships
-categorical_to_numeric_plot = drift_detector.plot_categorical_to_numeric()
-categorical_to_numeric_plot.savefig('churn_categorical_to_numeric_plot.png')
-
-# Plot numeric to numeric relationships
-numeric_to_numeric_plot = drift_detector.plot_numeric_to_numeric()
-numeric_to_numeric_plot.savefig('churn_numeric_to_numeric_plot.png')
-
-# Plot categorical distributions
-categorical_plot = drift_detector.plot_categorical()
-categorical_plot.savefig('churn_categorical_plot.png')
-
-# Compare ML efficacy
-target_column = 'churn'
-ml_report = drift_detector.compare_ml_efficacy(target_column)
-print("ML Efficacy Report:")
-print(ml_report)
-```
+See `drift_control/drift_detector.py` for the full DataDriftDetector implementation.

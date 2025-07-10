@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from typing import Tuple
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score, accuracy_score
@@ -117,15 +118,3 @@ class CovariateShiftDetector:
                 plt.title(f'Distribution of {col}')
                 plt.savefig(f'distribution_{col}.png')
                 plt.show()
-
-# Usage Example
-if __name__ == "__main__":
-    # Load your datasets
-    df_prior = pd.read_csv('path/to/churn_data_prior.csv')
-    df_post = pd.read_csv('path/to/churn_data_post.csv')
-
-    # Initialize the detector
-    detector = CovariateShiftDetector(df_prior, df_post)
-
-    # Monitor covariate shift
-    detector.monitor_shift()
