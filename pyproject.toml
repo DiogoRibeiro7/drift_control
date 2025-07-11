@@ -1,0 +1,28 @@
+[project]
+name = "drift-control"
+version = "0.1.0"
+description = "A lightweight package for monitoring and controlling data drift in machine learning models."
+authors = [
+    { name = "Diogo Ribeiro", email = "dfr@esmad.ipp.pt" }
+]
+license = {text = "MIT"}
+maintainers = [
+    { name = "Diogo Ribeiro", email = "diogo.debastos.ribeiro@gmail.com" }
+]
+urls = {"Repository" = "https://github.com/DiogoRibeiro7/drift-control"}
+readme = "README.md"
+keywords = ["data-drift", "monitoring", "machine-learning"]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "pandas",
+    "seaborn",
+    "matplotlib",
+    "scikit-learn",
+    "category_encoders",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
