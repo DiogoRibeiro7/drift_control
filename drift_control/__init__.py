@@ -9,6 +9,7 @@ from .drift_detector import DataDriftDetector
 from .psi_drift_detector import PSIDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .multivariate_drift_detector import CovariateShiftDetector
+from .sklearn_adapter import DriftMonitor
 
 from importlib.metadata import PackageNotFoundError, version as _version
 
@@ -29,4 +30,5 @@ __all__ = [
     'load_data',
     'BaselineManager',
     'CovariateShiftDetector',
+    'DriftMonitor',
 ]

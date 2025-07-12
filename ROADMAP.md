@@ -19,7 +19,7 @@ This roadmap outlines the main steps to make **drift-control** a professional pa
 - [ ] Publish the package to PyPI
 - [x] Implement additional drift detection algorithms (e.g., KS-test, clustering-based)
 - [x] Support multivariate and concept drift detection techniques
-- [ ] Integrate with scikit-learn pipelines and major ML frameworks
+- [x] Integrate with scikit-learn pipelines and major ML frameworks
 - [ ] Provide real-time monitoring utilities for streaming data
 - [ ] Offer dashboards and visualization tools for drift analysis
 - [x] Add dataset versioning and baseline management helpers

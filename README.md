@@ -18,6 +18,7 @@ drift_control/
 │   ├── psi_drift_detector.py
 │   ├── ks_drift_detector.py
 │   ├── baseline_manager.py
+│   ├── sklearn_adapter.py
 │   └── utils.py
 ├── tests/
 │   ├── __init__.py
@@ -26,7 +27,8 @@ drift_control/
 │   ├── test_psi_drift_detector.py
 │   ├── test_ks_drift_detector.py
 │   ├── test_baseline_manager.py
-│   └── test_multivariate_detector.py
+│   ├── test_multivariate_detector.py
+│   └── test_sklearn_adapter.py
 ├── pyproject.toml
 ```
 
@@ -42,7 +44,14 @@ poetry install
 
 ```python
 import pandas as pd
-from drift_control import DriftDetector, DataDriftDetector, PSIDriftDetector, KSDriftDetector, BaselineManager
+from drift_control import (
+    DriftDetector,
+    DataDriftDetector,
+    PSIDriftDetector,
+    KSDriftDetector,
+    BaselineManager,
+    DriftMonitor,
+)
 
 # Simple MSE based detector
 reference = [1, 2, 3, 4, 5]
@@ -62,6 +71,12 @@ print(ks_detector.detect_drift(reference, current))
 # Save a baseline dataset
 baseline = BaselineManager(directory="baselines")
 baseline.save_baseline(pd.DataFrame({'x': reference}), name="ref", version="1")
+
+# Drift monitoring step for scikit-learn pipelines
+monitor = DriftMonitor()
+monitor.fit(pd.DataFrame({'x': reference}))
+monitor.transform(pd.DataFrame({'x': current}))
+print(monitor.drift_results_)
 ```
 
 ``BaselineManager`` helps manage versioned baseline datasets for your detectors.
