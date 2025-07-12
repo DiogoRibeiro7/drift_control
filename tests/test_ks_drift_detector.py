@@ -18,5 +18,9 @@ class TestKSDriftDetector(unittest.TestCase):
         self.assertTrue(drift)
         self.assertLess(p, 0.05)
 
+    def test_invalid_alpha(self):
+        with self.assertRaises(ValueError):
+            KSDriftDetector(alpha=-0.1)
+
 if __name__ == '__main__':
     unittest.main()

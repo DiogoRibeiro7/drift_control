@@ -16,12 +16,14 @@ drift_control/
 │   ├── multivariate_drift_detector.py
 │   ├── simple_drift_detector.py
 │   ├── psi_drift_detector.py
+│   ├── ks_drift_detector.py
 │   └── utils.py
 ├── tests/
 │   ├── __init__.py
 │   ├── test_alert.py
 │   ├── test_simple_drift_detector.py
-│   └── test_psi_drift_detector.py
+│   ├── test_psi_drift_detector.py
+│   └── test_ks_drift_detector.py
 ├── pyproject.toml
 ```
 

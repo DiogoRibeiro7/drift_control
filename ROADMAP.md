@@ -9,8 +9,9 @@ This roadmap outlines the main steps to make **drift-control** a professional pa
 - [x] Included maintainer information linking to [ORCID](https://orcid.org/0009-0001-2022-7072)
 - [x] Added basic detectors and alert utilities with accompanying tests
 - [x] Exposed package version dynamically via `importlib.metadata`
-- [x] Implemented PSI-based drift detection
+- [x] Implemented PSI-based drift detection with quantile and uniform strategies
 - [x] Added KS-based drift detection
+- [x] Added dedicated tests for PSI and KS detectors
 
 ## Next Steps
 

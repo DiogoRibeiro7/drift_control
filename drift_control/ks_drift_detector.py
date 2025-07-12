@@ -6,6 +6,8 @@ class KSDriftDetector:
 
     def __init__(self, alpha: float = 0.05) -> None:
         """Create detector with a significance level."""
+        if not (0 < alpha < 1):
+            raise ValueError("alpha must be between 0 and 1")
         self.alpha = alpha
 
     def calculate_pvalue(self, reference, current) -> float:

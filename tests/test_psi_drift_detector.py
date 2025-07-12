@@ -26,5 +26,9 @@ class TestPSIDriftDetector(unittest.TestCase):
         self.assertTrue(drift)
         self.assertIsInstance(psi, float)
 
+    def test_invalid_strategy(self):
+        with self.assertRaises(ValueError):
+            PSIDriftDetector(strategy="unknown")
+
 if __name__ == '__main__':
     unittest.main()
