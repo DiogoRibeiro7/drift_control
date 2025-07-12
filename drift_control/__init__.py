@@ -6,6 +6,7 @@ from .utils import load_data
 from .simple_drift_detector import DriftDetector
 from .drift_detector import DataDriftDetector
 from .psi_drift_detector import PSIDriftDetector
+from .ks_drift_detector import KSDriftDetector
 
 from importlib.metadata import PackageNotFoundError, version as _version
 
@@ -21,6 +22,7 @@ __all__ = [
     'DriftDetector',
     'DataDriftDetector',
     'PSIDriftDetector',
+    'KSDriftDetector',
     'Alert',
     'load_data',
 ]

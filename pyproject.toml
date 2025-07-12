@@ -20,6 +20,7 @@ dependencies = [
     "matplotlib",
     "scikit-learn",
     "category_encoders",
+    "scipy",
 ]
 
 

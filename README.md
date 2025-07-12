@@ -36,7 +36,7 @@ poetry install
 ## Example Usage
 
 ```python
-from drift_control import DriftDetector, DataDriftDetector, PSIDriftDetector
+from drift_control import DriftDetector, DataDriftDetector, PSIDriftDetector, KSDriftDetector
 
 # Simple MSE based detector
 reference = [1, 2, 3, 4, 5]
@@ -48,10 +48,17 @@ print(simple_detector.detect_drift(reference, current))
 # PSI based detector using quantile binning
 psi_detector = PSIDriftDetector(threshold=0.1, bins=10, strategy="quantile")
 print(psi_detector.detect_drift(reference, current))
+
+# KS based detector
+ks_detector = KSDriftDetector(alpha=0.05)
+print(ks_detector.detect_drift(reference, current))
 ```
 
 ``PSIDriftDetector`` supports ``quantile`` or ``uniform`` binning strategies via
 the ``strategy`` parameter.
+
+``KSDriftDetector`` relies on the two-sample Kolmogorov-Smirnov test and reports
+the p-value against a chosen significance level.
 
 See `drift_control/drift_detector.py` for the full DataDriftDetector implementation.
 
