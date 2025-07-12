@@ -3,10 +3,12 @@
 
 from .alert import Alert
 from .utils import load_data
+from .baseline_manager import BaselineManager
 from .simple_drift_detector import DriftDetector
 from .drift_detector import DataDriftDetector
 from .psi_drift_detector import PSIDriftDetector
 from .ks_drift_detector import KSDriftDetector
+from .multivariate_drift_detector import CovariateShiftDetector
 
 from importlib.metadata import PackageNotFoundError, version as _version
 
@@ -25,4 +27,6 @@ __all__ = [
     'KSDriftDetector',
     'Alert',
     'load_data',
+    'BaselineManager',
+    'CovariateShiftDetector',
 ]

@@ -17,13 +17,16 @@ drift_control/
 │   ├── simple_drift_detector.py
 │   ├── psi_drift_detector.py
 │   ├── ks_drift_detector.py
+│   ├── baseline_manager.py
 │   └── utils.py
 ├── tests/
 │   ├── __init__.py
 │   ├── test_alert.py
 │   ├── test_simple_drift_detector.py
 │   ├── test_psi_drift_detector.py
-│   └── test_ks_drift_detector.py
+│   ├── test_ks_drift_detector.py
+│   ├── test_baseline_manager.py
+│   └── test_multivariate_detector.py
 ├── pyproject.toml
 ```
 
@@ -38,7 +41,8 @@ poetry install
 ## Example Usage
 
 ```python
-from drift_control import DriftDetector, DataDriftDetector, PSIDriftDetector, KSDriftDetector
+import pandas as pd
+from drift_control import DriftDetector, DataDriftDetector, PSIDriftDetector, KSDriftDetector, BaselineManager
 
 # Simple MSE based detector
 reference = [1, 2, 3, 4, 5]
@@ -54,7 +58,13 @@ print(psi_detector.detect_drift(reference, current))
 # KS based detector
 ks_detector = KSDriftDetector(alpha=0.05)
 print(ks_detector.detect_drift(reference, current))
+
+# Save a baseline dataset
+baseline = BaselineManager(directory="baselines")
+baseline.save_baseline(pd.DataFrame({'x': reference}), name="ref", version="1")
 ```
+
+``BaselineManager`` helps manage versioned baseline datasets for your detectors.
 
 ``PSIDriftDetector`` supports ``quantile`` or ``uniform`` binning strategies via
 the ``strategy`` parameter.
