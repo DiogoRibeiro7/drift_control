@@ -45,10 +45,13 @@ current = [1.1, 2.1, 3.1, 4.1, 5.1]
 simple_detector = DriftDetector(threshold=0.5)
 print(simple_detector.detect_drift(reference, current))
 
-# PSI based detector
-psi_detector = PSIDriftDetector(threshold=0.1)
+# PSI based detector using quantile binning
+psi_detector = PSIDriftDetector(threshold=0.1, bins=10, strategy="quantile")
 print(psi_detector.detect_drift(reference, current))
 ```
+
+``PSIDriftDetector`` supports ``quantile`` or ``uniform`` binning strategies via
+the ``strategy`` parameter.
 
 See `drift_control/drift_detector.py` for the full DataDriftDetector implementation.
 
