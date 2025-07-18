@@ -12,6 +12,7 @@ This roadmap outlines the main steps to make **drift-control** a professional pa
 - [x] Implemented PSI-based drift detection with quantile and uniform strategies
 - [x] Added KS-based drift detection
 - [x] Added dedicated tests for PSI and KS detectors
+- [x] Added concept drift detectors (DDM and EDDM) and streaming utilities
 
 ## Next Steps
 
@@ -20,9 +21,10 @@ This roadmap outlines the main steps to make **drift-control** a professional pa
 - [x] Implement additional drift detection algorithms (e.g., KS-test, clustering-based)
 - [x] Support multivariate and concept drift detection techniques
 - [x] Integrate with scikit-learn pipelines and major ML frameworks
-- [ ] Provide real-time monitoring utilities for streaming data
-- [ ] Offer dashboards and visualization tools for drift analysis
+- [x] Provide real-time monitoring utilities for streaming data
+- [x] Offer dashboards and visualization tools for drift analysis
 - [x] Add dataset versioning and baseline management helpers
 - [ ] Set up continuous integration and automated testing
-- [ ] Provide a command line interface and REST API for easy adoption
+- [x] Provide a command line interface and REST API for easy adoption
+- [ ] Integrate with MLOps tools like MLflow or DVC
 

@@ -19,6 +19,10 @@ drift_control/
 │   ├── ks_drift_detector.py
 │   ├── baseline_manager.py
 │   ├── sklearn_adapter.py
+│   ├── stream_monitor.py
+│   ├── visualization.py
+│   ├── concept_drift.py
+│   ├── cli.py
 │   └── utils.py
 ├── tests/
 │   ├── __init__.py
@@ -79,6 +83,36 @@ monitor.transform(pd.DataFrame({'x': current}))
 print(monitor.drift_results_)
 ```
 
+### Streaming monitoring
+
+Use ``StreamMonitor`` to handle asynchronous data sources:
+
+```python
+import asyncio
+from drift_control import StreamMonitor
+
+async def stream():
+    for batch in [pd.DataFrame({'x': current})]:
+        yield batch
+
+monitor = StreamMonitor()
+monitor.set_baseline(pd.DataFrame({'x': reference}))
+async for result in monitor.monitor(stream()):
+    print(result)
+```
+
+### Command-line interface
+
+Run drift checks directly from the terminal:
+
+```bash
+python -m drift_control.cli --baseline baseline.csv --current new.csv --method psi --mlflow
+```
+
+Metrics are optionally logged to MLflow for tracking.
+
+Use ``plot_psi`` and ``plot_ks`` to create quick visual summaries of drift scores.
+
 ``BaselineManager`` helps manage versioned baseline datasets for your detectors.
 
 ``PSIDriftDetector`` supports ``quantile`` or ``uniform`` binning strategies via
@@ -88,6 +122,11 @@ the ``strategy`` parameter.
 the p-value against a chosen significance level.
 
 See `drift_control/drift_detector.py` for the full DataDriftDetector implementation.
+
+## Examples
+
+Additional examples can be found in the ``examples`` directory. Run
+``python examples/streaming_example.py`` to see streaming drift monitoring in action.
 
 ## Roadmap
 See [ROADMAP.md](ROADMAP.md) for planned tasks and progress.

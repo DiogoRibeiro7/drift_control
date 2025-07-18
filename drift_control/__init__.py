@@ -10,6 +10,10 @@ from .psi_drift_detector import PSIDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .multivariate_drift_detector import CovariateShiftDetector
 from .sklearn_adapter import DriftMonitor
+from .stream_monitor import StreamMonitor
+from .visualization import plot_psi, plot_ks
+from .concept_drift import DDMDetector, EDDMDetector
+from .cli import check as cli
 
 from importlib.metadata import PackageNotFoundError, version as _version
 
@@ -31,4 +35,10 @@ __all__ = [
     'BaselineManager',
     'CovariateShiftDetector',
     'DriftMonitor',
+    'StreamMonitor',
+    'plot_psi',
+    'plot_ks',
+    'DDMDetector',
+    'EDDMDetector',
+    'cli',
 ]

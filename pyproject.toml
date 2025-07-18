@@ -21,6 +21,10 @@ dependencies = [
     "scikit-learn",
     "category_encoders",
     "scipy",
+    "click",
+    "mlflow",
+    "plotly",
+    "river",
 ]
 
 
