@@ -1,4 +1,6 @@
 import os
+import shutil
+import subprocess
 import pandas as pd
 
 class BaselineManager:
@@ -24,3 +26,11 @@ class BaselineManager:
         if not os.path.exists(path):
             raise FileNotFoundError(f"Baseline {name} v{version} not found")
         return pd.read_csv(path)
+
+    def save_with_dvc(self, data: pd.DataFrame, name: str, version: str) -> str:
+        """Save the baseline dataset and track it with DVC."""
+        path = self.save_baseline(data, name, version)
+        if not shutil.which("dvc"):
+            raise RuntimeError("dvc executable not found")
+        subprocess.run(["dvc", "add", path], check=True)
+        return path

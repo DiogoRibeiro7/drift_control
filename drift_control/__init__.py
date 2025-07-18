@@ -10,9 +10,9 @@ from .psi_drift_detector import PSIDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .multivariate_drift_detector import CovariateShiftDetector
 from .sklearn_adapter import DriftMonitor
-from .stream_monitor import StreamMonitor
+from .stream_monitor import StreamMonitor, KafkaStreamMonitor, RabbitMQStreamMonitor
 from .visualization import plot_psi, plot_ks
-from .concept_drift import DDMDetector, EDDMDetector
+from .concept_drift import DDMDetector, EDDMDetector, AccuracyMonitor
 from .cli import check as cli
 
 from importlib.metadata import PackageNotFoundError, version as _version
@@ -36,9 +36,12 @@ __all__ = [
     'CovariateShiftDetector',
     'DriftMonitor',
     'StreamMonitor',
+    'KafkaStreamMonitor',
+    'RabbitMQStreamMonitor',
     'plot_psi',
     'plot_ks',
     'DDMDetector',
     'EDDMDetector',
+    'AccuracyMonitor',
     'cli',
 ]

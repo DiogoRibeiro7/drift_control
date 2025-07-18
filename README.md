@@ -32,6 +32,8 @@ drift_control/
 │   ├── test_ks_drift_detector.py
 │   ├── test_baseline_manager.py
 │   ├── test_multivariate_detector.py
+│   ├── test_accuracy_monitor.py
+│   ├── test_baseline_manager_dvc.py
 │   └── test_sklearn_adapter.py
 ├── pyproject.toml
 ```
@@ -101,6 +103,13 @@ async for result in monitor.monitor(stream()):
     print(result)
 ```
 
+``KafkaStreamMonitor`` and ``RabbitMQStreamMonitor`` can consume data
+directly from message queues when the optional ``aiokafka`` or ``aio_pika``
+dependencies are installed.
+
+``AccuracyMonitor`` helps track prediction accuracy over time using concept
+drift detectors like DDM or EDDM.
+
 ### Command-line interface
 
 Run drift checks directly from the terminal:
@@ -114,6 +123,7 @@ Metrics are optionally logged to MLflow for tracking.
 Use ``plot_psi`` and ``plot_ks`` to create quick visual summaries of drift scores.
 
 ``BaselineManager`` helps manage versioned baseline datasets for your detectors.
+It can optionally track files with DVC via ``save_with_dvc``.
 
 ``PSIDriftDetector`` supports ``quantile`` or ``uniform`` binning strategies via
 the ``strategy`` parameter.
@@ -130,6 +140,8 @@ Additional examples can be found in the ``examples`` directory. Run
 
 ## Roadmap
 See [ROADMAP.md](ROADMAP.md) for planned tasks and progress.
+
+Continuous integration runs tests and ``ruff`` linting on every pull request.
 
 ## License
 
