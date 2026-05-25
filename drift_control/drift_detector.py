@@ -62,12 +62,18 @@ class DataDriftDetector:
             categorical_columns: list = None,
             numeric_columns: list = None
             ):
-        assert isinstance(df_prior, pd.DataFrame), "df_prior should be a pandas dataframe"
-        assert isinstance(df_post, pd.DataFrame), "df_post should be a pandas dataframe"
-        assert sorted(df_prior.columns) == sorted(df_post.columns), "df_prior and df_post should have the same column names"
-        assert all(df_prior.dtypes.sort_index() == df_post.dtypes.sort_index()), "df_prior and df_post should have the same column types"
-        assert isinstance(categorical_columns, (list, type(None))), "categorical_columns should be of type list"
-        assert isinstance(numeric_columns, (list, type(None))), "numeric_columns should be of type list"
+        if not isinstance(df_prior, pd.DataFrame):
+            raise TypeError("df_prior should be a pandas dataframe")
+        if not isinstance(df_post, pd.DataFrame):
+            raise TypeError("df_post should be a pandas dataframe")
+        if sorted(df_prior.columns) != sorted(df_post.columns):
+            raise ValueError("df_prior and df_post should have the same column names")
+        if not all(df_prior.dtypes.sort_index() == df_post.dtypes.sort_index()):
+            raise ValueError("df_prior and df_post should have the same column types")
+        if not isinstance(categorical_columns, (list, type(None))):
+            raise TypeError("categorical_columns should be of type list")
+        if not isinstance(numeric_columns, (list, type(None))):
+            raise TypeError("numeric_columns should be of type list")
 
         df_prior_ = df_prior.copy()
         df_post_ = df_post.copy()
@@ -230,9 +236,12 @@ class DataDriftDetector:
         ----
         Resulting plot
         """
-        assert isinstance(plot_categorical_columns, (list, type(None))), "plot_categorical_columns should be of type list"
-        assert isinstance(plot_numeric_columns, (list, type(None))), "plot_numeric_columns should be of type list"
-        assert isinstance(categorical_on_y_axis, bool), "categorical_on_y_axis should be a boolean value"
+        if not isinstance(plot_categorical_columns, (list, type(None))):
+            raise TypeError("plot_categorical_columns should be of type list")
+        if not isinstance(plot_numeric_columns, (list, type(None))):
+            raise TypeError("plot_numeric_columns should be of type list")
+        if not isinstance(categorical_on_y_axis, bool):
+            raise TypeError("categorical_on_y_axis should be a boolean value")
 
         df_prior = self.df_prior.copy()
         df_post = self.df_post.copy()
@@ -318,7 +327,8 @@ class DataDriftDetector:
         ----
         Resulting plot
         """
-        assert isinstance(plot_numeric_columns, (list, type(None))), "plot_numeric_columns should be of type list"
+        if not isinstance(plot_numeric_columns, (list, type(None))):
+            raise TypeError("plot_numeric_columns should be of type list")
 
         if plot_numeric_columns is None:
             plot_numeric_columns = self.numeric_columns
@@ -357,7 +367,8 @@ class DataDriftDetector:
         ----
         Resulting plot
         """
-        assert isinstance(plot_categorical_columns, (list, type(None))), "plot_categorical_columns should be of type list"
+        if not isinstance(plot_categorical_columns, (list, type(None))):
+            raise TypeError("plot_categorical_columns should be of type list")
 
         col_nunique = self.df_prior.nunique()
         if plot_categorical_columns is None:
@@ -453,11 +464,16 @@ class DataDriftDetector:
         Returns a report of ML metrics between the prior model and the
         post model
         """
-        assert isinstance(target_column, str), "target_column should be of type string"
-        assert target_column in self.df_prior.columns, "target_column does not exist in df_prior"
-        assert isinstance(test_data, (pd.DataFrame, type(None))), "test_data should be a pandas dataframe"
-        assert isinstance(OHE_columns, (list, type(None))), "OHE_columns should be of type list"
-        assert isinstance(high_cardinality_columns, (list, type(None))), "high_cardinality_columns should be of type list"
+        if not isinstance(target_column, str):
+            raise TypeError("target_column should be of type string")
+        if target_column not in self.df_prior.columns:
+            raise ValueError("target_column does not exist in df_prior")
+        if not isinstance(test_data, (pd.DataFrame, type(None))):
+            raise TypeError("test_data should be a pandas dataframe")
+        if not isinstance(OHE_columns, (list, type(None))):
+            raise TypeError("OHE_columns should be of type list")
+        if not isinstance(high_cardinality_columns, (list, type(None))):
+            raise TypeError("high_cardinality_columns should be of type list")
 
         self.target_column = target_column
         self.train_size = train_size

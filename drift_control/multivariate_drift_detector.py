@@ -20,10 +20,12 @@ class CovariateShiftDetector:
         :param df_prior: DataFrame of the prior dataset (training data).
         :param df_post: DataFrame of the post dataset (production data).
         """
-        assert list(df_prior.columns) == list(df_post.columns), "The columns of the datasets do not match."
-        
-        self.df_prior = df_prior
-        self.df_post = df_post
+        if list(df_prior.columns) != list(df_post.columns):
+            raise ValueError("The columns of the datasets do not match.")
+
+        # Copy inputs to avoid mutating caller-owned dataframes.
+        self.df_prior = df_prior.copy(deep=True)
+        self.df_post = df_post.copy(deep=True)
         
         # Create a label column indicating the origin of the data
         self.df_prior['origin'] = 0  # Training data

@@ -2,7 +2,6 @@ import click
 import pandas as pd
 from .psi_drift_detector import PSIDriftDetector
 from .ks_drift_detector import KSDriftDetector
-import mlflow
 
 
 @click.command()
@@ -14,6 +13,14 @@ def check(baseline: str, current: str, method: str, use_mlflow: bool) -> None:
     """Run a drift check between two CSV files."""
     base_df = pd.read_csv(baseline)
     cur_df = pd.read_csv(current)
+    base_cols = set(base_df.columns)
+    cur_cols = set(cur_df.columns)
+    if base_cols != cur_cols:
+        missing = sorted(base_cols - cur_cols)
+        extra = sorted(cur_cols - base_cols)
+        raise click.ClickException(
+            f"Schema mismatch between baseline and current. Missing columns: {missing}; Extra columns: {extra}"
+        )
 
     if method == 'psi':
         detector = PSIDriftDetector()
@@ -21,11 +28,17 @@ def check(baseline: str, current: str, method: str, use_mlflow: bool) -> None:
         detector = KSDriftDetector()
 
     results = {}
-    for col in base_df.columns:
+    for col in sorted(base_cols):
         drift, score = detector.detect_drift(base_df[col], cur_df[col])
         results[col] = score
         click.echo(f'{col}: {score:.4f} (drift={drift})')
     if use_mlflow:
+        try:
+            import mlflow
+        except ImportError as exc:
+            raise click.ClickException(
+                "MLflow logging requested but mlflow is not installed."
+            ) from exc
         for col, score in results.items():
             mlflow.log_metric(col, score)
 
