@@ -1,3 +1,5 @@
+import json
+
 from click.testing import CliRunner
 import pandas as pd
 from drift_control.cli import check
@@ -34,3 +36,61 @@ def test_cli_non_numeric_column_fails(tmp_path):
     result = runner.invoke(check, ['--baseline', str(baseline), '--current', str(current)])
     assert result.exit_code != 0
     assert "must be numeric" in result.output
+
+
+def test_cli_output_json_emits_structured_payload(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--output-json'],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'psi'
+    assert payload['threshold'] == 0.2
+    assert 'x' in payload['columns']
+    assert payload['columns']['x']['drift'] is True
+    assert isinstance(payload['columns']['x']['score'], float)
+
+
+def test_cli_threshold_override_changes_drift_flag(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    # Same data, but a huge threshold should suppress the drift flag.
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--threshold', '1000.0', '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['threshold'] == 1000.0
+    assert payload['columns']['x']['drift'] is False
+
+
+def test_cli_threshold_override_for_ks_method(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'ks', '--threshold', '0.01', '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'ks'
+    assert payload['threshold'] == 0.01

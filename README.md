@@ -132,6 +132,14 @@ drift-control --baseline baseline.csv --current new.csv --method psi --mlflow
 python -m drift_control.cli --baseline baseline.csv --current new.csv --method psi --mlflow
 ```
 
+Use ``--threshold`` to override the detector default (PSI: drift if score >
+threshold; KS: drift if p-value < threshold). Pass ``--output-json`` to emit
+a single machine-readable payload instead of one line per column:
+
+```bash
+drift-control --baseline b.csv --current c.csv --method ks --threshold 0.01 --output-json
+```
+
 Metrics are optionally logged to MLflow for tracking.
 
 Use ``plot_psi`` and ``plot_ks`` to create quick visual summaries of drift scores.
