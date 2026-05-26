@@ -12,6 +12,16 @@ maintainers = [
 urls = {"Repository" = "https://github.com/DiogoRibeiro7/drift-control"}
 readme = "README.md"
 keywords = ["data-drift", "monitoring", "machine-learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
@@ -53,6 +63,16 @@ full = [
 
 [project.scripts]
 drift-control = "drift_control.cli:check"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
 
 
 [build-system]

@@ -7,15 +7,16 @@ import pandas as pd
 
 from .psi_drift_detector import PSIDriftDetector
 from .ks_drift_detector import KSDriftDetector
+from .mmd_drift_detector import MMDDriftDetector
 
 
 @click.command()
 @click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
 @click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
-@click.option('--method', type=click.Choice(['psi', 'ks']), default='psi', help='Drift detection method')
+@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd']), default='psi', help='Drift detection method')
 @click.option('--threshold', type=float, default=None,
               help='Override the detector threshold (PSI: drift if score > threshold; '
-                   'KS: drift if p-value < threshold). Uses the method default if omitted.')
+                   'KS: drift if p-value < threshold; MMD: drift if p-value < threshold). Uses the method default if omitted.')
 @click.option('--output-json', 'output_json', is_flag=True,
               help='Emit a single JSON object instead of one line per column.')
 @click.option('--mlflow', 'use_mlflow', is_flag=True, help='Log metrics to MLflow')
@@ -41,29 +42,55 @@ def check(
 
     if method == 'psi':
         detector = PSIDriftDetector(threshold=threshold) if threshold is not None else PSIDriftDetector()
-    else:
+    elif method == 'ks':
         detector = KSDriftDetector(alpha=threshold) if threshold is not None else KSDriftDetector()
+    else:
+        detector = MMDDriftDetector(alpha=threshold) if threshold is not None else MMDDriftDetector()
     effective_threshold = detector.threshold if method == 'psi' else detector.alpha
 
     results: dict[str, dict[str, float | bool]] = {}
-    for col in sorted(base_cols):
+    if method in {"psi", "ks"}:
+        for col in sorted(base_cols):
+            try:
+                base_col = pd.to_numeric(base_df[col], errors='raise')
+                cur_col = pd.to_numeric(cur_df[col], errors='raise')
+            except Exception as exc:
+                raise click.ClickException(
+                    f"Column '{col}' must be numeric for method '{method}'."
+                ) from exc
+
+            if base_col.isna().any() or cur_col.isna().any():
+                raise click.ClickException(
+                    f"Column '{col}' contains null values after numeric conversion; cannot run '{method}'."
+                )
+
+            drift, score = detector.detect_drift(base_col, cur_col)
+            results[col] = {"score": float(score), "drift": bool(drift)}
+            if not output_json:
+                click.echo(f'{col}: {score:.4f} (drift={drift})')
+    else:
         try:
-            base_col = pd.to_numeric(base_df[col], errors='raise')
-            cur_col = pd.to_numeric(cur_df[col], errors='raise')
+            base_num = base_df.apply(pd.to_numeric, errors='raise')
+            cur_num = cur_df.apply(pd.to_numeric, errors='raise')
         except Exception as exc:
             raise click.ClickException(
-                f"Column '{col}' must be numeric for method '{method}'."
+                "All columns must be numeric for method 'mmd'."
             ) from exc
-
-        if base_col.isna().any() or cur_col.isna().any():
+        if base_num.isna().any().any() or cur_num.isna().any().any():
             raise click.ClickException(
-                f"Column '{col}' contains null values after numeric conversion; cannot run '{method}'."
+                "Input contains null values after numeric conversion; cannot run 'mmd'."
             )
-
-        drift, score = detector.detect_drift(base_col, cur_col)
-        results[col] = {"score": float(score), "drift": bool(drift)}
+        details = detector.detect_drift(base_num.values, cur_num.values, return_details=True)
+        results["dataset"] = {
+            "score": float(details.mmd2),
+            "p_value": float(details.p_value),
+            "drift": bool(details.drift_detected),
+        }
         if not output_json:
-            click.echo(f'{col}: {score:.4f} (drift={drift})')
+            click.echo(
+                f"dataset: mmd2={details.mmd2:.6f}, p_value={details.p_value:.6f} "
+                f"(drift={details.drift_detected})"
+            )
 
     if output_json:
         payload = {

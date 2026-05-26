@@ -1,8 +1,11 @@
 from typing import Iterable
 
 try:
+    from river.drift import ADWIN, PageHinkley
     from river.drift.binary import DDM, EDDM
 except ImportError:  # pragma: no cover - exercised in minimal installs
+    ADWIN = None
+    PageHinkley = None
     DDM = None
     EDDM = None
 
@@ -37,6 +40,49 @@ class EDDMDetector:
         """Feed a performance metric and return True if drift detected."""
         self.eddm.update(value)
         return self.eddm.drift_detected
+
+
+class ADWINDetector:
+    """Wrapper around river's ADWIN concept drift detector."""
+
+    def __init__(self, delta: float = 0.002) -> None:
+        if ADWIN is None:
+            raise ImportError(
+                "river is required for ADWINDetector. Install with: pip install 'drift-control[concept]'"
+            )
+        self.adwin = ADWIN(delta=delta)
+
+    def update(self, value: float) -> bool:
+        """Feed a performance metric and return True if drift detected."""
+        self.adwin.update(value)
+        return self.adwin.drift_detected
+
+
+class PageHinkleyDetector:
+    """Wrapper around river's Page-Hinkley concept drift detector."""
+
+    def __init__(
+        self,
+        min_instances: int = 30,
+        delta: float = 0.005,
+        threshold: float = 50.0,
+        alpha: float = 0.9999,
+    ) -> None:
+        if PageHinkley is None:
+            raise ImportError(
+                "river is required for PageHinkleyDetector. Install with: pip install 'drift-control[concept]'"
+            )
+        self.page_hinkley = PageHinkley(
+            min_instances=min_instances,
+            delta=delta,
+            threshold=threshold,
+            alpha=alpha,
+        )
+
+    def update(self, value: float) -> bool:
+        """Feed a performance metric and return True if drift detected."""
+        self.page_hinkley.update(value)
+        return self.page_hinkley.drift_detected
 
 
 class AccuracyMonitor:

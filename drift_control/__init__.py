@@ -22,6 +22,8 @@ _LAZY: dict[str, str] = {
     "PSIDriftDetector": "drift_control.psi_drift_detector",
     "KSDriftDetector": "drift_control.ks_drift_detector",
     "CovariateShiftDetector": "drift_control.multivariate_drift_detector",
+    "MMDDriftDetector": "drift_control.mmd_drift_detector",
+    "MMDResult": "drift_control.mmd_drift_detector",
     "DriftMonitor": "drift_control.sklearn_adapter",
     "StreamMonitor": "drift_control.stream_monitor",
     "KafkaStreamMonitor": "drift_control.stream_monitor",
@@ -30,6 +32,8 @@ _LAZY: dict[str, str] = {
     "plot_ks": "drift_control.visualization",
     "DDMDetector": "drift_control.concept_drift",
     "EDDMDetector": "drift_control.concept_drift",
+    "ADWINDetector": "drift_control.concept_drift",
+    "PageHinkleyDetector": "drift_control.concept_drift",
     "AccuracyMonitor": "drift_control.concept_drift",
 }
 

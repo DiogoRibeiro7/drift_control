@@ -94,3 +94,23 @@ def test_cli_threshold_override_for_ks_method(tmp_path):
     payload = json.loads(result.output)
     assert payload['method'] == 'ks'
     assert payload['threshold'] == 0.01
+
+
+def test_cli_mmd_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x1': [0, 1, 2, 3, 4], 'x2': [0, 0, 1, 1, 2]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x1': [10, 11, 12, 13, 14], 'x2': [4, 4, 5, 5, 6]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'mmd', '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'mmd'
+    assert 'dataset' in payload['columns']
+    assert 'p_value' in payload['columns']['dataset']
