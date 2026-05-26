@@ -5,13 +5,8 @@ import json
 import click
 import pandas as pd
 
-from .psi_drift_detector import PSIDriftDetector
-from .ks_drift_detector import KSDriftDetector
-from .mmd_drift_detector import MMDDriftDetector
-from .cvm_drift_detector import CVMDriftDetector
-from .js_drift_detector import JensenShannonDriftDetector
-from .wasserstein_drift_detector import WassersteinDriftDetector
 from .ensemble_drift_detector import EnsembleDriftDetector
+from .unified_drift_detector import UnifiedDriftDetector
 
 
 @click.command()
@@ -64,17 +59,7 @@ def check(
             f"Schema mismatch between baseline and current. Missing columns: {missing}; Extra columns: {extra}"
         )
 
-    if method == 'psi':
-        detector = PSIDriftDetector(threshold=threshold) if threshold is not None else PSIDriftDetector()
-    elif method == 'ks':
-        detector = KSDriftDetector(alpha=threshold) if threshold is not None else KSDriftDetector()
-    elif method == 'cvm':
-        detector = CVMDriftDetector(alpha=threshold) if threshold is not None else CVMDriftDetector()
-    elif method == 'js':
-        detector = JensenShannonDriftDetector(threshold=threshold) if threshold is not None else JensenShannonDriftDetector()
-    elif method == 'wasserstein':
-        detector = WassersteinDriftDetector(alpha=threshold) if threshold is not None else WassersteinDriftDetector()
-    elif method == 'ensemble':
+    if method == 'ensemble':
         selected_methods = [m.strip() for m in ensemble_methods.split(',') if m.strip()]
         try:
             detector = EnsembleDriftDetector(
@@ -84,17 +69,19 @@ def check(
             )
         except ValueError as exc:
             raise click.ClickException(str(exc)) from exc
-    else:
-        detector = MMDDriftDetector(alpha=threshold) if threshold is not None else MMDDriftDetector()
-    if method in {'psi', 'js'}:
-        effective_threshold = detector.threshold
-    elif method in {'ks', 'cvm', 'mmd', 'wasserstein'}:
-        effective_threshold = detector.alpha
-    else:
         effective_threshold = None
+    else:
+        method_kwargs: dict[str, float] = {}
+        if threshold is not None:
+            if method in {'psi', 'js'}:
+                method_kwargs['threshold'] = threshold
+            else:
+                method_kwargs['alpha'] = threshold
+        detector = UnifiedDriftDetector(method=method, **method_kwargs)
+        effective_threshold = detector.threshold
 
     results: dict[str, dict[str, object]] = {}
-    if method in {"psi", "ks", "cvm", "js", "wasserstein"}:
+    if method in {'psi', 'ks', 'cvm', 'js', 'wasserstein'}:
         for col in sorted(base_cols):
             try:
                 base_col = pd.to_numeric(base_df[col], errors='raise')
@@ -109,21 +96,13 @@ def check(
                     f"Column '{col}' contains null values after numeric conversion; cannot run '{method}'."
                 )
 
-            if method == "wasserstein":
-                details = detector.detect_drift(base_col, cur_col, return_details=True)
-                results[col] = {
-                    "score": float(details.distance),
-                    "p_value": float(details.p_value),
-                    "drift": bool(details.drift_detected),
-                }
-                drift = details.drift_detected
-                score = details.distance
-            else:
-                drift, score = detector.detect_drift(base_col, cur_col)
-                results[col] = {"score": float(score), "drift": bool(drift)}
+            outcome = detector.detect_drift(base_col, cur_col)
+            results[col] = {'score': float(outcome.score), 'drift': bool(outcome.drift)}
+            if outcome.p_value is not None:
+                results[col]['p_value'] = float(outcome.p_value)
             if not output_json:
-                click.echo(f'{col}: {score:.4f} (drift={drift})')
-    elif method == "mmd":
+                click.echo(f"{col}: {outcome.score:.4f} (drift={outcome.drift})")
+    elif method == 'mmd':
         try:
             base_num = base_df.apply(pd.to_numeric, errors='raise')
             cur_num = cur_df.apply(pd.to_numeric, errors='raise')
@@ -135,16 +114,16 @@ def check(
             raise click.ClickException(
                 "Input contains null values after numeric conversion; cannot run 'mmd'."
             )
-        details = detector.detect_drift(base_num.values, cur_num.values, return_details=True)
-        results["dataset"] = {
-            "score": float(details.mmd2),
-            "p_value": float(details.p_value),
-            "drift": bool(details.drift_detected),
+        outcome = detector.detect_drift(base_num.values, cur_num.values)
+        results['dataset'] = {
+            'score': float(outcome.score),
+            'p_value': float(outcome.p_value) if outcome.p_value is not None else None,
+            'drift': bool(outcome.drift),
         }
         if not output_json:
             click.echo(
-                f"dataset: mmd2={details.mmd2:.6f}, p_value={details.p_value:.6f} "
-                f"(drift={details.drift_detected})"
+                f"dataset: mmd2={outcome.score:.6f}, p_value={outcome.p_value:.6f} "
+                f"(drift={outcome.drift})"
             )
     else:
         try:
@@ -161,10 +140,10 @@ def check(
         ensemble_res = detector.detect_drift(base_num, cur_num)
         for col, col_res in ensemble_res.items():
             results[col] = {
-                "score": float(col_res.votes),
-                "drift": bool(col_res.drift_detected),
-                "votes": col_res.votes,
-                "required_votes": col_res.required_votes,
+                'score': float(col_res.votes),
+                'drift': bool(col_res.drift_detected),
+                'votes': col_res.votes,
+                'required_votes': col_res.required_votes,
             }
             if not output_json:
                 click.echo(
@@ -174,15 +153,15 @@ def check(
 
     if output_json:
         payload = {
-            "method": method,
-            "threshold": None if effective_threshold is None else float(effective_threshold),
-            "columns": results,
+            'method': method,
+            'threshold': None if effective_threshold is None else float(effective_threshold),
+            'columns': results,
         }
-        if method == "ensemble":
-            payload["ensemble"] = {
-                "methods": detector.methods,
-                "vote_mode": detector.vote_mode,
-                "min_votes": detector.min_votes,
+        if method == 'ensemble':
+            payload['ensemble'] = {
+                'methods': detector.methods,
+                'vote_mode': detector.vote_mode,
+                'min_votes': detector.min_votes,
             }
         click.echo(json.dumps(payload))
 
@@ -191,13 +170,13 @@ def check(
             import mlflow
         except ImportError as exc:
             raise click.ClickException(
-                "MLflow logging requested but mlflow is not installed."
+                'MLflow logging requested but mlflow is not installed.'
             ) from exc
         active_run = mlflow.active_run()
         run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()
         with run_ctx:
             for col, payload in results.items():
-                mlflow.log_metric(col, payload["score"])
+                mlflow.log_metric(col, payload['score'])
 
 
 if __name__ == '__main__':
