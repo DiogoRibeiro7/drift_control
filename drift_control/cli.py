@@ -8,15 +8,18 @@ import pandas as pd
 from .psi_drift_detector import PSIDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .mmd_drift_detector import MMDDriftDetector
+from .cvm_drift_detector import CVMDriftDetector
+from .js_drift_detector import JensenShannonDriftDetector
+from .wasserstein_drift_detector import WassersteinDriftDetector
 
 
 @click.command()
 @click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
 @click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
-@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd']), default='psi', help='Drift detection method')
+@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'cvm', 'js', 'wasserstein']), default='psi', help='Drift detection method')
 @click.option('--threshold', type=float, default=None,
               help='Override the detector threshold (PSI: drift if score > threshold; '
-                   'KS: drift if p-value < threshold; MMD: drift if p-value < threshold). Uses the method default if omitted.')
+                   'JS: drift if score > threshold; KS/CVM/MMD/Wasserstein: drift if p-value < threshold). Uses the method default if omitted.')
 @click.option('--output-json', 'output_json', is_flag=True,
               help='Emit a single JSON object instead of one line per column.')
 @click.option('--mlflow', 'use_mlflow', is_flag=True, help='Log metrics to MLflow')
@@ -44,12 +47,18 @@ def check(
         detector = PSIDriftDetector(threshold=threshold) if threshold is not None else PSIDriftDetector()
     elif method == 'ks':
         detector = KSDriftDetector(alpha=threshold) if threshold is not None else KSDriftDetector()
+    elif method == 'cvm':
+        detector = CVMDriftDetector(alpha=threshold) if threshold is not None else CVMDriftDetector()
+    elif method == 'js':
+        detector = JensenShannonDriftDetector(threshold=threshold) if threshold is not None else JensenShannonDriftDetector()
+    elif method == 'wasserstein':
+        detector = WassersteinDriftDetector(alpha=threshold) if threshold is not None else WassersteinDriftDetector()
     else:
         detector = MMDDriftDetector(alpha=threshold) if threshold is not None else MMDDriftDetector()
-    effective_threshold = detector.threshold if method == 'psi' else detector.alpha
+    effective_threshold = detector.threshold if method in {'psi', 'js'} else detector.alpha
 
     results: dict[str, dict[str, float | bool]] = {}
-    if method in {"psi", "ks"}:
+    if method in {"psi", "ks", "cvm", "js", "wasserstein"}:
         for col in sorted(base_cols):
             try:
                 base_col = pd.to_numeric(base_df[col], errors='raise')
@@ -64,8 +73,18 @@ def check(
                     f"Column '{col}' contains null values after numeric conversion; cannot run '{method}'."
                 )
 
-            drift, score = detector.detect_drift(base_col, cur_col)
-            results[col] = {"score": float(score), "drift": bool(drift)}
+            if method == "wasserstein":
+                details = detector.detect_drift(base_col, cur_col, return_details=True)
+                results[col] = {
+                    "score": float(details.distance),
+                    "p_value": float(details.p_value),
+                    "drift": bool(details.drift_detected),
+                }
+                drift = details.drift_detected
+                score = details.distance
+            else:
+                drift, score = detector.detect_drift(base_col, cur_col)
+                results[col] = {"score": float(score), "drift": bool(drift)}
             if not output_json:
                 click.echo(f'{col}: {score:.4f} (drift={drift})')
     else:

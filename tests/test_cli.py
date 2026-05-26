@@ -114,3 +114,63 @@ def test_cli_mmd_output_json(tmp_path):
     assert payload['method'] == 'mmd'
     assert 'dataset' in payload['columns']
     assert 'p_value' in payload['columns']['dataset']
+
+
+def test_cli_cvm_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'cvm', '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'cvm'
+    assert 'x' in payload['columns']
+    assert isinstance(payload['columns']['x']['score'], float)
+
+
+def test_cli_js_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'js', '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'js'
+    assert 'x' in payload['columns']
+    assert isinstance(payload['columns']['x']['score'], float)
+
+
+def test_cli_wasserstein_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'wasserstein', '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'wasserstein'
+    assert 'x' in payload['columns']
+    assert 'p_value' in payload['columns']['x']
