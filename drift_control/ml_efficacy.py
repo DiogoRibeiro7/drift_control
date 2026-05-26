@@ -185,7 +185,14 @@ class MLEfficacyEvaluator:
         test_post = test.copy()
 
         if hc_columns:
-            from category_encoders import CountEncoder
+            try:
+                from category_encoders import CountEncoder
+            except ImportError as exc:
+                raise ImportError(
+                    "High-cardinality categorical encoding requires "
+                    "category_encoders. Install with: "
+                    "pip install 'drift-control[ml]'"
+                ) from exc
 
             logger.info("High cardinality columns: %s", hc_columns)
             tf_prior = CountEncoder(cols=hc_columns)

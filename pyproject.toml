@@ -17,7 +17,6 @@ dependencies = [
     "numpy",
     "pandas",
     "scikit-learn",
-    "category_encoders",
     "scipy",
     "click",
 ]
@@ -38,6 +37,9 @@ stream = [
     "aiokafka",
     "aio-pika",
 ]
+ml = [
+    "category_encoders",
+]
 full = [
     "seaborn",
     "matplotlib",
@@ -46,6 +48,7 @@ full = [
     "mlflow",
     "aiokafka",
     "aio-pika",
+    "category_encoders",
 ]
 
 [project.scripts]

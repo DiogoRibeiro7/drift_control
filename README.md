@@ -55,6 +55,7 @@ pip install "drift-control[viz]"      # plotly, seaborn, matplotlib
 pip install "drift-control[concept]"  # river-based concept drift detectors
 pip install "drift-control[mlflow]"   # mlflow metric logging in CLI
 pip install "drift-control[stream]"   # Kafka/RabbitMQ stream monitors
+pip install "drift-control[ml]"       # category_encoders for compare_ml_efficacy high-cardinality features
 pip install "drift-control[full]"     # all optional integrations
 ```
 

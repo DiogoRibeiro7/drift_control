@@ -35,3 +35,10 @@ def test_package_import_does_not_pull_viz_deps():
     assert before_mpl == _loaded("matplotlib")
     assert before_sns == _loaded("seaborn")
     assert before_ce == _loaded("category_encoders")
+
+
+def test_ml_efficacy_import_does_not_pull_category_encoders():
+    sys.modules.pop("drift_control.ml_efficacy", None)
+    before_ce = _loaded("category_encoders")
+    importlib.import_module("drift_control.ml_efficacy")
+    assert before_ce == _loaded("category_encoders")
