@@ -11,15 +11,33 @@ from .mmd_drift_detector import MMDDriftDetector
 from .cvm_drift_detector import CVMDriftDetector
 from .js_drift_detector import JensenShannonDriftDetector
 from .wasserstein_drift_detector import WassersteinDriftDetector
+from .ensemble_drift_detector import EnsembleDriftDetector
 
 
 @click.command()
 @click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
 @click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
-@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'cvm', 'js', 'wasserstein']), default='psi', help='Drift detection method')
+@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'cvm', 'js', 'wasserstein', 'ensemble']), default='psi', help='Drift detection method')
 @click.option('--threshold', type=float, default=None,
               help='Override the detector threshold (PSI: drift if score > threshold; '
                    'JS: drift if score > threshold; KS/CVM/MMD/Wasserstein: drift if p-value < threshold). Uses the method default if omitted.')
+@click.option(
+    '--ensemble-methods',
+    default='psi,ks,cvm,js',
+    help="Comma-separated methods for ensemble mode (subset of psi,ks,cvm,js,wasserstein).",
+)
+@click.option(
+    '--vote-mode',
+    type=click.Choice(['majority', 'any', 'all']),
+    default='majority',
+    help='Voting mode for ensemble method.',
+)
+@click.option(
+    '--min-votes',
+    type=int,
+    default=None,
+    help='Override votes required in ensemble mode.',
+)
 @click.option('--output-json', 'output_json', is_flag=True,
               help='Emit a single JSON object instead of one line per column.')
 @click.option('--mlflow', 'use_mlflow', is_flag=True, help='Log metrics to MLflow')
@@ -28,6 +46,9 @@ def check(
     current: str,
     method: str,
     threshold: float | None,
+    ensemble_methods: str,
+    vote_mode: str,
+    min_votes: int | None,
     output_json: bool,
     use_mlflow: bool,
 ) -> None:
@@ -53,11 +74,26 @@ def check(
         detector = JensenShannonDriftDetector(threshold=threshold) if threshold is not None else JensenShannonDriftDetector()
     elif method == 'wasserstein':
         detector = WassersteinDriftDetector(alpha=threshold) if threshold is not None else WassersteinDriftDetector()
+    elif method == 'ensemble':
+        selected_methods = [m.strip() for m in ensemble_methods.split(',') if m.strip()]
+        try:
+            detector = EnsembleDriftDetector(
+                methods=selected_methods,
+                vote_mode=vote_mode,
+                min_votes=min_votes,
+            )
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
     else:
         detector = MMDDriftDetector(alpha=threshold) if threshold is not None else MMDDriftDetector()
-    effective_threshold = detector.threshold if method in {'psi', 'js'} else detector.alpha
+    if method in {'psi', 'js'}:
+        effective_threshold = detector.threshold
+    elif method in {'ks', 'cvm', 'mmd', 'wasserstein'}:
+        effective_threshold = detector.alpha
+    else:
+        effective_threshold = None
 
-    results: dict[str, dict[str, float | bool]] = {}
+    results: dict[str, dict[str, object]] = {}
     if method in {"psi", "ks", "cvm", "js", "wasserstein"}:
         for col in sorted(base_cols):
             try:
@@ -87,7 +123,7 @@ def check(
                 results[col] = {"score": float(score), "drift": bool(drift)}
             if not output_json:
                 click.echo(f'{col}: {score:.4f} (drift={drift})')
-    else:
+    elif method == "mmd":
         try:
             base_num = base_df.apply(pd.to_numeric, errors='raise')
             cur_num = cur_df.apply(pd.to_numeric, errors='raise')
@@ -110,13 +146,44 @@ def check(
                 f"dataset: mmd2={details.mmd2:.6f}, p_value={details.p_value:.6f} "
                 f"(drift={details.drift_detected})"
             )
+    else:
+        try:
+            base_num = base_df.apply(pd.to_numeric, errors='raise')
+            cur_num = cur_df.apply(pd.to_numeric, errors='raise')
+        except Exception as exc:
+            raise click.ClickException(
+                "All columns must be numeric for method 'ensemble'."
+            ) from exc
+        if base_num.isna().any().any() or cur_num.isna().any().any():
+            raise click.ClickException(
+                "Input contains null values after numeric conversion; cannot run 'ensemble'."
+            )
+        ensemble_res = detector.detect_drift(base_num, cur_num)
+        for col, col_res in ensemble_res.items():
+            results[col] = {
+                "score": float(col_res.votes),
+                "drift": bool(col_res.drift_detected),
+                "votes": col_res.votes,
+                "required_votes": col_res.required_votes,
+            }
+            if not output_json:
+                click.echo(
+                    f"{col}: votes={col_res.votes}/{col_res.required_votes} "
+                    f"(drift={col_res.drift_detected})"
+                )
 
     if output_json:
         payload = {
             "method": method,
-            "threshold": float(effective_threshold),
+            "threshold": None if effective_threshold is None else float(effective_threshold),
             "columns": results,
         }
+        if method == "ensemble":
+            payload["ensemble"] = {
+                "methods": detector.methods,
+                "vote_mode": detector.vote_mode,
+                "min_votes": detector.min_votes,
+            }
         click.echo(json.dumps(payload))
 
     if use_mlflow:

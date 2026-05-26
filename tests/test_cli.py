@@ -174,3 +174,47 @@ def test_cli_wasserstein_output_json(tmp_path):
     assert payload['method'] == 'wasserstein'
     assert 'x' in payload['columns']
     assert 'p_value' in payload['columns']['x']
+
+
+def test_cli_ensemble_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'ensemble', '--output-json',
+            '--ensemble-methods', 'psi,ks,cvm,js',
+            '--vote-mode', 'majority',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'ensemble'
+    assert payload['threshold'] is None
+    assert payload['ensemble']['methods'] == ['psi', 'ks', 'cvm', 'js']
+    assert payload['ensemble']['vote_mode'] == 'majority'
+    assert 'x' in payload['columns']
+    assert 'votes' in payload['columns']['x']
+    assert 'required_votes' in payload['columns']['x']
+
+
+def test_cli_ensemble_invalid_method_fails(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'ensemble',
+            '--ensemble-methods', 'psi,notreal',
+        ],
+    )
+    assert result.exit_code != 0
+    assert 'unknown methods' in result.output
