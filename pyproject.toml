@@ -12,20 +12,44 @@ maintainers = [
 urls = {"Repository" = "https://github.com/DiogoRibeiro7/drift-control"}
 readme = "README.md"
 keywords = ["data-drift", "monitoring", "machine-learning"]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "pandas",
-    "seaborn",
-    "matplotlib",
     "scikit-learn",
     "category_encoders",
     "scipy",
     "click",
-    "mlflow",
+]
+
+[project.optional-dependencies]
+viz = [
+    "seaborn",
+    "matplotlib",
     "plotly",
+]
+concept = [
     "river",
 ]
+mlflow = [
+    "mlflow",
+]
+stream = [
+    "aiokafka",
+    "aio-pika",
+]
+full = [
+    "seaborn",
+    "matplotlib",
+    "plotly",
+    "river",
+    "mlflow",
+    "aiokafka",
+    "aio-pika",
+]
+
+[project.scripts]
+drift-control = "drift_control.cli:check"
 
 
 [build-system]

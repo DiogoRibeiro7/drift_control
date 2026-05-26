@@ -1,7 +1,21 @@
 import os
+import re
 import shutil
 import subprocess
 import pandas as pd
+
+_SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def _validate_component(value: str, field: str) -> None:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{field} must be a non-empty string")
+    if not _SAFE_COMPONENT.match(value):
+        raise ValueError(
+            f"{field} may only contain letters, digits, '.', '_' and '-'; "
+            f"got {value!r}"
+        )
+
 
 class BaselineManager:
     """Simple helper for saving and loading baseline datasets with versioning."""
@@ -11,6 +25,8 @@ class BaselineManager:
         os.makedirs(self.directory, exist_ok=True)
 
     def _path(self, name: str, version: str) -> str:
+        _validate_component(name, "name")
+        _validate_component(version, "version")
         filename = f"{name}_v{version}.csv"
         return os.path.join(self.directory, filename)
 

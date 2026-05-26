@@ -19,3 +19,21 @@ def test_transform_without_fit():
     monitor = DriftMonitor()
     with pytest.raises(ValueError):
         monitor.transform(pd.DataFrame({'x': [1]}))
+
+
+def test_transform_with_missing_column_fails():
+    baseline = pd.DataFrame({'x': [1, 2, 3], 'y': [0, 1, 0]})
+    current = pd.DataFrame({'x': [1, 2, 3]})
+    monitor = DriftMonitor()
+    monitor.fit(baseline)
+    with pytest.raises(ValueError, match="Expected 2 features"):
+        monitor.transform(current)
+
+
+def test_transform_with_reordered_columns_fails():
+    baseline = pd.DataFrame({'x': [1, 2, 3], 'y': [0, 1, 0]})
+    current = pd.DataFrame({'y': [0, 1, 0], 'x': [1, 2, 3]})
+    monitor = DriftMonitor()
+    monitor.fit(baseline)
+    with pytest.raises(ValueError, match="Feature schema mismatch"):
+        monitor.transform(current)

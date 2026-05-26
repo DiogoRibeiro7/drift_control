@@ -1,9 +1,8 @@
 from typing import Dict, List, Tuple
 import logging
 
-import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
+from pandas.api.types import is_numeric_dtype
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import train_test_split
@@ -17,21 +16,41 @@ class CovariateShiftDetector:
         """
         Initialize the CovariateShiftDetector with prior and post datasets.
 
+        Both datasets must contain only numeric columns; encode categorical
+        features before passing them in. Inputs are not mutated.
+
         :param df_prior: DataFrame of the prior dataset (training data).
         :param df_post: DataFrame of the post dataset (production data).
         """
         if list(df_prior.columns) != list(df_post.columns):
             raise ValueError("The columns of the datasets do not match.")
 
-        # Copy inputs to avoid mutating caller-owned dataframes.
+        non_numeric = [
+            c for c in df_prior.columns
+            if not (is_numeric_dtype(df_prior[c]) and is_numeric_dtype(df_post[c]))
+        ]
+        if non_numeric:
+            raise TypeError(
+                "CovariateShiftDetector requires numeric features; encode "
+                f"these columns first: {non_numeric}"
+            )
+
         self.df_prior = df_prior.copy(deep=True)
         self.df_post = df_post.copy(deep=True)
+        self._df_combined: pd.DataFrame | None = None
 
-        prior_labeled = self.df_prior.copy(deep=True)
-        post_labeled = self.df_post.copy(deep=True)
-        prior_labeled["origin"] = 0
-        post_labeled["origin"] = 1
-        self.df_combined = pd.concat([prior_labeled, post_labeled], ignore_index=True)
+    @property
+    def df_combined(self) -> pd.DataFrame:
+        """Return the labelled prior+post frame, built on first access."""
+        if self._df_combined is None:
+            prior_labeled = self.df_prior.copy(deep=True)
+            post_labeled = self.df_post.copy(deep=True)
+            prior_labeled["origin"] = 0
+            post_labeled["origin"] = 1
+            self._df_combined = pd.concat(
+                [prior_labeled, post_labeled], ignore_index=True
+            )
+        return self._df_combined
 
     def _prepare_data(self) -> Tuple[pd.DataFrame, pd.Series]:
         X = self.df_combined.drop(columns=["origin"])
@@ -136,12 +155,15 @@ class CovariateShiftDetector:
 
         return result
 
-    def visualize_shift(self, save_dir: str | None = None, show: bool = False) -> List[plt.Figure]:
+    def visualize_shift(self, save_dir: str | None = None, show: bool = False) -> List[object]:
         """
         Build per-feature distribution plots and return figure objects.
 
         No files are saved and no windows are shown unless requested explicitly.
         """
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
         figures: List[plt.Figure] = []
         combined = self.df_combined.copy()
         combined["origin"] = combined["origin"].map({0: "Training", 1: "Production"})

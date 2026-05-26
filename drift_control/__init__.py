@@ -1,20 +1,12 @@
-# drift_control/__init__.py
-"""Drift Control package."""
+"""Drift Control package.
 
-from .alert import Alert
-from .utils import load_data
-from .baseline_manager import BaselineManager
-from .simple_drift_detector import DriftDetector
-from .drift_detector import DataDriftDetector
-from .psi_drift_detector import PSIDriftDetector
-from .ks_drift_detector import KSDriftDetector
-from .multivariate_drift_detector import CovariateShiftDetector
-from .sklearn_adapter import DriftMonitor
-from .stream_monitor import StreamMonitor, KafkaStreamMonitor, RabbitMQStreamMonitor
-from .visualization import plot_psi, plot_ks
-from .concept_drift import DDMDetector, EDDMDetector, AccuracyMonitor
-from .cli import check as cli
+Public names are imported lazily so that ``import drift_control`` only pays
+the cost of the symbols actually used. Heavy optional dependencies
+(matplotlib, seaborn, plotly, river, aiokafka, aio_pika, mlflow) are only
+imported when the relevant attribute is first accessed.
+"""
 
+from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version as _version
 
 __author__ = "Diogo Ribeiro"
@@ -22,26 +14,39 @@ __email__ = "dfr@esmad.ipp.pt"
 try:
     __version__ = _version("drift-control")
 except PackageNotFoundError:
-    # Package is not installed; use default version
     __version__ = "0.1.0"
 
-__all__ = [
-    'DriftDetector',
-    'DataDriftDetector',
-    'PSIDriftDetector',
-    'KSDriftDetector',
-    'Alert',
-    'load_data',
-    'BaselineManager',
-    'CovariateShiftDetector',
-    'DriftMonitor',
-    'StreamMonitor',
-    'KafkaStreamMonitor',
-    'RabbitMQStreamMonitor',
-    'plot_psi',
-    'plot_ks',
-    'DDMDetector',
-    'EDDMDetector',
-    'AccuracyMonitor',
-    'cli',
-]
+_LAZY: dict[str, str] = {
+    "DriftDetector": "drift_control.simple_drift_detector",
+    "DataDriftDetector": "drift_control.drift_detector",
+    "PSIDriftDetector": "drift_control.psi_drift_detector",
+    "KSDriftDetector": "drift_control.ks_drift_detector",
+    "CovariateShiftDetector": "drift_control.multivariate_drift_detector",
+    "DriftMonitor": "drift_control.sklearn_adapter",
+    "StreamMonitor": "drift_control.stream_monitor",
+    "KafkaStreamMonitor": "drift_control.stream_monitor",
+    "RabbitMQStreamMonitor": "drift_control.stream_monitor",
+    "plot_psi": "drift_control.visualization",
+    "plot_ks": "drift_control.visualization",
+    "DDMDetector": "drift_control.concept_drift",
+    "EDDMDetector": "drift_control.concept_drift",
+    "AccuracyMonitor": "drift_control.concept_drift",
+}
+
+__all__ = list(_LAZY.keys())
+
+
+def __getattr__(name: str):
+    try:
+        module_name = _LAZY[name]
+    except KeyError as exc:
+        raise AttributeError(
+            f"module 'drift_control' has no attribute {name!r}"
+        ) from exc
+    value = getattr(import_module(module_name), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(__all__) | set(globals()))

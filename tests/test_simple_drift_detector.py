@@ -10,5 +10,15 @@ class TestDriftDetector(unittest.TestCase):
         self.assertFalse(drift_detected)
         self.assertLess(error, 0.5)
 
+    def test_mismatched_lengths_raise(self):
+        detector = DriftDetector(threshold=0.5)
+        with self.assertRaises(ValueError):
+            detector.detect_drift([1, 2, 3], [1, 2])
+
+    def test_nan_values_raise(self):
+        detector = DriftDetector(threshold=0.5)
+        with self.assertRaises(ValueError):
+            detector.detect_drift([1, 2, float("nan")], [1, 2, 3])
+
 if __name__ == '__main__':
     unittest.main()

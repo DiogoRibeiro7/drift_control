@@ -46,6 +46,18 @@ Install the package and its dependencies using Poetry:
 poetry install
 ```
 
+### Optional extras
+
+Install only what you need:
+
+```bash
+pip install "drift-control[viz]"      # plotly, seaborn, matplotlib
+pip install "drift-control[concept]"  # river-based concept drift detectors
+pip install "drift-control[mlflow]"   # mlflow metric logging in CLI
+pip install "drift-control[stream]"   # Kafka/RabbitMQ stream monitors
+pip install "drift-control[full]"     # all optional integrations
+```
+
 ## Example Usage
 
 ```python
@@ -115,6 +127,7 @@ drift detectors like DDM or EDDM.
 Run drift checks directly from the terminal:
 
 ```bash
+drift-control --baseline baseline.csv --current new.csv --method psi --mlflow
 python -m drift_control.cli --baseline baseline.csv --current new.csv --method psi --mlflow
 ```
 

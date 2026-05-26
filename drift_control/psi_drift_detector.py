@@ -21,16 +21,28 @@ class PSIDriftDetector:
         self.strategy = strategy
 
     def _bin_edges(self, ref: np.ndarray, cur: np.ndarray) -> np.ndarray:
-        """Return the bin edges according to the chosen strategy."""
-        combined = np.concatenate([ref, cur])
+        """Return bin edges fitted on the reference distribution only.
+
+        Edges are widened to cover the current array so out-of-range
+        observations are still binned rather than dropped.
+        """
         if self.strategy == "quantile":
-            return np.quantile(combined, np.linspace(0, 1, self.bins + 1))
-        return np.linspace(combined.min(), combined.max(), self.bins + 1)
+            edges = np.quantile(ref, np.linspace(0, 1, self.bins + 1))
+        else:
+            edges = np.linspace(ref.min(), ref.max(), self.bins + 1)
+        edges = np.unique(edges)
+        if edges.size < 2:
+            edges = np.array([ref.min(), ref.min() + 1.0])
+        edges[0] = min(edges[0], cur.min())
+        edges[-1] = max(edges[-1], cur.max())
+        return edges
 
     def calculate_psi(self, reference, current) -> float:
         """Compute PSI between reference and current arrays."""
-        ref = np.asarray(reference, dtype=float)
-        cur = np.asarray(current, dtype=float)
+        ref = np.asarray(reference, dtype=float).ravel()
+        cur = np.asarray(current, dtype=float).ravel()
+        if ref.size == 0 or cur.size == 0:
+            raise ValueError("reference and current must be non-empty")
         edges = self._bin_edges(ref, cur)
         ref_counts, _ = np.histogram(ref, bins=edges)
         cur_counts, _ = np.histogram(cur, bins=edges)

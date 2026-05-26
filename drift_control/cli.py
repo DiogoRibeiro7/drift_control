@@ -29,7 +29,20 @@ def check(baseline: str, current: str, method: str, use_mlflow: bool) -> None:
 
     results = {}
     for col in sorted(base_cols):
-        drift, score = detector.detect_drift(base_df[col], cur_df[col])
+        try:
+            base_col = pd.to_numeric(base_df[col], errors='raise')
+            cur_col = pd.to_numeric(cur_df[col], errors='raise')
+        except Exception as exc:
+            raise click.ClickException(
+                f"Column '{col}' must be numeric for method '{method}'."
+            ) from exc
+
+        if base_col.isna().any() or cur_col.isna().any():
+            raise click.ClickException(
+                f"Column '{col}' contains null values after numeric conversion; cannot run '{method}'."
+            )
+
+        drift, score = detector.detect_drift(base_col, cur_col)
         results[col] = score
         click.echo(f'{col}: {score:.4f} (drift={drift})')
     if use_mlflow:
@@ -39,8 +52,11 @@ def check(baseline: str, current: str, method: str, use_mlflow: bool) -> None:
             raise click.ClickException(
                 "MLflow logging requested but mlflow is not installed."
             ) from exc
-        for col, score in results.items():
-            mlflow.log_metric(col, score)
+        active_run = mlflow.active_run()
+        run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()
+        with run_ctx:
+            for col, score in results.items():
+                mlflow.log_metric(col, score)
 
 
 if __name__ == '__main__':
