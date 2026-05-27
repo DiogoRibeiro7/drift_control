@@ -8,6 +8,7 @@ imported when the relevant attribute is first accessed.
 
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version as _version
+from typing import Any
 
 __author__ = "Diogo Ribeiro"
 __email__ = "dfr@esmad.ipp.pt"
@@ -50,7 +51,7 @@ _LAZY: dict[str, str] = {
 __all__ = list(_LAZY.keys())
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     try:
         module_name = _LAZY[name]
     except KeyError as exc:

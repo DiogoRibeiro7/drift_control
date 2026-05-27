@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+from typing import cast
 
 
 def validate_matching_columns(df_prior: pd.DataFrame, df_post: pd.DataFrame) -> None:
@@ -46,7 +47,7 @@ def coerce_numeric_frame(
 ) -> pd.DataFrame:
     """Convert all DataFrame columns to numeric and reject null/invalid values."""
     try:
-        out = df.apply(pd.to_numeric, errors="raise")
+        out = cast(pd.DataFrame, df.apply(pd.to_numeric, errors="raise"))
     except Exception as exc:
         raise ValueError(
             f"All columns must be numeric for method '{method_name}'."
