@@ -280,3 +280,55 @@ def test_cli_c2st_output_json(tmp_path):
     assert payload['method'] == 'c2st'
     assert 'dataset' in payload['columns']
     assert 'p_value' in payload['columns']['dataset']
+
+
+def test_cli_columns_subset(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2], 'y': [0, 1, 2]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12], 'y': [0, 1, 2]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--columns', 'x', '--output-json'],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert set(payload['columns'].keys()) == {'x'}
+
+
+def test_cli_fail_on_drift_returns_nonzero(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--fail-on-drift'],
+    )
+    assert result.exit_code != 0
+    assert 'Drift detected' in result.output
+
+
+def test_cli_config_file_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    cfg = tmp_path / 'drift.json'
+
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    cfg.write_text(json.dumps({'method': 'ks', 'threshold': 0.01}), encoding='utf-8')
+
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--config', str(cfg), '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'ks'
+    assert payload['threshold'] == 0.01

@@ -48,6 +48,23 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
 @click.option('--output-json', 'output_json', is_flag=True,
               help='Emit a single JSON object instead of one line per column.')
 @click.option('--mlflow', 'use_mlflow', is_flag=True, help='Log metrics to MLflow')
+@click.option(
+    '--config',
+    'config_path',
+    type=click.Path(exists=True),
+    default=None,
+    help='Load detector config from JSON/TOML/YAML file.',
+)
+@click.option(
+    '--columns',
+    default=None,
+    help='Comma-separated subset of columns to score.',
+)
+@click.option(
+    '--fail-on-drift',
+    is_flag=True,
+    help='Exit with non-zero status if drift is detected.',
+)
 def check(
     baseline: str,
     current: str,
@@ -58,6 +75,9 @@ def check(
     min_votes: int | None,
     output_json: bool,
     use_mlflow: bool,
+    config_path: str | None,
+    columns: str | None,
+    fail_on_drift: bool,
 ) -> None:
     """Run a drift check between two CSV files."""
     telemetry = DriftTelemetry(namespace="drift_control.cli")
@@ -68,13 +88,16 @@ def check(
         raise click.ClickException(message)
 
     try:
-        cfg = DriftCheckConfig.from_cli(
-            method=method,
-            threshold=threshold,
-            ensemble_methods=ensemble_methods,
-            vote_mode=vote_mode,
-            min_votes=min_votes,
-        )
+        if config_path is not None:
+            cfg = DriftCheckConfig.from_file(config_path)
+        else:
+            cfg = DriftCheckConfig.from_cli(
+                method=method,
+                threshold=threshold,
+                ensemble_methods=ensemble_methods,
+                vote_mode=vote_mode,
+                min_votes=min_votes,
+            )
     except ValueError as exc:
         _raise_click(str(exc), "config")
 
@@ -85,6 +108,12 @@ def check(
     except ValueError as exc:
         _raise_click(str(exc), "schema")
     base_cols = set(base_df.columns)
+    if columns is not None:
+        selected = [c.strip() for c in columns.split(",") if c.strip()]
+        unknown = [c for c in selected if c not in base_cols]
+        if unknown:
+            _raise_click(f"Unknown column(s) in --columns: {unknown}", "columns")
+        base_cols = set(selected)
 
     ensemble_detector: EnsembleDriftDetector | None = None
     unified_detector: UnifiedDriftDetector | None = None
@@ -192,6 +221,15 @@ def check(
                 score = metric_payload.get('score')
                 if isinstance(score, (int, float)):
                     mlflow.log_metric(col, float(score))
+
+    if fail_on_drift:
+        any_drift = any(
+            bool(payload.get("drift"))
+            for payload in results.values()
+            if isinstance(payload, dict)
+        )
+        if any_drift:
+            raise click.ClickException("Drift detected and --fail-on-drift is enabled.")
 
     drift_flags = [
         bool(payload.get("drift"))

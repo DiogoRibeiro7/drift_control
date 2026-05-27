@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
+import os
+from pathlib import Path
+from typing import Any
 
 
 SUPPORTED_METHODS = {"psi", "ks", "mmd", "c2st", "cvm", "js", "wasserstein", "ensemble"}
@@ -48,5 +52,80 @@ class DriftCheckConfig:
         methods = [m.strip() for m in ensemble_methods.split(",") if m.strip()]
         if not methods:
             methods = ["psi", "ks", "cvm", "js"]
+        ensemble = EnsembleConfig(methods=methods, vote_mode=vote_mode, min_votes=min_votes)
+        return DriftCheckConfig(method=method, threshold=threshold, ensemble=ensemble)
+
+    @staticmethod
+    def from_file(path: str | Path) -> "DriftCheckConfig":
+        """Load drift configuration from JSON, TOML, or YAML file."""
+        file_path = Path(path)
+        suffix = file_path.suffix.lower()
+        text = file_path.read_text(encoding="utf-8")
+
+        if suffix == ".json":
+            raw = json.loads(text)
+        elif suffix == ".toml":
+            try:
+                import tomllib as _toml_loader  # type: ignore[import-not-found]
+            except ModuleNotFoundError:  # pragma: no cover
+                import tomli as _toml_loader  # type: ignore[import-not-found]
+            raw = _toml_loader.loads(text)
+        elif suffix in {".yaml", ".yml"}:
+            try:
+                import yaml
+            except ImportError as exc:
+                raise ValueError(
+                    "YAML config requires pyyaml. Install with: pip install pyyaml"
+                ) from exc
+            raw = yaml.safe_load(text)
+        else:
+            raise ValueError("config file must be .json, .toml, .yaml, or .yml")
+
+        if not isinstance(raw, dict):
+            raise ValueError("config file root must be a mapping/object")
+
+        return DriftCheckConfig._from_mapping(raw)
+
+    @staticmethod
+    def from_env(prefix: str = "DRIFT_CONTROL_") -> "DriftCheckConfig":
+        """Load drift configuration from environment variables."""
+        method = os.getenv(f"{prefix}METHOD", "psi")
+        threshold_raw = os.getenv(f"{prefix}THRESHOLD")
+        threshold: float | None = None
+        if threshold_raw is not None and threshold_raw != "":
+            threshold = float(threshold_raw)
+        ensemble_methods = os.getenv(f"{prefix}ENSEMBLE_METHODS", "psi,ks,cvm,js")
+        vote_mode = os.getenv(f"{prefix}VOTE_MODE", "majority")
+        min_votes_raw = os.getenv(f"{prefix}MIN_VOTES")
+        min_votes: int | None = None
+        if min_votes_raw is not None and min_votes_raw != "":
+            min_votes = int(min_votes_raw)
+        return DriftCheckConfig.from_cli(
+            method=method,
+            threshold=threshold,
+            ensemble_methods=ensemble_methods,
+            vote_mode=vote_mode,
+            min_votes=min_votes,
+        )
+
+    @staticmethod
+    def _from_mapping(raw: dict[str, Any]) -> "DriftCheckConfig":
+        method = str(raw.get("method", "psi"))
+        threshold_val = raw.get("threshold")
+        threshold = float(threshold_val) if threshold_val is not None else None
+        ensemble_raw = raw.get("ensemble", {})
+        if ensemble_raw is None:
+            ensemble_raw = {}
+        if not isinstance(ensemble_raw, dict):
+            raise ValueError("ensemble config must be a mapping/object")
+
+        methods_raw = ensemble_raw.get("methods", ["psi", "ks", "cvm", "js"])
+        if not isinstance(methods_raw, list):
+            raise ValueError("ensemble.methods must be a list")
+        methods = [str(m) for m in methods_raw]
+
+        vote_mode = str(ensemble_raw.get("vote_mode", "majority"))
+        min_votes_raw = ensemble_raw.get("min_votes")
+        min_votes = int(min_votes_raw) if min_votes_raw is not None else None
         ensemble = EnsembleConfig(methods=methods, vote_mode=vote_mode, min_votes=min_votes)
         return DriftCheckConfig(method=method, threshold=threshold, ensemble=ensemble)
