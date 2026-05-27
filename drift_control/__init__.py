@@ -39,6 +39,8 @@ _LAZY: dict[str, str] = {
     "BenchmarkResult": "drift_control.benchmark",
     "EnsembleDriftDetector": "drift_control.ensemble_drift_detector",
     "EnsembleColumnResult": "drift_control.ensemble_drift_detector",
+    "SliceDriftDetector": "drift_control.slice_drift_detector",
+    "SliceResult": "drift_control.slice_drift_detector",
     "CovariateShiftDetector": "drift_control.multivariate_drift_detector",
     "MMDDriftDetector": "drift_control.mmd_drift_detector",
     "MMDResult": "drift_control.mmd_drift_detector",
