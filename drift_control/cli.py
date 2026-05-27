@@ -1,6 +1,7 @@
 """Command-line entry point for drift checks between two CSV files."""
 
 import json
+import time
 from typing import Any
 
 import click
@@ -9,6 +10,7 @@ import pandas as pd
 from .config import DriftCheckConfig
 from .benchmark import BenchmarkResult, SyntheticDriftBenchmark
 from .ensemble_drift_detector import EnsembleDriftDetector
+from .telemetry import DriftTelemetry
 from .unified_drift_detector import UnifiedDriftDetector
 from .validation import (
     coerce_numeric_frame,
@@ -58,6 +60,13 @@ def check(
     use_mlflow: bool,
 ) -> None:
     """Run a drift check between two CSV files."""
+    telemetry = DriftTelemetry(namespace="drift_control.cli")
+    started = time.perf_counter()
+
+    def _raise_click(message: str, stage: str) -> None:
+        telemetry.record_error({"component": "cli", "stage": stage, "method": method})
+        raise click.ClickException(message)
+
     try:
         cfg = DriftCheckConfig.from_cli(
             method=method,
@@ -67,14 +76,14 @@ def check(
             min_votes=min_votes,
         )
     except ValueError as exc:
-        raise click.ClickException(str(exc)) from exc
+        _raise_click(str(exc), "config")
 
     base_df = pd.read_csv(baseline)
     cur_df = pd.read_csv(current)
     try:
         validate_matching_columns(base_df, cur_df)
     except ValueError as exc:
-        raise click.ClickException(str(exc)) from exc
+        _raise_click(str(exc), "schema")
     base_cols = set(base_df.columns)
 
     ensemble_detector: EnsembleDriftDetector | None = None
@@ -87,7 +96,7 @@ def check(
                 min_votes=cfg.ensemble.min_votes,
             )
         except ValueError as exc:
-            raise click.ClickException(str(exc)) from exc
+            _raise_click(str(exc), "ensemble_init")
         effective_threshold = None
     else:
         method_kwargs: dict[str, float] = {}
@@ -108,7 +117,7 @@ def check(
                     base_df[col], cur_df[col], column_name=col, method_name=cfg.method
                 )
             except ValueError as exc:
-                raise click.ClickException(str(exc)) from exc
+                _raise_click(str(exc), "column_validation")
 
             outcome = unified_detector.detect_drift(base_col, cur_col)
             results[col] = {'score': float(outcome.score), 'drift': bool(outcome.drift)}
@@ -122,7 +131,7 @@ def check(
             base_num = coerce_numeric_frame(base_df, method_name=cfg.method)
             cur_num = coerce_numeric_frame(cur_df, method_name=cfg.method)
         except ValueError as exc:
-            raise click.ClickException(str(exc)) from exc
+            _raise_click(str(exc), "frame_validation")
         outcome = unified_detector.detect_drift(base_num.values, cur_num.values)
         results['dataset'] = {
             'score': float(outcome.score),
@@ -141,7 +150,7 @@ def check(
             base_num = coerce_numeric_frame(base_df, method_name='ensemble')
             cur_num = coerce_numeric_frame(cur_df, method_name='ensemble')
         except ValueError as exc:
-            raise click.ClickException(str(exc)) from exc
+            _raise_click(str(exc), "frame_validation")
         ensemble_res = ensemble_detector.detect_drift(base_num, cur_num)
         for col, col_res in ensemble_res.items():
             results[col] = {
@@ -175,9 +184,7 @@ def check(
         try:
             import mlflow
         except ImportError as exc:
-            raise click.ClickException(
-                'MLflow logging requested but mlflow is not installed.'
-            ) from exc
+            _raise_click('MLflow logging requested but mlflow is not installed.', "mlflow")
         active_run = mlflow.active_run()
         run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()
         with run_ctx:
@@ -185,6 +192,21 @@ def check(
                 score = metric_payload.get('score')
                 if isinstance(score, (int, float)):
                     mlflow.log_metric(col, float(score))
+
+    drift_flags = [
+        bool(payload.get("drift"))
+        for payload in results.values()
+        if isinstance(payload.get("drift"), bool)
+    ]
+    if drift_flags:
+        telemetry.record_drift_rate(
+            float(sum(drift_flags) / len(drift_flags)),
+            {"component": "cli", "method": cfg.method},
+        )
+    telemetry.record_latency(
+        (time.perf_counter() - started) * 1000.0,
+        {"component": "cli", "method": cfg.method},
+    )
 
 
 if __name__ == '__main__':
@@ -228,6 +250,7 @@ def benchmark_report(
         sample_size=sample_size,
         n_trials=n_trials,
         random_seed=random_seed,
+        telemetry=DriftTelemetry(namespace="drift_control.benchmark"),
     )
     results = bench.run()
 

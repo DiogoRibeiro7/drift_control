@@ -26,3 +26,29 @@ def test_benchmark_no_drift_has_lower_detection_than_mean_shift_for_ks():
 def test_benchmark_default_methods_include_c2st():
     bench = SyntheticDriftBenchmark(sample_size=30, n_trials=1, random_seed=0)
     assert 'c2st' in bench.methods
+
+
+class _SpyTelemetry:
+    def __init__(self):
+        self.latency_calls = 0
+        self.drift_rate_calls = 0
+        self.error_calls = 0
+
+    def record_latency(self, value_ms, attributes=None):
+        self.latency_calls += 1
+
+    def record_drift_rate(self, value, attributes=None):
+        self.drift_rate_calls += 1
+
+    def record_error(self, attributes=None):
+        self.error_calls += 1
+
+
+def test_benchmark_emits_telemetry_calls():
+    spy = _SpyTelemetry()
+    bench = SyntheticDriftBenchmark(methods=['ks'], sample_size=40, n_trials=2, telemetry=spy)
+    results = bench.run()
+    assert len(results) == 4
+    assert spy.latency_calls > 0
+    assert spy.drift_rate_calls == 4
+    assert spy.error_calls == 0
