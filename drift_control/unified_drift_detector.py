@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, Union, cast
 import numpy as np
+import warnings
 
 from .c2st_drift_detector import C2STDriftDetector
 from .categorical_chi2_drift_detector import ChiSquareDriftDetector
@@ -85,6 +86,40 @@ class UnifiedDriftDetector:
                 "method must be one of: psi, ks, cvm, js, wasserstein, mmd, c2st, chi2cat, tvdcat"
             )
 
+    @staticmethod
+    def recommended_min_samples(method: str) -> int:
+        """Recommended minimum samples per side for stable estimates."""
+        rec = {
+            "psi": 100,
+            "js": 100,
+            "wasserstein": 50,
+            "ks": 20,
+            "cvm": 20,
+            "mmd": 50,
+            "c2st": 50,
+            "chi2cat": 50,
+            "tvdcat": 50,
+        }
+        return rec.get(method, 20)
+
+    def _check_sample_sizes(self, reference_data: Any, current_data: Any) -> None:
+        ref = np.asarray(reference_data)
+        cur = np.asarray(current_data)
+        n_ref = int(ref.shape[0]) if ref.ndim > 0 else int(ref.size)
+        n_cur = int(cur.shape[0]) if cur.ndim > 0 else int(cur.size)
+        if n_ref < 2 or n_cur < 2:
+            raise ValueError(
+                f"{self.method} requires at least 2 samples per side; got {n_ref} and {n_cur}"
+            )
+        rec = self.recommended_min_samples(self.method)
+        if n_ref < rec or n_cur < rec:
+            warnings.warn(
+                f"{self.method} is being run with small sample sizes "
+                f"(reference={n_ref}, current={n_cur}); recommended >= {rec} per side.",
+                UserWarning,
+                stacklevel=2,
+            )
+
     def _bootstrap_ci(self, reference_data: Any, current_data: Any) -> tuple[float, float] | None:
         if self.ci_bootstrap_samples <= 0:
             return None
@@ -116,6 +151,7 @@ class UnifiedDriftDetector:
         return lo, hi
 
     def detect_drift(self, reference_data: Any, current_data: Any) -> DriftResult:
+        self._check_sample_sizes(reference_data, current_data)
         if self.method == "wasserstein":
             details = cast(_DetailedDetector, self.detector).detect_drift(
                 reference_data, current_data, return_details=True

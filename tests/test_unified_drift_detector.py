@@ -71,6 +71,18 @@ def test_unified_wasserstein_bootstrap_ci_metadata():
     result = detector.detect_drift([1, 2, 3, 4, 5, 6], [2, 3, 4, 5, 6, 7])
     assert "calibrated_threshold" in result.metadata
     assert "score_ci" in result.metadata
+
+
+def test_unified_warns_on_small_sample_sizes():
+    detector = UnifiedDriftDetector(method="ks", alpha=0.05)
+    with pytest.warns(UserWarning, match="recommended"):
+        detector.detect_drift([1, 2, 3], [1, 2, 4])
+
+
+def test_unified_raises_below_two_samples():
+    detector = UnifiedDriftDetector(method="ks", alpha=0.05)
+    with pytest.raises(ValueError, match="at least 2 samples"):
+        detector.detect_drift([1], [1, 2, 3])
 import numpy as np
 
 from drift_control.unified_drift_detector import UnifiedDriftDetector
