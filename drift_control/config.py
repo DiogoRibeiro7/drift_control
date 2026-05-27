@@ -21,6 +21,7 @@ SUPPORTED_METHODS = {
 }
 SUPPORTED_ENSEMBLE_METHODS = {"psi", "ks", "cvm", "js", "wasserstein", "chi2cat", "tvdcat"}
 SUPPORTED_VOTE_MODES = {"majority", "any", "all"}
+SUPPORTED_CORRECTIONS = {"none", "bonferroni", "bh"}
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,7 @@ class EnsembleConfig:
 class DriftCheckConfig:
     method: str = "psi"
     threshold: float | None = None
+    correction: str = "none"
     ensemble: EnsembleConfig = field(
         default_factory=lambda: EnsembleConfig(methods=["psi", "ks", "cvm", "js"])
     )
@@ -51,11 +53,14 @@ class DriftCheckConfig:
     def __post_init__(self) -> None:
         if self.method not in SUPPORTED_METHODS:
             raise ValueError(f"unsupported method: {self.method}")
+        if self.correction not in SUPPORTED_CORRECTIONS:
+            raise ValueError("correction must be one of: none, bonferroni, bh")
 
     @staticmethod
     def from_cli(
         method: str,
         threshold: float | None,
+        correction: str,
         ensemble_methods: str,
         vote_mode: str,
         min_votes: int | None,
@@ -64,7 +69,12 @@ class DriftCheckConfig:
         if not methods:
             methods = ["psi", "ks", "cvm", "js"]
         ensemble = EnsembleConfig(methods=methods, vote_mode=vote_mode, min_votes=min_votes)
-        return DriftCheckConfig(method=method, threshold=threshold, ensemble=ensemble)
+        return DriftCheckConfig(
+            method=method,
+            threshold=threshold,
+            correction=correction,
+            ensemble=ensemble,
+        )
 
     @staticmethod
     def from_file(path: str | Path) -> "DriftCheckConfig":
@@ -106,6 +116,7 @@ class DriftCheckConfig:
         if threshold_raw is not None and threshold_raw != "":
             threshold = float(threshold_raw)
         ensemble_methods = os.getenv(f"{prefix}ENSEMBLE_METHODS", "psi,ks,cvm,js")
+        correction = os.getenv(f"{prefix}CORRECTION", "none")
         vote_mode = os.getenv(f"{prefix}VOTE_MODE", "majority")
         min_votes_raw = os.getenv(f"{prefix}MIN_VOTES")
         min_votes: int | None = None
@@ -114,6 +125,7 @@ class DriftCheckConfig:
         return DriftCheckConfig.from_cli(
             method=method,
             threshold=threshold,
+            correction=correction,
             ensemble_methods=ensemble_methods,
             vote_mode=vote_mode,
             min_votes=min_votes,
@@ -124,6 +136,7 @@ class DriftCheckConfig:
         method = str(raw.get("method", "psi"))
         threshold_val = raw.get("threshold")
         threshold = float(threshold_val) if threshold_val is not None else None
+        correction = str(raw.get("correction", "none"))
         ensemble_raw = raw.get("ensemble", {})
         if ensemble_raw is None:
             ensemble_raw = {}
@@ -139,4 +152,9 @@ class DriftCheckConfig:
         min_votes_raw = ensemble_raw.get("min_votes")
         min_votes = int(min_votes_raw) if min_votes_raw is not None else None
         ensemble = EnsembleConfig(methods=methods, vote_mode=vote_mode, min_votes=min_votes)
-        return DriftCheckConfig(method=method, threshold=threshold, ensemble=ensemble)
+        return DriftCheckConfig(
+            method=method,
+            threshold=threshold,
+            correction=correction,
+            ensemble=ensemble,
+        )

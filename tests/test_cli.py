@@ -240,7 +240,7 @@ def test_cli_json_payload_top_level_keys_compatibility(tmp_path):
     )
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert set(payload.keys()) == {'schema_version', 'method', 'threshold', 'columns'}
+    assert set(payload.keys()) == {'schema_version', 'method', 'threshold', 'correction', 'columns'}
 
 
 def test_cli_json_payload_top_level_keys_compatibility_ensemble(tmp_path):
@@ -258,7 +258,48 @@ def test_cli_json_payload_top_level_keys_compatibility_ensemble(tmp_path):
     )
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert set(payload.keys()) == {'schema_version', 'method', 'threshold', 'columns', 'ensemble'}
+    assert set(payload.keys()) == {'schema_version', 'method', 'threshold', 'correction', 'columns', 'ensemble'}
+
+
+def test_cli_correction_bonferroni_adjusts_pvalues(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    # Two columns with mild shift to exercise correction path.
+    pd.DataFrame(
+        {
+            'x1': [0, 1, 2, 3, 4, 5, 6, 7],
+            'x2': [0, 1, 2, 3, 4, 5, 6, 7],
+        }
+    ).to_csv(baseline, index=False)
+    pd.DataFrame(
+        {
+            'x1': [0, 1, 2, 3, 4, 5, 6, 20],
+            'x2': [0, 1, 2, 3, 4, 5, 6, 20],
+        }
+    ).to_csv(current, index=False)
+    runner = CliRunner()
+    raw_res = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'ks', '--output-json', '--correction', 'none',
+        ],
+    )
+    adj_res = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'ks', '--output-json', '--correction', 'bonferroni',
+        ],
+    )
+    assert raw_res.exit_code == 0
+    assert adj_res.exit_code == 0
+    raw = json.loads(raw_res.output)
+    adj = json.loads(adj_res.output)
+    assert raw['correction'] == 'none'
+    assert adj['correction'] == 'bonferroni'
+    for col in ['x1', 'x2']:
+        assert adj['columns'][col]['p_value'] >= raw['columns'][col]['p_value']
 
 
 def test_cli_c2st_output_json(tmp_path):

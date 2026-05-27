@@ -19,6 +19,7 @@ def test_drift_check_config_from_cli_defaults_methods():
     cfg = DriftCheckConfig.from_cli(
         method='ensemble',
         threshold=None,
+        correction='none',
         ensemble_methods='',
         vote_mode='majority',
         min_votes=None,
@@ -63,6 +64,7 @@ def test_config_accepts_categorical_methods():
     cfg = DriftCheckConfig.from_cli(
         method='chi2cat',
         threshold=0.05,
+        correction='none',
         ensemble_methods='chi2cat,tvdcat',
         vote_mode='any',
         min_votes=1,

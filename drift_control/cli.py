@@ -10,6 +10,7 @@ import pandas as pd
 from .config import DriftCheckConfig
 from .benchmark import BenchmarkResult, SyntheticDriftBenchmark
 from .ensemble_drift_detector import EnsembleDriftDetector
+from .multiple_testing import adjust_pvalues
 from .telemetry import DriftTelemetry
 from .unified_drift_detector import UnifiedDriftDetector
 from .validation import (
@@ -46,6 +47,13 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
     default=None,
     help='Override votes required in ensemble mode.',
 )
+@click.option(
+    '--correction',
+    type=click.Choice(['none', 'bonferroni', 'bh']),
+    default='none',
+    show_default=True,
+    help='Optional multiple-testing correction across columns.',
+)
 @click.option('--output-json', 'output_json', is_flag=True,
               help='Emit a single JSON object instead of one line per column.')
 @click.option('--mlflow', 'use_mlflow', is_flag=True, help='Log metrics to MLflow')
@@ -74,6 +82,7 @@ def check(
     ensemble_methods: str,
     vote_mode: str,
     min_votes: int | None,
+    correction: str,
     output_json: bool,
     use_mlflow: bool,
     config_path: str | None,
@@ -95,6 +104,7 @@ def check(
             cfg = DriftCheckConfig.from_cli(
                 method=method,
                 threshold=threshold,
+                correction=correction,
                 ensemble_methods=ensemble_methods,
                 vote_mode=vote_mode,
                 min_votes=min_votes,
@@ -124,6 +134,7 @@ def check(
                 methods=cfg.ensemble.methods,
                 vote_mode=cfg.ensemble.vote_mode,
                 min_votes=cfg.ensemble.min_votes,
+                correction=cfg.correction,
             )
         except ValueError as exc:
             _raise_click(str(exc), "ensemble_init")
@@ -160,6 +171,21 @@ def check(
                 results[col]['p_value'] = float(outcome.p_value)
             if not output_json:
                 click.echo(f"{col}: {outcome.score:.4f} (drift={outcome.drift})")
+        if cfg.correction != 'none':
+            pvalue_items: list[tuple[str, float]] = []
+            for c, col_payload in results.items():
+                p_val = col_payload.get('p_value')
+                if isinstance(p_val, (int, float)):
+                    pvalue_items.append((c, float(p_val)))
+            pvalue_cols = [c for c, _ in pvalue_items]
+            raw = [p for _, p in pvalue_items]
+            adj = adjust_pvalues(raw, method=cfg.correction)
+            for c, p_adj in zip(pvalue_cols, adj):
+                results[c]['p_value'] = float(p_adj)
+                threshold_used = (
+                    float(effective_threshold) if effective_threshold is not None else 0.05
+                )
+                results[c]['drift'] = bool(p_adj < threshold_used)
     elif cfg.method in {'mmd', 'c2st'}:
         assert unified_detector is not None
         try:
@@ -205,6 +231,7 @@ def check(
             'schema_version': CLI_JSON_SCHEMA_VERSION,
             'method': cfg.method,
             'threshold': None if effective_threshold is None else float(effective_threshold),
+            'correction': cfg.correction,
             'columns': results,
         }
         if cfg.method == 'ensemble':

@@ -12,6 +12,7 @@ from .js_drift_detector import JensenShannonDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .psi_drift_detector import PSIDriftDetector
 from .wasserstein_drift_detector import WassersteinDriftDetector
+from .multiple_testing import adjust_pvalues
 from .validation import (
     coerce_categorical_series,
     coerce_numeric_series,
@@ -47,6 +48,7 @@ class EnsembleDriftDetector:
         methods: list[str] | None = None,
         vote_mode: str = "majority",
         min_votes: int | None = None,
+        correction: str = "none",
     ) -> None:
         available = {"psi", "ks", "cvm", "js", "wasserstein", "chi2cat", "tvdcat"}
         selected = methods or ["psi", "ks", "cvm", "js"]
@@ -55,10 +57,13 @@ class EnsembleDriftDetector:
             raise ValueError(f"unknown methods: {unknown}")
         if vote_mode not in {"majority", "any", "all"}:
             raise ValueError("vote_mode must be one of: 'majority', 'any', 'all'")
+        if correction not in {"none", "bonferroni", "bh"}:
+            raise ValueError("correction must be one of: none, bonferroni, bh")
 
         self.methods = selected
         self.vote_mode = vote_mode
         self.min_votes = min_votes
+        self.correction = correction
 
         self._builders: dict[str, Callable[[], object]] = {
             "psi": lambda: PSIDriftDetector(),
@@ -91,6 +96,7 @@ class EnsembleDriftDetector:
 
         required_votes = self._required_votes()
         results: dict[str, EnsembleColumnResult] = {}
+        raw_pvalues_by_method: dict[str, list[tuple[str, float]]] = {}
 
         for col in sorted(df_prior.columns):
             method_results: dict[str, dict[str, float | bool]] = {}
@@ -116,11 +122,16 @@ class EnsembleDriftDetector:
                         "score": score,
                         "p_value": float(details.p_value),
                     }
+                    raw_pvalues_by_method.setdefault(method, []).append((col, float(details.p_value)))
                 else:
                     drift, score = cast(_SimpleDetector, detector).detect_drift(
                         prior.values, post.values
                     )
-                    method_results[method] = {"drift": bool(drift), "score": float(score)}
+                    row: dict[str, float | bool] = {"drift": bool(drift), "score": float(score)}
+                    if method in {"ks", "cvm", "chi2cat"}:
+                        row["p_value"] = float(score)
+                        raw_pvalues_by_method.setdefault(method, []).append((col, float(score)))
+                    method_results[method] = row
                 votes += int(drift)
 
             results[col] = EnsembleColumnResult(
@@ -129,5 +140,23 @@ class EnsembleDriftDetector:
                 required_votes=required_votes,
                 method_results=method_results,
             )
+
+        if self.correction != "none":
+            for method, items in raw_pvalues_by_method.items():
+                cols = [c for c, _ in items]
+                pvals = [p for _, p in items]
+                adj = adjust_pvalues(pvals, method=self.correction)
+                for col, adj_p in zip(cols, adj):
+                    mr = results[col].method_results[method]
+                    mr["p_value"] = float(adj_p)
+                    mr["drift"] = bool(adj_p < 0.05)
+                for col in cols:
+                    votes = sum(int(bool(v["drift"])) for v in results[col].method_results.values())
+                    results[col] = EnsembleColumnResult(
+                        drift_detected=votes >= required_votes,
+                        votes=votes,
+                        required_votes=required_votes,
+                        method_results=results[col].method_results,
+                    )
 
         return results
