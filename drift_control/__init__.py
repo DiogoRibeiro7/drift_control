@@ -44,6 +44,8 @@ _LAZY: dict[str, str] = {
     "CovariateShiftDetector": "drift_control.multivariate_drift_detector",
     "MMDDriftDetector": "drift_control.mmd_drift_detector",
     "MMDResult": "drift_control.mmd_drift_detector",
+    "EnergyDriftDetector": "drift_control.energy_drift_detector",
+    "EnergyResult": "drift_control.energy_drift_detector",
     "DriftMonitor": "drift_control.sklearn_adapter",
     "StreamMonitor": "drift_control.stream_monitor",
     "KafkaStreamMonitor": "drift_control.stream_monitor",

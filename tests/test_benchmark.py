@@ -26,6 +26,7 @@ def test_benchmark_no_drift_has_lower_detection_than_mean_shift_for_ks():
 def test_benchmark_default_methods_include_c2st():
     bench = SyntheticDriftBenchmark(sample_size=30, n_trials=1, random_seed=0)
     assert 'c2st' in bench.methods
+    assert 'energy' in bench.methods
 
 
 class _SpyTelemetry:

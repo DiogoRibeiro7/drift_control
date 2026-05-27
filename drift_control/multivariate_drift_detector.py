@@ -3,21 +3,30 @@ import logging
 
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
+from sklearn.base import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
 
 
 logger = logging.getLogger(__name__)
 
 
 class CovariateShiftDetector:
-    def __init__(self, df_prior: pd.DataFrame, df_post: pd.DataFrame) -> None:
+    def __init__(
+        self,
+        df_prior: pd.DataFrame,
+        df_post: pd.DataFrame,
+        estimator: object | None = None,
+        preprocessor: object | None = None,
+    ) -> None:
         """
         Initialize the CovariateShiftDetector with prior and post datasets.
 
-        Both datasets must contain only numeric columns; encode categorical
-        features before passing them in. Inputs are not mutated.
+        By default both datasets must contain only numeric columns. To handle
+        categorical columns, pass a ``preprocessor`` (e.g., ColumnTransformer)
+        and optionally a custom ``estimator``.
 
         :param df_prior: DataFrame of the prior dataset (training data).
         :param df_post: DataFrame of the post dataset (production data).
@@ -25,19 +34,23 @@ class CovariateShiftDetector:
         if list(df_prior.columns) != list(df_post.columns):
             raise ValueError("The columns of the datasets do not match.")
 
-        non_numeric = [
-            c for c in df_prior.columns
-            if not (is_numeric_dtype(df_prior[c]) and is_numeric_dtype(df_post[c]))
-        ]
-        if non_numeric:
-            raise TypeError(
-                "CovariateShiftDetector requires numeric features; encode "
-                f"these columns first: {non_numeric}"
-            )
+        if preprocessor is None:
+            non_numeric = [
+                c for c in df_prior.columns
+                if not (is_numeric_dtype(df_prior[c]) and is_numeric_dtype(df_post[c]))
+            ]
+            if non_numeric:
+                raise TypeError(
+                    "CovariateShiftDetector requires numeric features unless a "
+                    "preprocessor is provided; non-numeric columns: "
+                    f"{non_numeric}"
+                )
 
         self.df_prior = df_prior.copy(deep=True)
         self.df_post = df_post.copy(deep=True)
         self._df_combined: pd.DataFrame | None = None
+        self.estimator = estimator or LogisticRegression(max_iter=1000)
+        self.preprocessor = preprocessor
 
     @property
     def df_combined(self) -> pd.DataFrame:
@@ -61,13 +74,20 @@ class CovariateShiftDetector:
         X, y = self._prepare_data()
         return train_test_split(X, y, test_size=test_size, random_state=random_state)
 
-    def _train_classifier(self, X_train: pd.DataFrame, y_train: pd.Series) -> LogisticRegression:
-        clf = LogisticRegression(max_iter=1000)
+    def _train_classifier(self, X_train: pd.DataFrame, y_train: pd.Series):
+        clf = clone(self.estimator)
+        if self.preprocessor is not None:
+            clf = Pipeline(
+                steps=[
+                    ("preprocessor", clone(self.preprocessor)),
+                    ("estimator", clf),
+                ]
+            )
         clf.fit(X_train, y_train)
         return clf
 
     def _evaluate_classifier(
-        self, clf: LogisticRegression, X_test: pd.DataFrame, y_test: pd.Series
+        self, clf, X_test: pd.DataFrame, y_test: pd.Series
     ) -> Tuple[float, float]:
         y_pred = clf.predict(X_test)
         y_pred_proba = clf.predict_proba(X_test)[:, 1]

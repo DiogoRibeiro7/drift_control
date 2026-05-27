@@ -12,6 +12,7 @@ SUPPORTED_METHODS = {
     "ks",
     "mmd",
     "c2st",
+    "energy",
     "cvm",
     "js",
     "wasserstein",

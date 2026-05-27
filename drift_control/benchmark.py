@@ -43,6 +43,7 @@ class SyntheticDriftBenchmark:
             "wasserstein",
             "mmd",
             "c2st",
+            "energy",
             "chi2cat",
             "tvdcat",
         ]
@@ -96,7 +97,7 @@ class SyntheticDriftBenchmark:
     def _detector_for_method(self, method: str) -> UnifiedDriftDetector:
         if method in {"ks", "cvm"}:
             return UnifiedDriftDetector(method=method, alpha=0.05)
-        if method in {"mmd", "wasserstein", "c2st"}:
+        if method in {"mmd", "wasserstein", "c2st", "energy"}:
             return UnifiedDriftDetector(method=method, alpha=0.05, n_permutations=80, random_state=7)
         if method == "chi2cat":
             return UnifiedDriftDetector(method=method, alpha=0.05)

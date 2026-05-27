@@ -8,6 +8,7 @@ from .c2st_drift_detector import C2STDriftDetector
 from .categorical_chi2_drift_detector import ChiSquareDriftDetector
 from .categorical_tvd_drift_detector import TotalVariationDriftDetector
 from .cvm_drift_detector import CVMDriftDetector
+from .energy_drift_detector import EnergyDriftDetector
 from .js_drift_detector import JensenShannonDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .mmd_drift_detector import MMDDriftDetector
@@ -73,6 +74,10 @@ class UnifiedDriftDetector:
             self.detector = C2STDriftDetector(**kwargs)
             self.threshold = float(self.detector.alpha)
             self.comparator = "<"
+        elif method == "energy":
+            self.detector = EnergyDriftDetector(**kwargs)
+            self.threshold = float(self.detector.alpha)
+            self.comparator = "<"
         elif method == "chi2cat":
             self.detector = ChiSquareDriftDetector(**kwargs)
             self.threshold = float(self.detector.alpha)
@@ -83,7 +88,7 @@ class UnifiedDriftDetector:
             self.comparator = ">"
         else:
             raise ValueError(
-                "method must be one of: psi, ks, cvm, js, wasserstein, mmd, c2st, chi2cat, tvdcat"
+                "method must be one of: psi, ks, cvm, js, wasserstein, mmd, c2st, energy, chi2cat, tvdcat"
             )
 
     @staticmethod
@@ -97,6 +102,7 @@ class UnifiedDriftDetector:
             "cvm": 20,
             "mmd": 50,
             "c2st": 50,
+            "energy": 50,
             "chi2cat": 50,
             "tvdcat": 50,
         }
@@ -184,14 +190,15 @@ class UnifiedDriftDetector:
                 metadata={"calibrated_threshold": float(details.threshold)},
             )
 
-        if self.method == "c2st":
+        if self.method in {"c2st", "energy"}:
             details = cast(_DetailedDetector, self.detector).detect_drift(
                 reference_data, current_data, return_details=True
             )
+            score = float(details.roc_auc) if self.method == "c2st" else float(details.energy_distance)
             return DriftResult(
                 method=self.method,
                 drift=bool(details.drift_detected),
-                score=float(details.roc_auc),
+                score=score,
                 p_value=float(details.p_value),
                 threshold=self.threshold,
                 comparator=self.comparator,

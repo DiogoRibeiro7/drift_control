@@ -26,10 +26,10 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
 @click.command()
 @click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
 @click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
-@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'ensemble']), default='psi', help='Drift detection method')
+@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'energy', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'ensemble']), default='psi', help='Drift detection method')
 @click.option('--threshold', type=float, default=None,
               help='Override the detector threshold (PSI: drift if score > threshold; '
-                   'JS/TVDCAT: drift if score > threshold; KS/CVM/MMD/C2ST/Wasserstein/CHI2CAT: drift if p-value < threshold). Uses the method default if omitted.')
+                   'JS/TVDCAT: drift if score > threshold; KS/CVM/MMD/C2ST/Energy/Wasserstein/CHI2CAT: drift if p-value < threshold). Uses the method default if omitted.')
 @click.option(
     '--ensemble-methods',
     default='psi,ks,cvm,js',
@@ -186,7 +186,7 @@ def check(
                     float(effective_threshold) if effective_threshold is not None else 0.05
                 )
                 results[c]['drift'] = bool(p_adj < threshold_used)
-    elif cfg.method in {'mmd', 'c2st'}:
+    elif cfg.method in {'mmd', 'c2st', 'energy'}:
         assert unified_detector is not None
         try:
             base_num = coerce_numeric_frame(base_df, method_name=cfg.method)
@@ -200,7 +200,12 @@ def check(
             'drift': bool(outcome.drift),
         }
         if not output_json:
-            score_name = 'mmd2' if cfg.method == 'mmd' else 'roc_auc'
+            if cfg.method == 'mmd':
+                score_name = 'mmd2'
+            elif cfg.method == 'c2st':
+                score_name = 'roc_auc'
+            else:
+                score_name = 'energy_distance'
             click.echo(
                 f"dataset: {score_name}={outcome.score:.6f}, p_value={outcome.p_value:.6f} "
                 f"(drift={outcome.drift})"
@@ -287,7 +292,7 @@ if __name__ == '__main__':
 @click.command(name="benchmark")
 @click.option(
     "--methods",
-    default="psi,ks,cvm,js,wasserstein,mmd,c2st,chi2cat,tvdcat",
+    default="psi,ks,cvm,js,wasserstein,mmd,c2st,energy,chi2cat,tvdcat",
     help="Comma-separated detector methods to benchmark.",
 )
 @click.option("--sample-size", type=int, default=300, show_default=True, help="Samples per trial.")
