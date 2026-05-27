@@ -52,6 +52,7 @@ _LAZY: dict[str, str] = {
     "EDDMDetector": "drift_control.concept_drift",
     "ADWINDetector": "drift_control.concept_drift",
     "PageHinkleyDetector": "drift_control.concept_drift",
+    "KSWINDetector": "drift_control.concept_drift",
     "AccuracyMonitor": "drift_control.concept_drift",
 }
 

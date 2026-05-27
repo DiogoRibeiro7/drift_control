@@ -1,10 +1,11 @@
 from typing import Iterable
 
 try:
-    from river.drift import ADWIN, PageHinkley
+    from river.drift import ADWIN, KSWIN, PageHinkley
     from river.drift.binary import DDM, EDDM
 except ImportError:  # pragma: no cover - exercised in minimal installs
     ADWIN = None
+    KSWIN = None
     PageHinkley = None
     DDM = None
     EDDM = None
@@ -83,6 +84,33 @@ class PageHinkleyDetector:
         """Feed a performance metric and return True if drift detected."""
         self.page_hinkley.update(value)
         return self.page_hinkley.drift_detected
+
+
+class KSWINDetector:
+    """Wrapper around river's KSWIN concept drift detector."""
+
+    def __init__(
+        self,
+        alpha: float = 0.005,
+        window_size: int = 100,
+        stat_size: int = 30,
+        seed: int | None = None,
+    ) -> None:
+        if KSWIN is None:
+            raise ImportError(
+                "river is required for KSWINDetector. Install with: pip install 'drift-control[concept]'"
+            )
+        self.kswin = KSWIN(
+            alpha=alpha,
+            window_size=window_size,
+            stat_size=stat_size,
+            seed=seed,
+        )
+
+    def update(self, value: float) -> bool:
+        """Feed a scalar value and return True if drift detected."""
+        self.kswin.update(value)
+        return self.kswin.drift_detected
 
 
 class AccuracyMonitor:
