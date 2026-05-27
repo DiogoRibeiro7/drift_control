@@ -7,6 +7,7 @@ import click
 import pandas as pd
 
 from .config import DriftCheckConfig
+from .benchmark import BenchmarkResult, SyntheticDriftBenchmark
 from .ensemble_drift_detector import EnsembleDriftDetector
 from .unified_drift_detector import UnifiedDriftDetector
 from .validation import (
@@ -187,3 +188,78 @@ def check(
 
 if __name__ == '__main__':
     check()
+
+
+@click.command(name="benchmark")
+@click.option(
+    "--methods",
+    default="psi,ks,cvm,js,wasserstein,mmd",
+    help="Comma-separated detector methods to benchmark.",
+)
+@click.option("--sample-size", type=int, default=300, show_default=True, help="Samples per trial.")
+@click.option("--n-trials", type=int, default=25, show_default=True, help="Trials per scenario.")
+@click.option("--random-seed", type=int, default=42, show_default=True, help="RNG seed.")
+@click.option(
+    "--output-format",
+    type=click.Choice(["json", "csv"]),
+    default="json",
+    show_default=True,
+    help="Benchmark output format.",
+)
+@click.option(
+    "--output-path",
+    type=click.Path(),
+    default=None,
+    help="Optional report file path (.json or .csv).",
+)
+def benchmark_report(
+    methods: str,
+    sample_size: int,
+    n_trials: int,
+    random_seed: int,
+    output_format: str,
+    output_path: str | None,
+) -> None:
+    """Run synthetic drift benchmark scenarios and emit a report."""
+    selected_methods = [m.strip() for m in methods.split(",") if m.strip()]
+    bench = SyntheticDriftBenchmark(
+        methods=selected_methods,
+        sample_size=sample_size,
+        n_trials=n_trials,
+        random_seed=random_seed,
+    )
+    results = bench.run()
+
+    rows: list[dict[str, object]] = [
+        {
+            "method": r.method,
+            "scenario": r.scenario,
+            "n_trials": r.n_trials,
+            "expected_drift": r.expected_drift,
+            "drift_rate": r.drift_rate,
+            "avg_score": r.avg_score,
+            "avg_latency_ms": r.avg_latency_ms,
+        }
+        for r in results
+    ]
+
+    if output_format == "json":
+        payload: dict[str, object] = {
+            "schema_version": "1.0",
+            "benchmark_type": "synthetic_drift",
+            "methods": selected_methods,
+            "sample_size": sample_size,
+            "n_trials": n_trials,
+            "random_seed": random_seed,
+            "results": rows,
+        }
+        content = json.dumps(payload)
+    else:
+        csv_df = pd.DataFrame(rows)
+        content = csv_df.to_csv(index=False)
+
+    if output_path is not None:
+        with open(output_path, "w", encoding="utf-8", newline="") as f:
+            f.write(content)
+
+    click.echo(content)
