@@ -14,6 +14,8 @@ from .validation import (
     validate_matching_columns,
 )
 
+CLI_JSON_SCHEMA_VERSION = "1.0"
+
 
 @click.command()
 @click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
@@ -148,6 +150,7 @@ def check(
 
     if output_json:
         payload = {
+            'schema_version': CLI_JSON_SCHEMA_VERSION,
             'method': cfg.method,
             'threshold': None if effective_threshold is None else float(effective_threshold),
             'columns': results,
