@@ -33,7 +33,7 @@ class SyntheticDriftBenchmark:
         n_trials: int = 25,
         random_seed: int = 42,
     ) -> None:
-        self.methods = methods or ["psi", "ks", "cvm", "js", "wasserstein", "mmd"]
+        self.methods = methods or ["psi", "ks", "cvm", "js", "wasserstein", "mmd", "c2st"]
         self.sample_size = sample_size
         self.n_trials = n_trials
         self.random_seed = random_seed
@@ -65,7 +65,7 @@ class SyntheticDriftBenchmark:
     def _detector_for_method(self, method: str) -> UnifiedDriftDetector:
         if method in {"ks", "cvm"}:
             return UnifiedDriftDetector(method=method, alpha=0.05)
-        if method in {"mmd", "wasserstein"}:
+        if method in {"mmd", "wasserstein", "c2st"}:
             return UnifiedDriftDetector(method=method, alpha=0.05, n_permutations=80, random_state=7)
         return UnifiedDriftDetector(method=method, threshold=0.2 if method == "psi" else 0.1)
 

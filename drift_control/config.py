@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
-SUPPORTED_METHODS = {"psi", "ks", "mmd", "cvm", "js", "wasserstein", "ensemble"}
+SUPPORTED_METHODS = {"psi", "ks", "mmd", "c2st", "cvm", "js", "wasserstein", "ensemble"}
 SUPPORTED_ENSEMBLE_METHODS = {"psi", "ks", "cvm", "js", "wasserstein"}
 SUPPORTED_VOTE_MODES = {"majority", "any", "all"}
 

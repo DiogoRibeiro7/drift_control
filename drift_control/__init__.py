@@ -23,6 +23,8 @@ _LAZY: dict[str, str] = {
     "PSIDriftDetector": "drift_control.psi_drift_detector",
     "KSDriftDetector": "drift_control.ks_drift_detector",
     "CVMDriftDetector": "drift_control.cvm_drift_detector",
+    "C2STDriftDetector": "drift_control.c2st_drift_detector",
+    "C2STResult": "drift_control.c2st_drift_detector",
     "JensenShannonDriftDetector": "drift_control.js_drift_detector",
     "WassersteinDriftDetector": "drift_control.wasserstein_drift_detector",
     "WassersteinResult": "drift_control.wasserstein_drift_detector",

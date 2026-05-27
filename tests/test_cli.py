@@ -259,3 +259,24 @@ def test_cli_json_payload_top_level_keys_compatibility_ensemble(tmp_path):
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert set(payload.keys()) == {'schema_version', 'method', 'threshold', 'columns', 'ensemble'}
+
+
+def test_cli_c2st_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x1': [0, 1, 2, 3, 4], 'x2': [0, 0, 1, 1, 2]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x1': [10, 11, 12, 13, 14], 'x2': [4, 4, 5, 5, 6]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'c2st', '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['schema_version'] == '1.0'
+    assert payload['method'] == 'c2st'
+    assert 'dataset' in payload['columns']
+    assert 'p_value' in payload['columns']['dataset']

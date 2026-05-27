@@ -43,3 +43,17 @@ def test_unified_mmd_multivariate():
 def test_unified_rejects_unknown_method():
     with pytest.raises(ValueError, match="method must be one of"):
         UnifiedDriftDetector(method="not-real")
+import numpy as np
+
+from drift_control.unified_drift_detector import UnifiedDriftDetector
+
+
+def test_unified_c2st_multivariate():
+    rng = np.random.default_rng(0)
+    ref = rng.normal(0, 1, size=(120, 3))
+    cur = rng.normal(0.9, 1, size=(120, 3))
+    detector = UnifiedDriftDetector(method='c2st', alpha=0.05, n_permutations=60)
+    out = detector.detect_drift(ref, cur)
+    assert out.method == 'c2st'
+    assert out.p_value is not None
+    assert 'calibrated_threshold' in out.metadata

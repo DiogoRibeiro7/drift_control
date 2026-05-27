@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, Union, cast
 
+from .c2st_drift_detector import C2STDriftDetector
 from .cvm_drift_detector import CVMDriftDetector
 from .js_drift_detector import JensenShannonDriftDetector
 from .ks_drift_detector import KSDriftDetector
@@ -57,9 +58,13 @@ class UnifiedDriftDetector:
             self.detector = MMDDriftDetector(**kwargs)
             self.threshold = float(self.detector.alpha)
             self.comparator = "<"
+        elif method == "c2st":
+            self.detector = C2STDriftDetector(**kwargs)
+            self.threshold = float(self.detector.alpha)
+            self.comparator = "<"
         else:
             raise ValueError(
-                "method must be one of: psi, ks, cvm, js, wasserstein, mmd"
+                "method must be one of: psi, ks, cvm, js, wasserstein, mmd, c2st"
             )
 
     def detect_drift(self, reference_data: Any, current_data: Any) -> DriftResult:
@@ -85,6 +90,20 @@ class UnifiedDriftDetector:
                 method=self.method,
                 drift=bool(details.drift_detected),
                 score=float(details.mmd2),
+                p_value=float(details.p_value),
+                threshold=self.threshold,
+                comparator=self.comparator,
+                metadata={"calibrated_threshold": float(details.threshold)},
+            )
+
+        if self.method == "c2st":
+            details = cast(_DetailedDetector, self.detector).detect_drift(
+                reference_data, current_data, return_details=True
+            )
+            return DriftResult(
+                method=self.method,
+                drift=bool(details.drift_detected),
+                score=float(details.roc_auc),
                 p_value=float(details.p_value),
                 threshold=self.threshold,
                 comparator=self.comparator,

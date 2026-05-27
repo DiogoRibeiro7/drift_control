@@ -22,10 +22,10 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
 @click.command()
 @click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
 @click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
-@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'cvm', 'js', 'wasserstein', 'ensemble']), default='psi', help='Drift detection method')
+@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'cvm', 'js', 'wasserstein', 'ensemble']), default='psi', help='Drift detection method')
 @click.option('--threshold', type=float, default=None,
               help='Override the detector threshold (PSI: drift if score > threshold; '
-                   'JS: drift if score > threshold; KS/CVM/MMD/Wasserstein: drift if p-value < threshold). Uses the method default if omitted.')
+                   'JS: drift if score > threshold; KS/CVM/MMD/C2ST/Wasserstein: drift if p-value < threshold). Uses the method default if omitted.')
 @click.option(
     '--ensemble-methods',
     default='psi,ks,cvm,js',
@@ -116,11 +116,11 @@ def check(
                 results[col]['p_value'] = float(outcome.p_value)
             if not output_json:
                 click.echo(f"{col}: {outcome.score:.4f} (drift={outcome.drift})")
-    elif cfg.method == 'mmd':
+    elif cfg.method in {'mmd', 'c2st'}:
         assert unified_detector is not None
         try:
-            base_num = coerce_numeric_frame(base_df, method_name='mmd')
-            cur_num = coerce_numeric_frame(cur_df, method_name='mmd')
+            base_num = coerce_numeric_frame(base_df, method_name=cfg.method)
+            cur_num = coerce_numeric_frame(cur_df, method_name=cfg.method)
         except ValueError as exc:
             raise click.ClickException(str(exc)) from exc
         outcome = unified_detector.detect_drift(base_num.values, cur_num.values)
@@ -130,8 +130,9 @@ def check(
             'drift': bool(outcome.drift),
         }
         if not output_json:
+            score_name = 'mmd2' if cfg.method == 'mmd' else 'roc_auc'
             click.echo(
-                f"dataset: mmd2={outcome.score:.6f}, p_value={outcome.p_value:.6f} "
+                f"dataset: {score_name}={outcome.score:.6f}, p_value={outcome.p_value:.6f} "
                 f"(drift={outcome.drift})"
             )
     else:
@@ -193,7 +194,7 @@ if __name__ == '__main__':
 @click.command(name="benchmark")
 @click.option(
     "--methods",
-    default="psi,ks,cvm,js,wasserstein,mmd",
+    default="psi,ks,cvm,js,wasserstein,mmd,c2st",
     help="Comma-separated detector methods to benchmark.",
 )
 @click.option("--sample-size", type=int, default=300, show_default=True, help="Samples per trial.")
