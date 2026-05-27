@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Protocol, Union, cast
+import numpy as np
 
 from .c2st_drift_detector import C2STDriftDetector
 from .categorical_chi2_drift_detector import ChiSquareDriftDetector
@@ -31,6 +32,13 @@ class UnifiedDriftDetector:
 
     def __init__(self, method: str = "psi", **kwargs: Any) -> None:
         self.method = method
+        self.ci_bootstrap_samples = int(kwargs.pop("ci_bootstrap_samples", 0))
+        self.ci_level = float(kwargs.pop("ci_level", 0.95))
+        self.ci_random_state = int(kwargs.pop("ci_random_state", 42))
+        if self.ci_bootstrap_samples < 0:
+            raise ValueError("ci_bootstrap_samples must be >= 0")
+        if not (0 < self.ci_level < 1):
+            raise ValueError("ci_level must be between 0 and 1")
         self.kwargs = kwargs
         self.detector: Union[_SimpleDetector, _DetailedDetector]
         self.threshold: float
@@ -77,11 +85,45 @@ class UnifiedDriftDetector:
                 "method must be one of: psi, ks, cvm, js, wasserstein, mmd, c2st, chi2cat, tvdcat"
             )
 
+    def _bootstrap_ci(self, reference_data: Any, current_data: Any) -> tuple[float, float] | None:
+        if self.ci_bootstrap_samples <= 0:
+            return None
+        if self.method not in {"psi", "js", "wasserstein"}:
+            return None
+
+        ref = np.asarray(reference_data, dtype=float).ravel()
+        cur = np.asarray(current_data, dtype=float).ravel()
+        if ref.size < 2 or cur.size < 2:
+            return None
+
+        rng = np.random.default_rng(self.ci_random_state)
+        stats: list[float] = []
+        for _ in range(self.ci_bootstrap_samples):
+            ref_s = ref[rng.integers(0, ref.size, ref.size)]
+            cur_s = cur[rng.integers(0, cur.size, cur.size)]
+            if self.method == "psi":
+                score = float(cast(Any, self.detector).calculate_psi(ref_s, cur_s))
+            elif self.method == "js":
+                score = float(cast(Any, self.detector).calculate_js_distance(ref_s, cur_s))
+            else:
+                _, score = cast(_SimpleDetector, self.detector).detect_drift(ref_s, cur_s)
+                score = float(score)
+            stats.append(score)
+
+        alpha = 1.0 - self.ci_level
+        lo = float(np.quantile(stats, alpha / 2.0))
+        hi = float(np.quantile(stats, 1.0 - alpha / 2.0))
+        return lo, hi
+
     def detect_drift(self, reference_data: Any, current_data: Any) -> DriftResult:
         if self.method == "wasserstein":
             details = cast(_DetailedDetector, self.detector).detect_drift(
                 reference_data, current_data, return_details=True
             )
+            metadata_ws: dict[str, Any] = {"calibrated_threshold": float(details.threshold)}
+            ci_ws = self._bootstrap_ci(reference_data, current_data)
+            if ci_ws is not None:
+                metadata_ws["score_ci"] = {"lo": ci_ws[0], "hi": ci_ws[1], "level": self.ci_level}
             return DriftResult(
                 method=self.method,
                 drift=bool(details.drift_detected),
@@ -89,7 +131,7 @@ class UnifiedDriftDetector:
                 p_value=float(details.p_value),
                 threshold=self.threshold,
                 comparator=self.comparator,
-                metadata={"calibrated_threshold": float(details.threshold)},
+                metadata=metadata_ws,
             )
 
         if self.method == "mmd":
@@ -124,6 +166,14 @@ class UnifiedDriftDetector:
             reference_data, current_data
         )
         p_value = float(score) if self.method in {"ks", "cvm", "chi2cat"} else None
+        metadata_simple: dict[str, Any] = {}
+        ci_simple = self._bootstrap_ci(reference_data, current_data)
+        if ci_simple is not None:
+            metadata_simple["score_ci"] = {
+                "lo": ci_simple[0],
+                "hi": ci_simple[1],
+                "level": self.ci_level,
+            }
         return DriftResult(
             method=self.method,
             drift=bool(drift),
@@ -131,5 +181,5 @@ class UnifiedDriftDetector:
             p_value=p_value,
             threshold=self.threshold,
             comparator=self.comparator,
-            metadata={},
+            metadata=metadata_simple,
         )

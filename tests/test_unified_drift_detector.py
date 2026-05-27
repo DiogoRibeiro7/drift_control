@@ -43,6 +43,34 @@ def test_unified_mmd_multivariate():
 def test_unified_rejects_unknown_method():
     with pytest.raises(ValueError, match="method must be one of"):
         UnifiedDriftDetector(method="not-real")
+
+
+def test_unified_psi_bootstrap_ci_metadata():
+    detector = UnifiedDriftDetector(method="psi", ci_bootstrap_samples=40, ci_random_state=0)
+    result = detector.detect_drift([1, 2, 3, 4, 5, 6], [2, 3, 4, 5, 6, 7])
+    assert "score_ci" in result.metadata
+    ci = result.metadata["score_ci"]
+    assert ci["lo"] <= ci["hi"]
+    assert 0 < ci["level"] < 1
+
+
+def test_unified_js_bootstrap_ci_metadata():
+    detector = UnifiedDriftDetector(method="js", ci_bootstrap_samples=30, ci_random_state=1)
+    result = detector.detect_drift([1, 2, 3, 4, 5, 6], [2, 3, 4, 5, 6, 7])
+    assert "score_ci" in result.metadata
+
+
+def test_unified_wasserstein_bootstrap_ci_metadata():
+    detector = UnifiedDriftDetector(
+        method="wasserstein",
+        alpha=0.05,
+        n_permutations=60,
+        ci_bootstrap_samples=30,
+        ci_random_state=2,
+    )
+    result = detector.detect_drift([1, 2, 3, 4, 5, 6], [2, 3, 4, 5, 6, 7])
+    assert "calibrated_threshold" in result.metadata
+    assert "score_ci" in result.metadata
 import numpy as np
 
 from drift_control.unified_drift_detector import UnifiedDriftDetector
