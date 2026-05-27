@@ -98,6 +98,10 @@ class SyntheticDriftBenchmark:
             return UnifiedDriftDetector(method=method, alpha=0.05)
         if method in {"mmd", "wasserstein", "c2st"}:
             return UnifiedDriftDetector(method=method, alpha=0.05, n_permutations=80, random_state=7)
+        if method == "chi2cat":
+            return UnifiedDriftDetector(method=method, alpha=0.05)
+        if method == "tvdcat":
+            return UnifiedDriftDetector(method=method, threshold=0.1)
         return UnifiedDriftDetector(method=method, threshold=0.2 if method == "psi" else 0.1)
 
     def run(
