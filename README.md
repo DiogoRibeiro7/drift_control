@@ -66,6 +66,13 @@ drift-control --baseline baseline.csv --current current.csv --method mmd --thres
 - Linting via `ruff`
 - Roadmaps: [ROADMAP.md](ROADMAP.md), [TECHNICAL_DEBT_ROADMAP.md](TECHNICAL_DEBT_ROADMAP.md)
 
+## Documentation
+
+- Docs index: [docs/README.md](docs/README.md)
+- API reference: [docs/api/reference.md](docs/api/reference.md)
+- CLI schema and versioning: [docs/cli/schema.md](docs/cli/schema.md)
+- Pre-PyPI release checklist: [docs/operations/release-checklist.md](docs/operations/release-checklist.md)
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

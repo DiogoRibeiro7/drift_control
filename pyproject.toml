@@ -9,7 +9,6 @@ license = {text = "MIT"}
 maintainers = [
     { name = "Diogo Ribeiro", email = "diogo.debastos.ribeiro@gmail.com" }
 ]
-urls = {"Repository" = "https://github.com/DiogoRibeiro7/drift-control"}
 readme = "README.md"
 keywords = ["data-drift", "monitoring", "machine-learning"]
 classifiers = [
@@ -30,6 +29,10 @@ dependencies = [
     "scipy",
     "click",
 ]
+
+[project.urls]
+Repository = "https://github.com/DiogoRibeiro7/drift-control"
+Documentation = "https://github.com/DiogoRibeiro7/drift-control/tree/main/docs"
 
 [project.optional-dependencies]
 viz = [
