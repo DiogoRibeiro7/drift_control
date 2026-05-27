@@ -7,8 +7,19 @@ from pathlib import Path
 from typing import Any
 
 
-SUPPORTED_METHODS = {"psi", "ks", "mmd", "c2st", "cvm", "js", "wasserstein", "ensemble"}
-SUPPORTED_ENSEMBLE_METHODS = {"psi", "ks", "cvm", "js", "wasserstein"}
+SUPPORTED_METHODS = {
+    "psi",
+    "ks",
+    "mmd",
+    "c2st",
+    "cvm",
+    "js",
+    "wasserstein",
+    "chi2cat",
+    "tvdcat",
+    "ensemble",
+}
+SUPPORTED_ENSEMBLE_METHODS = {"psi", "ks", "cvm", "js", "wasserstein", "chi2cat", "tvdcat"}
 SUPPORTED_VOTE_MODES = {"majority", "any", "all"}
 
 

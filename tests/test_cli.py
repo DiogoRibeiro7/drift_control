@@ -332,3 +332,35 @@ def test_cli_config_file_json(tmp_path):
     payload = json.loads(result.output)
     assert payload['method'] == 'ks'
     assert payload['threshold'] == 0.01
+
+
+def test_cli_chi2cat_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': ['a', 'a', 'b', 'c']}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': ['c', 'c', 'c', 'b']}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--method', 'chi2cat', '--output-json'],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'chi2cat'
+    assert 'p_value' in payload['columns']['x']
+
+
+def test_cli_tvdcat_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': ['a', 'a', 'b', 'c']}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': ['c', 'c', 'c', 'b']}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--method', 'tvdcat', '--output-json'],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'tvdcat'
+    assert 'p_value' not in payload['columns']['x']

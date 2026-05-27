@@ -57,3 +57,15 @@ def test_drift_check_config_from_env(monkeypatch):
     cfg = DriftCheckConfig.from_env()
     assert cfg.method == 'ks'
     assert cfg.threshold == 0.01
+
+
+def test_config_accepts_categorical_methods():
+    cfg = DriftCheckConfig.from_cli(
+        method='chi2cat',
+        threshold=0.05,
+        ensemble_methods='chi2cat,tvdcat',
+        vote_mode='any',
+        min_votes=1,
+    )
+    assert cfg.method == 'chi2cat'
+    assert cfg.ensemble.methods == ['chi2cat', 'tvdcat']

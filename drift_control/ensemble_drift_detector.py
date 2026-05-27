@@ -5,12 +5,18 @@ from typing import Any, Callable, Protocol, cast
 
 import pandas as pd
 
+from .categorical_chi2_drift_detector import ChiSquareDriftDetector
+from .categorical_tvd_drift_detector import TotalVariationDriftDetector
 from .cvm_drift_detector import CVMDriftDetector
 from .js_drift_detector import JensenShannonDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .psi_drift_detector import PSIDriftDetector
 from .wasserstein_drift_detector import WassersteinDriftDetector
-from .validation import coerce_numeric_series, validate_matching_columns
+from .validation import (
+    coerce_categorical_series,
+    coerce_numeric_series,
+    validate_matching_columns,
+)
 
 
 @dataclass(frozen=True)
@@ -42,7 +48,7 @@ class EnsembleDriftDetector:
         vote_mode: str = "majority",
         min_votes: int | None = None,
     ) -> None:
-        available = {"psi", "ks", "cvm", "js", "wasserstein"}
+        available = {"psi", "ks", "cvm", "js", "wasserstein", "chi2cat", "tvdcat"}
         selected = methods or ["psi", "ks", "cvm", "js"]
         unknown = [m for m in selected if m not in available]
         if unknown:
@@ -60,6 +66,8 @@ class EnsembleDriftDetector:
             "cvm": lambda: CVMDriftDetector(),
             "js": lambda: JensenShannonDriftDetector(),
             "wasserstein": lambda: WassersteinDriftDetector(n_permutations=100),
+            "chi2cat": lambda: ChiSquareDriftDetector(),
+            "tvdcat": lambda: TotalVariationDriftDetector(),
         }
 
     def _required_votes(self) -> int:
@@ -85,17 +93,18 @@ class EnsembleDriftDetector:
         results: dict[str, EnsembleColumnResult] = {}
 
         for col in sorted(df_prior.columns):
-            try:
-                prior, post = coerce_numeric_series(
-                    df_prior[col], df_post[col], column_name=col, method_name="ensemble"
-                )
-            except ValueError as exc:
-                raise ValueError(f"column {col!r} contains invalid numeric values") from exc
-
             method_results: dict[str, dict[str, float | bool]] = {}
             votes = 0
             for method in self.methods:
                 detector = self._builders[method]()
+                if method in {"chi2cat", "tvdcat"}:
+                    prior, post = coerce_categorical_series(
+                        df_prior[col], df_post[col], column_name=col, method_name="ensemble"
+                    )
+                else:
+                    prior, post = coerce_numeric_series(
+                        df_prior[col], df_post[col], column_name=col, method_name="ensemble"
+                    )
                 if method == "wasserstein":
                     details = cast(_DetailedDetector, detector).detect_drift(
                         prior.values, post.values, return_details=True

@@ -13,6 +13,7 @@ from .ensemble_drift_detector import EnsembleDriftDetector
 from .telemetry import DriftTelemetry
 from .unified_drift_detector import UnifiedDriftDetector
 from .validation import (
+    coerce_categorical_series,
     coerce_numeric_frame,
     coerce_numeric_series,
     validate_matching_columns,
@@ -24,10 +25,10 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
 @click.command()
 @click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
 @click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
-@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'cvm', 'js', 'wasserstein', 'ensemble']), default='psi', help='Drift detection method')
+@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'ensemble']), default='psi', help='Drift detection method')
 @click.option('--threshold', type=float, default=None,
               help='Override the detector threshold (PSI: drift if score > threshold; '
-                   'JS: drift if score > threshold; KS/CVM/MMD/C2ST/Wasserstein: drift if p-value < threshold). Uses the method default if omitted.')
+                   'JS/TVDCAT: drift if score > threshold; KS/CVM/MMD/C2ST/Wasserstein/CHI2CAT: drift if p-value < threshold). Uses the method default if omitted.')
 @click.option(
     '--ensemble-methods',
     default='psi,ks,cvm,js',
@@ -130,7 +131,7 @@ def check(
     else:
         method_kwargs: dict[str, float] = {}
         if cfg.threshold is not None:
-            if cfg.method in {'psi', 'js'}:
+            if cfg.method in {'psi', 'js', 'tvdcat'}:
                 method_kwargs['threshold'] = cfg.threshold
             else:
                 method_kwargs['alpha'] = cfg.threshold
@@ -138,13 +139,18 @@ def check(
         effective_threshold = unified_detector.threshold
 
     results: dict[str, dict[str, object]] = {}
-    if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein'}:
+    if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat'}:
         assert unified_detector is not None
         for col in sorted(base_cols):
             try:
-                base_col, cur_col = coerce_numeric_series(
-                    base_df[col], cur_df[col], column_name=col, method_name=cfg.method
-                )
+                if cfg.method in {'chi2cat', 'tvdcat'}:
+                    base_col, cur_col = coerce_categorical_series(
+                        base_df[col], cur_df[col], column_name=col, method_name=cfg.method
+                    )
+                else:
+                    base_col, cur_col = coerce_numeric_series(
+                        base_df[col], cur_df[col], column_name=col, method_name=cfg.method
+                    )
             except ValueError as exc:
                 _raise_click(str(exc), "column_validation")
 
@@ -254,7 +260,7 @@ if __name__ == '__main__':
 @click.command(name="benchmark")
 @click.option(
     "--methods",
-    default="psi,ks,cvm,js,wasserstein,mmd,c2st",
+    default="psi,ks,cvm,js,wasserstein,mmd,c2st,chi2cat,tvdcat",
     help="Comma-separated detector methods to benchmark.",
 )
 @click.option("--sample-size", type=int, default=300, show_default=True, help="Samples per trial.")

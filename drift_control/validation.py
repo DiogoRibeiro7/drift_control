@@ -41,6 +41,23 @@ def coerce_numeric_series(
     return prior_num, post_num
 
 
+def coerce_categorical_series(
+    prior: pd.Series,
+    post: pd.Series,
+    column_name: str,
+    method_name: str,
+) -> tuple[pd.Series, pd.Series]:
+    """Convert paired columns to categorical strings and reject null values."""
+    prior_cat = prior.astype(str)
+    post_cat = post.astype(str)
+    if prior_cat.isna().any() or post_cat.isna().any():
+        raise ValueError(
+            f"Column '{column_name}' contains null values after categorical conversion; "
+            f"cannot run '{method_name}'."
+        )
+    return prior_cat, post_cat
+
+
 def coerce_numeric_frame(
     df: pd.DataFrame,
     method_name: str,

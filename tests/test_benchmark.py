@@ -52,3 +52,9 @@ def test_benchmark_emits_telemetry_calls():
     assert spy.latency_calls > 0
     assert spy.drift_rate_calls == 4
     assert spy.error_calls == 0
+
+
+def test_benchmark_default_methods_include_categorical_detectors():
+    bench = SyntheticDriftBenchmark(sample_size=30, n_trials=1, random_seed=0)
+    assert 'chi2cat' in bench.methods
+    assert 'tvdcat' in bench.methods

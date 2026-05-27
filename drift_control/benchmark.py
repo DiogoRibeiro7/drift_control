@@ -35,7 +35,17 @@ class SyntheticDriftBenchmark:
         random_seed: int = 42,
         telemetry: DriftTelemetry | None = None,
     ) -> None:
-        self.methods = methods or ["psi", "ks", "cvm", "js", "wasserstein", "mmd", "c2st"]
+        self.methods = methods or [
+            "psi",
+            "ks",
+            "cvm",
+            "js",
+            "wasserstein",
+            "mmd",
+            "c2st",
+            "chi2cat",
+            "tvdcat",
+        ]
         self.sample_size = sample_size
         self.n_trials = n_trials
         self.random_seed = random_seed
@@ -65,6 +75,24 @@ class SyntheticDriftBenchmark:
         cur = rng.standard_t(df=3, size=n)
         return ref, cur, True
 
+    @staticmethod
+    def scenario_cat_no_drift(
+        rng: np.random.Generator, n: int
+    ) -> tuple[np.ndarray, np.ndarray, bool]:
+        categories = np.array(["a", "b", "c"])
+        ref = rng.choice(categories, size=n, p=[0.4, 0.4, 0.2])
+        cur = rng.choice(categories, size=n, p=[0.4, 0.4, 0.2])
+        return ref, cur, False
+
+    @staticmethod
+    def scenario_cat_shift(
+        rng: np.random.Generator, n: int
+    ) -> tuple[np.ndarray, np.ndarray, bool]:
+        categories = np.array(["a", "b", "c"])
+        ref = rng.choice(categories, size=n, p=[0.5, 0.4, 0.1])
+        cur = rng.choice(categories, size=n, p=[0.1, 0.3, 0.6])
+        return ref, cur, True
+
     def _detector_for_method(self, method: str) -> UnifiedDriftDetector:
         if method in {"ks", "cvm"}:
             return UnifiedDriftDetector(method=method, alpha=0.05)
@@ -82,13 +110,22 @@ class SyntheticDriftBenchmark:
             "variance_shift": self.scenario_variance_shift,
             "tail_shift": self.scenario_tail_shift,
         }
+        categorical_scenarios = {
+            "cat_no_drift": self.scenario_cat_no_drift,
+            "cat_shift": self.scenario_cat_shift,
+        }
 
         rng = np.random.default_rng(self.random_seed)
         out: list[BenchmarkResult] = []
 
         for method in self.methods:
             detector = self._detector_for_method(method)
-            for scenario_name, scenario_fn in scenarios.items():
+            method_scenarios = (
+                categorical_scenarios
+                if method in {"chi2cat", "tvdcat"}
+                else scenarios
+            )
+            for scenario_name, scenario_fn in method_scenarios.items():
                 drift_flags: list[bool] = []
                 scores: list[float] = []
                 latencies_ms: list[float] = []

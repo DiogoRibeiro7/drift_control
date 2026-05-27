@@ -107,6 +107,8 @@ exclude = [
 [[tool.mypy.overrides]]
 module = [
   "drift_control.c2st_drift_detector",
+  "drift_control.categorical_chi2_drift_detector",
+  "drift_control.categorical_tvd_drift_detector",
   "drift_control.psi_drift_detector",
   "drift_control.ks_drift_detector",
   "drift_control.cvm_drift_detector",

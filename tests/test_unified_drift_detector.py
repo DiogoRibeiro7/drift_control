@@ -57,3 +57,17 @@ def test_unified_c2st_multivariate():
     assert out.method == 'c2st'
     assert out.p_value is not None
     assert 'calibrated_threshold' in out.metadata
+
+
+def test_unified_chi2cat():
+    detector = UnifiedDriftDetector(method='chi2cat', alpha=0.05)
+    out = detector.detect_drift(['a', 'a', 'b', 'c'], ['c', 'c', 'c', 'b'])
+    assert out.method == 'chi2cat'
+    assert out.p_value is not None
+
+
+def test_unified_tvdcat():
+    detector = UnifiedDriftDetector(method='tvdcat', threshold=0.1)
+    out = detector.detect_drift(['a', 'a', 'b', 'c'], ['c', 'c', 'c', 'b'])
+    assert out.method == 'tvdcat'
+    assert out.p_value is None

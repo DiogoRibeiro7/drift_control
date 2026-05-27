@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any, Protocol, Union, cast
 
 from .c2st_drift_detector import C2STDriftDetector
+from .categorical_chi2_drift_detector import ChiSquareDriftDetector
+from .categorical_tvd_drift_detector import TotalVariationDriftDetector
 from .cvm_drift_detector import CVMDriftDetector
 from .js_drift_detector import JensenShannonDriftDetector
 from .ks_drift_detector import KSDriftDetector
@@ -62,9 +64,17 @@ class UnifiedDriftDetector:
             self.detector = C2STDriftDetector(**kwargs)
             self.threshold = float(self.detector.alpha)
             self.comparator = "<"
+        elif method == "chi2cat":
+            self.detector = ChiSquareDriftDetector(**kwargs)
+            self.threshold = float(self.detector.alpha)
+            self.comparator = "<"
+        elif method == "tvdcat":
+            self.detector = TotalVariationDriftDetector(**kwargs)
+            self.threshold = float(self.detector.threshold)
+            self.comparator = ">"
         else:
             raise ValueError(
-                "method must be one of: psi, ks, cvm, js, wasserstein, mmd, c2st"
+                "method must be one of: psi, ks, cvm, js, wasserstein, mmd, c2st, chi2cat, tvdcat"
             )
 
     def detect_drift(self, reference_data: Any, current_data: Any) -> DriftResult:
@@ -113,7 +123,7 @@ class UnifiedDriftDetector:
         drift, score = cast(_SimpleDetector, self.detector).detect_drift(
             reference_data, current_data
         )
-        p_value = float(score) if self.method in {"ks", "cvm"} else None
+        p_value = float(score) if self.method in {"ks", "cvm", "chi2cat"} else None
         return DriftResult(
             method=self.method,
             drift=bool(drift),
