@@ -10,6 +10,7 @@ from .js_drift_detector import JensenShannonDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .psi_drift_detector import PSIDriftDetector
 from .wasserstein_drift_detector import WassersteinDriftDetector
+from .validation import coerce_numeric_series, validate_matching_columns
 
 
 @dataclass(frozen=True)
@@ -63,17 +64,21 @@ class EnsembleDriftDetector:
     def detect_drift(self, df_prior: pd.DataFrame, df_post: pd.DataFrame) -> dict[str, EnsembleColumnResult]:
         if not isinstance(df_prior, pd.DataFrame) or not isinstance(df_post, pd.DataFrame):
             raise TypeError("df_prior and df_post must be pandas DataFrames")
-        if set(df_prior.columns) != set(df_post.columns):
-            raise ValueError("df_prior and df_post must have the same columns")
+        try:
+            validate_matching_columns(df_prior, df_post)
+        except ValueError as exc:
+            raise ValueError("df_prior and df_post must have the same columns") from exc
 
         required_votes = self._required_votes()
         results: dict[str, EnsembleColumnResult] = {}
 
         for col in sorted(df_prior.columns):
-            prior = pd.to_numeric(df_prior[col], errors="raise")
-            post = pd.to_numeric(df_post[col], errors="raise")
-            if prior.isna().any() or post.isna().any():
-                raise ValueError(f"column {col!r} contains null values")
+            try:
+                prior, post = coerce_numeric_series(
+                    df_prior[col], df_post[col], column_name=col, method_name="ensemble"
+                )
+            except ValueError as exc:
+                raise ValueError(f"column {col!r} contains invalid numeric values") from exc
 
             method_results: dict[str, dict[str, float | bool]] = {}
             votes = 0

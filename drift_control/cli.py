@@ -7,6 +7,11 @@ import pandas as pd
 
 from .ensemble_drift_detector import EnsembleDriftDetector
 from .unified_drift_detector import UnifiedDriftDetector
+from .validation import (
+    coerce_numeric_frame,
+    coerce_numeric_series,
+    validate_matching_columns,
+)
 
 
 @click.command()
@@ -50,14 +55,11 @@ def check(
     """Run a drift check between two CSV files."""
     base_df = pd.read_csv(baseline)
     cur_df = pd.read_csv(current)
+    try:
+        validate_matching_columns(base_df, cur_df)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     base_cols = set(base_df.columns)
-    cur_cols = set(cur_df.columns)
-    if base_cols != cur_cols:
-        missing = sorted(base_cols - cur_cols)
-        extra = sorted(cur_cols - base_cols)
-        raise click.ClickException(
-            f"Schema mismatch between baseline and current. Missing columns: {missing}; Extra columns: {extra}"
-        )
 
     if method == 'ensemble':
         selected_methods = [m.strip() for m in ensemble_methods.split(',') if m.strip()]
@@ -84,17 +86,11 @@ def check(
     if method in {'psi', 'ks', 'cvm', 'js', 'wasserstein'}:
         for col in sorted(base_cols):
             try:
-                base_col = pd.to_numeric(base_df[col], errors='raise')
-                cur_col = pd.to_numeric(cur_df[col], errors='raise')
-            except Exception as exc:
-                raise click.ClickException(
-                    f"Column '{col}' must be numeric for method '{method}'."
-                ) from exc
-
-            if base_col.isna().any() or cur_col.isna().any():
-                raise click.ClickException(
-                    f"Column '{col}' contains null values after numeric conversion; cannot run '{method}'."
+                base_col, cur_col = coerce_numeric_series(
+                    base_df[col], cur_df[col], column_name=col, method_name=method
                 )
+            except ValueError as exc:
+                raise click.ClickException(str(exc)) from exc
 
             outcome = detector.detect_drift(base_col, cur_col)
             results[col] = {'score': float(outcome.score), 'drift': bool(outcome.drift)}
@@ -104,16 +100,10 @@ def check(
                 click.echo(f"{col}: {outcome.score:.4f} (drift={outcome.drift})")
     elif method == 'mmd':
         try:
-            base_num = base_df.apply(pd.to_numeric, errors='raise')
-            cur_num = cur_df.apply(pd.to_numeric, errors='raise')
-        except Exception as exc:
-            raise click.ClickException(
-                "All columns must be numeric for method 'mmd'."
-            ) from exc
-        if base_num.isna().any().any() or cur_num.isna().any().any():
-            raise click.ClickException(
-                "Input contains null values after numeric conversion; cannot run 'mmd'."
-            )
+            base_num = coerce_numeric_frame(base_df, method_name='mmd')
+            cur_num = coerce_numeric_frame(cur_df, method_name='mmd')
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
         outcome = detector.detect_drift(base_num.values, cur_num.values)
         results['dataset'] = {
             'score': float(outcome.score),
@@ -127,16 +117,10 @@ def check(
             )
     else:
         try:
-            base_num = base_df.apply(pd.to_numeric, errors='raise')
-            cur_num = cur_df.apply(pd.to_numeric, errors='raise')
-        except Exception as exc:
-            raise click.ClickException(
-                "All columns must be numeric for method 'ensemble'."
-            ) from exc
-        if base_num.isna().any().any() or cur_num.isna().any().any():
-            raise click.ClickException(
-                "Input contains null values after numeric conversion; cannot run 'ensemble'."
-            )
+            base_num = coerce_numeric_frame(base_df, method_name='ensemble')
+            cur_num = coerce_numeric_frame(cur_df, method_name='ensemble')
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
         ensemble_res = detector.detect_drift(base_num, cur_num)
         for col, col_res in ensemble_res.items():
             results[col] = {
