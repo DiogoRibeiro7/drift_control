@@ -30,6 +30,8 @@ _LAZY: dict[str, str] = {
     "UnifiedDriftDetector": "drift_control.unified_drift_detector",
     "DriftCheckConfig": "drift_control.config",
     "EnsembleConfig": "drift_control.config",
+    "SyntheticDriftBenchmark": "drift_control.benchmark",
+    "BenchmarkResult": "drift_control.benchmark",
     "EnsembleDriftDetector": "drift_control.ensemble_drift_detector",
     "EnsembleColumnResult": "drift_control.ensemble_drift_detector",
     "CovariateShiftDetector": "drift_control.multivariate_drift_detector",
