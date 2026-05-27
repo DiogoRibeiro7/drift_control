@@ -5,6 +5,7 @@ import json
 import click
 import pandas as pd
 
+from .config import DriftCheckConfig
 from .ensemble_drift_detector import EnsembleDriftDetector
 from .unified_drift_detector import UnifiedDriftDetector
 from .validation import (
@@ -53,6 +54,17 @@ def check(
     use_mlflow: bool,
 ) -> None:
     """Run a drift check between two CSV files."""
+    try:
+        cfg = DriftCheckConfig.from_cli(
+            method=method,
+            threshold=threshold,
+            ensemble_methods=ensemble_methods,
+            vote_mode=vote_mode,
+            min_votes=min_votes,
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
     base_df = pd.read_csv(baseline)
     cur_df = pd.read_csv(current)
     try:
@@ -61,33 +73,32 @@ def check(
         raise click.ClickException(str(exc)) from exc
     base_cols = set(base_df.columns)
 
-    if method == 'ensemble':
-        selected_methods = [m.strip() for m in ensemble_methods.split(',') if m.strip()]
+    if cfg.method == 'ensemble':
         try:
             detector = EnsembleDriftDetector(
-                methods=selected_methods,
-                vote_mode=vote_mode,
-                min_votes=min_votes,
+                methods=cfg.ensemble.methods,
+                vote_mode=cfg.ensemble.vote_mode,
+                min_votes=cfg.ensemble.min_votes,
             )
         except ValueError as exc:
             raise click.ClickException(str(exc)) from exc
         effective_threshold = None
     else:
         method_kwargs: dict[str, float] = {}
-        if threshold is not None:
-            if method in {'psi', 'js'}:
-                method_kwargs['threshold'] = threshold
+        if cfg.threshold is not None:
+            if cfg.method in {'psi', 'js'}:
+                method_kwargs['threshold'] = cfg.threshold
             else:
-                method_kwargs['alpha'] = threshold
-        detector = UnifiedDriftDetector(method=method, **method_kwargs)
+                method_kwargs['alpha'] = cfg.threshold
+        detector = UnifiedDriftDetector(method=cfg.method, **method_kwargs)
         effective_threshold = detector.threshold
 
     results: dict[str, dict[str, object]] = {}
-    if method in {'psi', 'ks', 'cvm', 'js', 'wasserstein'}:
+    if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein'}:
         for col in sorted(base_cols):
             try:
                 base_col, cur_col = coerce_numeric_series(
-                    base_df[col], cur_df[col], column_name=col, method_name=method
+                    base_df[col], cur_df[col], column_name=col, method_name=cfg.method
                 )
             except ValueError as exc:
                 raise click.ClickException(str(exc)) from exc
@@ -98,7 +109,7 @@ def check(
                 results[col]['p_value'] = float(outcome.p_value)
             if not output_json:
                 click.echo(f"{col}: {outcome.score:.4f} (drift={outcome.drift})")
-    elif method == 'mmd':
+    elif cfg.method == 'mmd':
         try:
             base_num = coerce_numeric_frame(base_df, method_name='mmd')
             cur_num = coerce_numeric_frame(cur_df, method_name='mmd')
@@ -137,11 +148,11 @@ def check(
 
     if output_json:
         payload = {
-            'method': method,
+            'method': cfg.method,
             'threshold': None if effective_threshold is None else float(effective_threshold),
             'columns': results,
         }
-        if method == 'ensemble':
+        if cfg.method == 'ensemble':
             payload['ensemble'] = {
                 'methods': detector.methods,
                 'vote_mode': detector.vote_mode,
