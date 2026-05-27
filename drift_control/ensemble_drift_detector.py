@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable, Protocol, cast
 
 import pandas as pd
 
@@ -19,6 +19,18 @@ class EnsembleColumnResult:
     votes: int
     required_votes: int
     method_results: dict[str, dict[str, float | bool]]
+
+
+class _SimpleDetector(Protocol):
+    def detect_drift(self, reference_data: Any, current_data: Any) -> tuple[bool, float]:
+        ...
+
+
+class _DetailedDetector(Protocol):
+    def detect_drift(
+        self, reference_data: Any, current_data: Any, return_details: bool = False
+    ) -> Any:
+        ...
 
 
 class EnsembleDriftDetector:
@@ -85,7 +97,9 @@ class EnsembleDriftDetector:
             for method in self.methods:
                 detector = self._builders[method]()
                 if method == "wasserstein":
-                    details = detector.detect_drift(prior.values, post.values, return_details=True)
+                    details = cast(_DetailedDetector, detector).detect_drift(
+                        prior.values, post.values, return_details=True
+                    )
                     drift = bool(details.drift_detected)
                     score = float(details.distance)
                     method_results[method] = {
@@ -94,7 +108,9 @@ class EnsembleDriftDetector:
                         "p_value": float(details.p_value),
                     }
                 else:
-                    drift, score = detector.detect_drift(prior.values, post.values)
+                    drift, score = cast(_SimpleDetector, detector).detect_drift(
+                        prior.values, post.values
+                    )
                     method_results[method] = {"drift": bool(drift), "score": float(score)}
                 votes += int(drift)
 

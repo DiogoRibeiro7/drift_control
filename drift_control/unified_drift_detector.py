@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol, Union, cast
 
 from .cvm_drift_detector import CVMDriftDetector
 from .js_drift_detector import JensenShannonDriftDetector
@@ -11,12 +11,27 @@ from .result_schema import DriftResult
 from .wasserstein_drift_detector import WassersteinDriftDetector
 
 
+class _SimpleDetector(Protocol):
+    def detect_drift(self, reference_data: Any, current_data: Any) -> tuple[bool, float]:
+        ...
+
+
+class _DetailedDetector(Protocol):
+    def detect_drift(
+        self, reference_data: Any, current_data: Any, return_details: bool = False
+    ) -> Any:
+        ...
+
+
 class UnifiedDriftDetector:
     """Facade providing a consistent DriftResult across detector methods."""
 
     def __init__(self, method: str = "psi", **kwargs: Any) -> None:
         self.method = method
         self.kwargs = kwargs
+        self.detector: Union[_SimpleDetector, _DetailedDetector]
+        self.threshold: float
+        self.comparator: str
 
         if method == "psi":
             self.detector = PSIDriftDetector(**kwargs)
@@ -47,9 +62,11 @@ class UnifiedDriftDetector:
                 "method must be one of: psi, ks, cvm, js, wasserstein, mmd"
             )
 
-    def detect_drift(self, reference_data, current_data) -> DriftResult:
+    def detect_drift(self, reference_data: Any, current_data: Any) -> DriftResult:
         if self.method == "wasserstein":
-            details = self.detector.detect_drift(reference_data, current_data, return_details=True)
+            details = cast(_DetailedDetector, self.detector).detect_drift(
+                reference_data, current_data, return_details=True
+            )
             return DriftResult(
                 method=self.method,
                 drift=bool(details.drift_detected),
@@ -61,7 +78,9 @@ class UnifiedDriftDetector:
             )
 
         if self.method == "mmd":
-            details = self.detector.detect_drift(reference_data, current_data, return_details=True)
+            details = cast(_DetailedDetector, self.detector).detect_drift(
+                reference_data, current_data, return_details=True
+            )
             return DriftResult(
                 method=self.method,
                 drift=bool(details.drift_detected),
@@ -72,7 +91,9 @@ class UnifiedDriftDetector:
                 metadata={"calibrated_threshold": float(details.threshold)},
             )
 
-        drift, score = self.detector.detect_drift(reference_data, current_data)
+        drift, score = cast(_SimpleDetector, self.detector).detect_drift(
+            reference_data, current_data
+        )
         p_value = float(score) if self.method in {"ks", "cvm"} else None
         return DriftResult(
             method=self.method,

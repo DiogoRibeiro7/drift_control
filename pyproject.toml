@@ -88,10 +88,24 @@ check_untyped_defs = true
 no_implicit_optional = true
 strict_equality = true
 files = [
+  "drift_control/cli.py",
   "drift_control/config.py",
+  "drift_control/ensemble_drift_detector.py",
   "drift_control/result_schema.py",
+  "drift_control/unified_drift_detector.py",
   "drift_control/validation.py",
 ]
 exclude = [
   "^tests/",
 ]
+
+[[tool.mypy.overrides]]
+module = [
+  "drift_control.psi_drift_detector",
+  "drift_control.ks_drift_detector",
+  "drift_control.cvm_drift_detector",
+  "drift_control.js_drift_detector",
+  "drift_control.wasserstein_drift_detector",
+  "drift_control.mmd_drift_detector",
+]
+ignore_errors = true

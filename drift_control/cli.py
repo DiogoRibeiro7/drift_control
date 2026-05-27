@@ -1,6 +1,7 @@
 """Command-line entry point for drift checks between two CSV files."""
 
 import json
+from typing import Any
 
 import click
 import pandas as pd
@@ -75,9 +76,11 @@ def check(
         raise click.ClickException(str(exc)) from exc
     base_cols = set(base_df.columns)
 
+    ensemble_detector: EnsembleDriftDetector | None = None
+    unified_detector: UnifiedDriftDetector | None = None
     if cfg.method == 'ensemble':
         try:
-            detector = EnsembleDriftDetector(
+            ensemble_detector = EnsembleDriftDetector(
                 methods=cfg.ensemble.methods,
                 vote_mode=cfg.ensemble.vote_mode,
                 min_votes=cfg.ensemble.min_votes,
@@ -92,11 +95,12 @@ def check(
                 method_kwargs['threshold'] = cfg.threshold
             else:
                 method_kwargs['alpha'] = cfg.threshold
-        detector = UnifiedDriftDetector(method=cfg.method, **method_kwargs)
-        effective_threshold = detector.threshold
+        unified_detector = UnifiedDriftDetector(method=cfg.method, **method_kwargs)
+        effective_threshold = unified_detector.threshold
 
     results: dict[str, dict[str, object]] = {}
     if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein'}:
+        assert unified_detector is not None
         for col in sorted(base_cols):
             try:
                 base_col, cur_col = coerce_numeric_series(
@@ -105,19 +109,20 @@ def check(
             except ValueError as exc:
                 raise click.ClickException(str(exc)) from exc
 
-            outcome = detector.detect_drift(base_col, cur_col)
+            outcome = unified_detector.detect_drift(base_col, cur_col)
             results[col] = {'score': float(outcome.score), 'drift': bool(outcome.drift)}
             if outcome.p_value is not None:
                 results[col]['p_value'] = float(outcome.p_value)
             if not output_json:
                 click.echo(f"{col}: {outcome.score:.4f} (drift={outcome.drift})")
     elif cfg.method == 'mmd':
+        assert unified_detector is not None
         try:
             base_num = coerce_numeric_frame(base_df, method_name='mmd')
             cur_num = coerce_numeric_frame(cur_df, method_name='mmd')
         except ValueError as exc:
             raise click.ClickException(str(exc)) from exc
-        outcome = detector.detect_drift(base_num.values, cur_num.values)
+        outcome = unified_detector.detect_drift(base_num.values, cur_num.values)
         results['dataset'] = {
             'score': float(outcome.score),
             'p_value': float(outcome.p_value) if outcome.p_value is not None else None,
@@ -129,12 +134,13 @@ def check(
                 f"(drift={outcome.drift})"
             )
     else:
+        assert ensemble_detector is not None
         try:
             base_num = coerce_numeric_frame(base_df, method_name='ensemble')
             cur_num = coerce_numeric_frame(cur_df, method_name='ensemble')
         except ValueError as exc:
             raise click.ClickException(str(exc)) from exc
-        ensemble_res = detector.detect_drift(base_num, cur_num)
+        ensemble_res = ensemble_detector.detect_drift(base_num, cur_num)
         for col, col_res in ensemble_res.items():
             results[col] = {
                 'score': float(col_res.votes),
@@ -149,7 +155,7 @@ def check(
                 )
 
     if output_json:
-        payload = {
+        payload: dict[str, Any] = {
             'schema_version': CLI_JSON_SCHEMA_VERSION,
             'method': cfg.method,
             'threshold': None if effective_threshold is None else float(effective_threshold),
@@ -157,9 +163,9 @@ def check(
         }
         if cfg.method == 'ensemble':
             payload['ensemble'] = {
-                'methods': detector.methods,
-                'vote_mode': detector.vote_mode,
-                'min_votes': detector.min_votes,
+                'methods': ensemble_detector.methods if ensemble_detector is not None else [],
+                'vote_mode': ensemble_detector.vote_mode if ensemble_detector is not None else None,
+                'min_votes': ensemble_detector.min_votes if ensemble_detector is not None else None,
             }
         click.echo(json.dumps(payload))
 
@@ -173,8 +179,10 @@ def check(
         active_run = mlflow.active_run()
         run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()
         with run_ctx:
-            for col, payload in results.items():
-                mlflow.log_metric(col, payload['score'])
+            for col, metric_payload in results.items():
+                score = metric_payload.get('score')
+                if isinstance(score, (int, float)):
+                    mlflow.log_metric(col, float(score))
 
 
 if __name__ == '__main__':
