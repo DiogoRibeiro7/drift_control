@@ -73,6 +73,8 @@ drift-control --baseline baseline.csv --current current.csv --method mmd --thres
 - CLI schema and versioning: [docs/cli/schema.md](docs/cli/schema.md)
 - Pipeline integrations: [docs/integrations/pipeline-integrations.md](docs/integrations/pipeline-integrations.md)
 - Pre-PyPI release checklist: [docs/operations/release-checklist.md](docs/operations/release-checklist.md)
+- Drift incident template: [docs/operations/drift-incident-template.md](docs/operations/drift-incident-template.md)
+- Drift postmortem checklist: [docs/operations/drift-postmortem-checklist.md](docs/operations/drift-postmortem-checklist.md)
 
 ## License
 

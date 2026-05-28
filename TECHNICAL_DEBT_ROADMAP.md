@@ -30,7 +30,7 @@ This document tracks the concrete work needed to evolve `drift-control` from a s
 
 - [x] Add OpenTelemetry hooks for detector runtime metrics.
 - [x] Add first-class integration examples for MLflow, DVC, and feature stores.
-- [ ] Add drift incident reporting templates and postmortem checklist.
+- [x] Add drift incident reporting templates and postmortem checklist.
 
 ## P3 - Performance and Scale
 
