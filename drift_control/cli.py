@@ -37,7 +37,7 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
 )
 @click.option(
     '--vote-mode',
-    type=click.Choice(['majority', 'any', 'all']),
+    type=click.Choice(['majority', 'any', 'all', 'stacking']),
     default='majority',
     help='Voting mode for ensemble method.',
 )
@@ -46,6 +46,13 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
     type=int,
     default=None,
     help='Override votes required in ensemble mode.',
+)
+@click.option(
+    '--stack-threshold',
+    type=float,
+    default=0.5,
+    show_default=True,
+    help='Decision threshold for ensemble stacking mode in [0,1].',
 )
 @click.option(
     '--correction',
@@ -82,6 +89,7 @@ def check(
     ensemble_methods: str,
     vote_mode: str,
     min_votes: int | None,
+    stack_threshold: float,
     correction: str,
     output_json: bool,
     use_mlflow: bool,
@@ -108,6 +116,7 @@ def check(
                 ensemble_methods=ensemble_methods,
                 vote_mode=vote_mode,
                 min_votes=min_votes,
+                stack_threshold=stack_threshold,
             )
     except ValueError as exc:
         _raise_click(str(exc), "config")
@@ -135,6 +144,7 @@ def check(
                 vote_mode=cfg.ensemble.vote_mode,
                 min_votes=cfg.ensemble.min_votes,
                 correction=cfg.correction,
+                stack_threshold=cfg.ensemble.stack_threshold,
             )
         except ValueError as exc:
             _raise_click(str(exc), "ensemble_init")
@@ -244,6 +254,9 @@ def check(
                 'methods': ensemble_detector.methods if ensemble_detector is not None else [],
                 'vote_mode': ensemble_detector.vote_mode if ensemble_detector is not None else None,
                 'min_votes': ensemble_detector.min_votes if ensemble_detector is not None else None,
+                'stack_threshold': (
+                    ensemble_detector.stack_threshold if ensemble_detector is not None else None
+                ),
             }
         click.echo(json.dumps(payload))
 

@@ -70,7 +70,9 @@ def test_cli_ensemble_schema_v1_shape_is_stable(tmp_path):
             "columns",
             "ensemble",
         }
-        assert {"methods", "vote_mode", "min_votes"} == set(payload["ensemble"].keys())
+        assert {"methods", "vote_mode", "min_votes", "stack_threshold"} == set(
+            payload["ensemble"].keys()
+        )
         col_payload = payload["columns"]["x"]
         assert {"score", "drift", "votes", "required_votes"} == set(col_payload.keys())
 

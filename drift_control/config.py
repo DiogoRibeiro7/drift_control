@@ -21,7 +21,7 @@ SUPPORTED_METHODS = {
     "ensemble",
 }
 SUPPORTED_ENSEMBLE_METHODS = {"psi", "ks", "cvm", "js", "wasserstein", "chi2cat", "tvdcat"}
-SUPPORTED_VOTE_MODES = {"majority", "any", "all"}
+SUPPORTED_VOTE_MODES = {"majority", "any", "all", "stacking"}
 SUPPORTED_CORRECTIONS = {"none", "bonferroni", "bh"}
 
 
@@ -30,16 +30,19 @@ class EnsembleConfig:
     methods: list[str]
     vote_mode: str = "majority"
     min_votes: int | None = None
+    stack_threshold: float = 0.5
 
     def __post_init__(self) -> None:
         unknown = [m for m in self.methods if m not in SUPPORTED_ENSEMBLE_METHODS]
         if unknown:
             raise ValueError(f"unknown methods: {unknown}")
         if self.vote_mode not in SUPPORTED_VOTE_MODES:
-            raise ValueError("vote_mode must be one of: 'majority', 'any', 'all'")
+            raise ValueError("vote_mode must be one of: 'majority', 'any', 'all', 'stacking'")
         if self.min_votes is not None:
             if self.min_votes < 1 or self.min_votes > len(self.methods):
                 raise ValueError("min_votes must be between 1 and the number of methods")
+        if not (0 <= self.stack_threshold <= 1):
+            raise ValueError("stack_threshold must be between 0 and 1")
 
 
 @dataclass(frozen=True)
@@ -65,11 +68,17 @@ class DriftCheckConfig:
         ensemble_methods: str,
         vote_mode: str,
         min_votes: int | None,
+        stack_threshold: float = 0.5,
     ) -> "DriftCheckConfig":
         methods = [m.strip() for m in ensemble_methods.split(",") if m.strip()]
         if not methods:
             methods = ["psi", "ks", "cvm", "js"]
-        ensemble = EnsembleConfig(methods=methods, vote_mode=vote_mode, min_votes=min_votes)
+        ensemble = EnsembleConfig(
+            methods=methods,
+            vote_mode=vote_mode,
+            min_votes=min_votes,
+            stack_threshold=stack_threshold,
+        )
         return DriftCheckConfig(
             method=method,
             threshold=threshold,
@@ -130,6 +139,7 @@ class DriftCheckConfig:
             ensemble_methods=ensemble_methods,
             vote_mode=vote_mode,
             min_votes=min_votes,
+            stack_threshold=0.5,
         )
 
     @staticmethod
@@ -152,7 +162,14 @@ class DriftCheckConfig:
         vote_mode = str(ensemble_raw.get("vote_mode", "majority"))
         min_votes_raw = ensemble_raw.get("min_votes")
         min_votes = int(min_votes_raw) if min_votes_raw is not None else None
-        ensemble = EnsembleConfig(methods=methods, vote_mode=vote_mode, min_votes=min_votes)
+        stack_threshold_raw = ensemble_raw.get("stack_threshold", 0.5)
+        stack_threshold = float(stack_threshold_raw)
+        ensemble = EnsembleConfig(
+            methods=methods,
+            vote_mode=vote_mode,
+            min_votes=min_votes,
+            stack_threshold=stack_threshold,
+        )
         return DriftCheckConfig(
             method=method,
             threshold=threshold,

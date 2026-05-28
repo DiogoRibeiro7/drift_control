@@ -23,8 +23,8 @@ This document tracks the concrete work needed to evolve `drift-control` from a s
 
 - [x] Add multivariate kernel two-sample testing (MMD with permutation calibration).
 - [x] Add modern streaming concept drift detectors (ADWIN, Page-Hinkley).
-- [ ] Add optional energy distance / classifier two-sample variants for very high-dimensional tabular data.
-- [ ] Add detector ensembling with voting/stacking to reduce false alarms.
+- [x] Add optional energy distance / classifier two-sample variants for very high-dimensional tabular data.
+- [x] Add detector ensembling with voting/stacking to reduce false alarms.
 
 ## P2 - Operations and MLOps
 

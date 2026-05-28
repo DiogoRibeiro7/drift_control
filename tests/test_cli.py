@@ -205,6 +205,7 @@ def test_cli_ensemble_output_json(tmp_path):
     assert payload['threshold'] is None
     assert payload['ensemble']['methods'] == ['psi', 'ks', 'cvm', 'js']
     assert payload['ensemble']['vote_mode'] == 'majority'
+    assert payload['ensemble']['stack_threshold'] == 0.5
     assert 'x' in payload['columns']
     assert 'votes' in payload['columns']['x']
     assert 'required_votes' in payload['columns']['x']
@@ -226,6 +227,26 @@ def test_cli_ensemble_invalid_method_fails(tmp_path):
     )
     assert result.exit_code != 0
     assert 'unknown methods' in result.output
+
+
+def test_cli_ensemble_stacking_mode_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'ensemble', '--output-json',
+            '--vote-mode', 'stacking', '--stack-threshold', '0.25',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['ensemble']['vote_mode'] == 'stacking'
+    assert payload['ensemble']['stack_threshold'] == 0.25
 
 
 def test_cli_json_payload_top_level_keys_compatibility(tmp_path):
@@ -259,6 +280,7 @@ def test_cli_json_payload_top_level_keys_compatibility_ensemble(tmp_path):
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert set(payload.keys()) == {'schema_version', 'method', 'threshold', 'correction', 'columns', 'ensemble'}
+    assert 'stack_threshold' in payload['ensemble']
 
 
 def test_cli_correction_bonferroni_adjusts_pvalues(tmp_path):

@@ -49,21 +49,25 @@ class EnsembleDriftDetector:
         vote_mode: str = "majority",
         min_votes: int | None = None,
         correction: str = "none",
+        stack_threshold: float = 0.5,
     ) -> None:
         available = {"psi", "ks", "cvm", "js", "wasserstein", "chi2cat", "tvdcat"}
         selected = methods or ["psi", "ks", "cvm", "js"]
         unknown = [m for m in selected if m not in available]
         if unknown:
             raise ValueError(f"unknown methods: {unknown}")
-        if vote_mode not in {"majority", "any", "all"}:
-            raise ValueError("vote_mode must be one of: 'majority', 'any', 'all'")
+        if vote_mode not in {"majority", "any", "all", "stacking"}:
+            raise ValueError("vote_mode must be one of: 'majority', 'any', 'all', 'stacking'")
         if correction not in {"none", "bonferroni", "bh"}:
             raise ValueError("correction must be one of: none, bonferroni, bh")
+        if not (0 <= stack_threshold <= 1):
+            raise ValueError("stack_threshold must be between 0 and 1")
 
         self.methods = selected
         self.vote_mode = vote_mode
         self.min_votes = min_votes
         self.correction = correction
+        self.stack_threshold = float(stack_threshold)
 
         self._builders: dict[str, Callable[[], object]] = {
             "psi": lambda: PSIDriftDetector(),
@@ -76,6 +80,8 @@ class EnsembleDriftDetector:
         }
 
     def _required_votes(self) -> int:
+        if self.vote_mode == "stacking":
+            return 0
         if self.min_votes is not None:
             if self.min_votes < 1 or self.min_votes > len(self.methods):
                 raise ValueError("min_votes must be between 1 and the number of methods")
@@ -85,6 +91,17 @@ class EnsembleDriftDetector:
         if self.vote_mode == "all":
             return len(self.methods)
         return (len(self.methods) // 2) + 1
+
+    @staticmethod
+    def _confidence(method: str, row: dict[str, float | bool], detector: object) -> float:
+        p = row.get("p_value")
+        if isinstance(p, (float, int)):
+            return max(0.0, min(1.0, 1.0 - float(p)))
+        score = float(row["score"])
+        threshold = float(getattr(detector, "threshold", 1.0))
+        if threshold <= 0:
+            return 0.0
+        return max(0.0, min(1.0, score / threshold))
 
     def detect_drift(self, df_prior: pd.DataFrame, df_post: pd.DataFrame) -> dict[str, EnsembleColumnResult]:
         if not isinstance(df_prior, pd.DataFrame) or not isinstance(df_post, pd.DataFrame):
@@ -101,6 +118,7 @@ class EnsembleDriftDetector:
         for col in sorted(df_prior.columns):
             method_results: dict[str, dict[str, float | bool]] = {}
             votes = 0
+            confidences: list[float] = []
             for method in self.methods:
                 detector = self._builders[method]()
                 if method in {"chi2cat", "tvdcat"}:
@@ -133,9 +151,21 @@ class EnsembleDriftDetector:
                         raw_pvalues_by_method.setdefault(method, []).append((col, float(score)))
                     method_results[method] = row
                 votes += int(drift)
+                confidences.append(self._confidence(method, method_results[method], detector))
+
+            stack_score = float(sum(confidences) / max(len(confidences), 1))
+            if self.vote_mode == "stacking":
+                drift_detected = bool(stack_score >= self.stack_threshold)
+            else:
+                drift_detected = bool(votes >= required_votes)
+            method_results["_stacking"] = {
+                "score": stack_score,
+                "threshold": self.stack_threshold,
+                "drift": drift_detected,
+            }
 
             results[col] = EnsembleColumnResult(
-                drift_detected=votes >= required_votes,
+                drift_detected=drift_detected,
                 votes=votes,
                 required_votes=required_votes,
                 method_results=method_results,
@@ -151,9 +181,27 @@ class EnsembleDriftDetector:
                     mr["p_value"] = float(adj_p)
                     mr["drift"] = bool(adj_p < 0.05)
                 for col in cols:
-                    votes = sum(int(bool(v["drift"])) for v in results[col].method_results.values())
+                    votes = sum(
+                        int(bool(v["drift"]))
+                        for k, v in results[col].method_results.items()
+                        if k != "_stacking"
+                    )
+                    confidences = [
+                        self._confidence(m, results[col].method_results[m], self._builders[m]())
+                        for m in self.methods
+                    ]
+                    stack_score = float(sum(confidences) / max(len(confidences), 1))
+                    if self.vote_mode == "stacking":
+                        drift_detected = bool(stack_score >= self.stack_threshold)
+                    else:
+                        drift_detected = bool(votes >= required_votes)
+                    results[col].method_results["_stacking"] = {
+                        "score": stack_score,
+                        "threshold": self.stack_threshold,
+                        "drift": drift_detected,
+                    }
                     results[col] = EnsembleColumnResult(
-                        drift_detected=votes >= required_votes,
+                        drift_detected=drift_detected,
                         votes=votes,
                         required_votes=required_votes,
                         method_results=results[col].method_results,

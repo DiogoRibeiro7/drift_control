@@ -34,3 +34,16 @@ def test_ensemble_rejects_bad_min_votes():
     detector = EnsembleDriftDetector(methods=["ks", "cvm"], min_votes=3)
     with pytest.raises(ValueError, match="min_votes"):
         detector.detect_drift(pd.DataFrame({"x": [1, 2]}), pd.DataFrame({"x": [2, 3]}))
+
+
+def test_ensemble_stacking_mode_produces_stacking_metadata():
+    df_prior = pd.DataFrame({"x": [0, 1, 2, 3, 4, 5]})
+    df_post = pd.DataFrame({"x": [10, 11, 12, 13, 14, 15]})
+    detector = EnsembleDriftDetector(
+        methods=["psi", "ks", "cvm", "js"],
+        vote_mode="stacking",
+        stack_threshold=0.2,
+    )
+    out = detector.detect_drift(df_prior, df_post)
+    assert "_stacking" in out["x"].method_results
+    assert out["x"].method_results["_stacking"]["score"] >= 0.0
