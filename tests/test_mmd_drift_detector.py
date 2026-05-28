@@ -33,3 +33,23 @@ def test_mmd_rejects_feature_count_mismatch():
     detector = MMDDriftDetector()
     with pytest.raises(ValueError, match="same number of features"):
         detector.detect_drift(np.ones((10, 2)), np.ones((10, 3)))
+
+
+def test_mmd_linear_estimator_detects_shift():
+    rng = np.random.default_rng(2)
+    ref = rng.normal(0, 1, size=(400, 4))
+    cur = rng.normal(0.7, 1, size=(400, 4))
+    detector = MMDDriftDetector(
+        alpha=0.05,
+        n_permutations=80,
+        random_state=5,
+        estimator="linear",
+    )
+    result = detector.detect_drift(ref, cur, return_details=True)
+    assert result.p_value <= 1.0
+    assert isinstance(result.mmd2, float)
+
+
+def test_mmd_rejects_unknown_estimator():
+    with pytest.raises(ValueError, match="estimator must be one of"):
+        MMDDriftDetector(estimator="bad")  # type: ignore[arg-type]

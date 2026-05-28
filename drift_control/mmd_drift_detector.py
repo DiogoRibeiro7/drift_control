@@ -31,16 +31,20 @@ class MMDDriftDetector:
         n_permutations: int = 200,
         gamma: float | None = None,
         random_state: int = 42,
+        estimator: Literal["exact", "linear"] = "exact",
     ) -> None:
         if not (0 < alpha < 1):
             raise ValueError("alpha must be between 0 and 1")
         if n_permutations < 50:
             raise ValueError("n_permutations must be >= 50")
+        if estimator not in {"exact", "linear"}:
+            raise ValueError("estimator must be one of: exact, linear")
 
         self.alpha = float(alpha)
         self.n_permutations = int(n_permutations)
         self.gamma = gamma
         self.random_state = int(random_state)
+        self.estimator: Literal["exact", "linear"] = estimator
 
     @staticmethod
     def _as_2d_array(x: np.ndarray | list | tuple, name: str) -> np.ndarray:
@@ -98,6 +102,32 @@ class MMDDriftDetector:
         term_xy = np.sum(Kxy) * (2.0 / (m * n))
         return float(term_x + term_y - term_xy)
 
+    def _mmd2_linear(self, X: np.ndarray, Y: np.ndarray, gamma: float) -> float:
+        """Linear-time MMD^2 approximation for large batches.
+
+        Uses paired samples and computes:
+        k(x1, x2) + k(y1, y2) - k(x1, y2) - k(x2, y1)
+        averaged across random disjoint pairs.
+        """
+        m = min(X.shape[0], Y.shape[0])
+        if m < 2:
+            raise ValueError("linear estimator requires at least 2 samples per side")
+        if m % 2 == 1:
+            m -= 1
+
+        Xp = X[:m]
+        Yp = Y[:m]
+        x1 = Xp[0::2]
+        x2 = Xp[1::2]
+        y1 = Yp[0::2]
+        y2 = Yp[1::2]
+
+        k_xx = np.diag(self._rbf_kernel(x1, x2, gamma))
+        k_yy = np.diag(self._rbf_kernel(y1, y2, gamma))
+        k_xy = np.diag(self._rbf_kernel(x1, y2, gamma))
+        k_yx = np.diag(self._rbf_kernel(x2, y1, gamma))
+        return float(np.mean(k_xx + k_yy - k_xy - k_yx))
+
     def detect_drift(
         self,
         reference_data: np.ndarray | list | tuple,
@@ -114,7 +144,10 @@ class MMDDriftDetector:
             )
 
         gamma = self._resolve_gamma(X, Y)
-        observed_mmd2 = self._mmd2_unbiased(X, Y, gamma)
+        if self.estimator == "linear":
+            observed_mmd2 = self._mmd2_linear(X, Y, gamma)
+        else:
+            observed_mmd2 = self._mmd2_unbiased(X, Y, gamma)
 
         rng = np.random.default_rng(self.random_state)
         Z = np.vstack([X, Y])
@@ -125,7 +158,10 @@ class MMDDriftDetector:
             perm = rng.permutation(Z.shape[0])
             Xp = Z[perm[:n_ref]]
             Yp = Z[perm[n_ref:]]
-            null_mmd2[i] = self._mmd2_unbiased(Xp, Yp, gamma)
+            if self.estimator == "linear":
+                null_mmd2[i] = self._mmd2_linear(Xp, Yp, gamma)
+            else:
+                null_mmd2[i] = self._mmd2_unbiased(Xp, Yp, gamma)
 
         threshold = float(np.quantile(null_mmd2, 1.0 - self.alpha))
         p_value = float((1.0 + np.sum(null_mmd2 >= observed_mmd2)) / (1.0 + self.n_permutations))
@@ -153,5 +189,8 @@ class MMDDriftDetector:
             p_value=float(details.p_value),
             threshold=float(self.alpha),
             comparator="<",
-            metadata={"calibrated_threshold": float(details.threshold)},
+            metadata={
+                "calibrated_threshold": float(details.threshold),
+                "estimator": self.estimator,
+            },
         )
