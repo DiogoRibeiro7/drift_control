@@ -200,3 +200,24 @@ This exposes:
 - `fraud_model_drift_events_total{column="..."}`
 - `fraud_model_drift_score{column="..."}`
 - `fraud_model_drift_flag{column="..."}`
+
+## OpenTelemetry tracing
+
+`drift-control` emits spans when OpenTelemetry tracing is configured:
+- `drift_control.detect_drift` for `UnifiedDriftDetector.detect_drift(...)`
+- `drift_control.cli.check` for CLI drift checks
+- `drift_control.benchmark.run` and `drift_control.benchmark.scenario` for synthetic benchmark runs
+
+Minimal setup example:
+
+```python
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
+provider = TracerProvider()
+provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+trace.set_tracer_provider(provider)
+```
+
+After this, run detector/CLI/benchmark paths as usual; spans are emitted automatically.
