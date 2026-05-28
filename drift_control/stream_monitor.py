@@ -12,6 +12,7 @@ import inspect
 from typing import AsyncIterable, Dict, Any, Callable
 import pandas as pd
 
+from .alert_sinks import AlertSink
 from .psi_drift_detector import PSIDriftDetector
 
 
@@ -31,6 +32,7 @@ class StreamMonitor:
         self,
         detector: Any | None = None,
         on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
+        alert_sinks: list[AlertSink] | None = None,
         on_schema_change: str = "strict",
         window_size: int = 1,
         baseline_strategy: str = "fixed",
@@ -61,6 +63,7 @@ class StreamMonitor:
         self.detector = detector or PSIDriftDetector()
         self.baseline: pd.DataFrame | None = None
         self.on_drift = on_drift
+        self.alert_sinks = list(alert_sinks) if alert_sinks is not None else []
         self.on_schema_change = on_schema_change
         self.window_size = window_size
         self.baseline_strategy = baseline_strategy
@@ -150,12 +153,16 @@ class StreamMonitor:
         norm_batch = self._normalize_batch(batch)
         result = await self.compare(norm_batch)
         self._update_adaptive_thresholds(result)
-        if self.on_drift is not None and any(
-            bool(col_result.get("drift")) for col_result in result.values()
-        ):
+        has_drift = any(bool(col_result.get("drift")) for col_result in result.values())
+        if self.on_drift is not None and has_drift:
             callback_out = self.on_drift(result)
             if inspect.isawaitable(callback_out):
                 await callback_out
+        if has_drift:
+            for sink in self.alert_sinks:
+                sink_out = sink.send(result)
+                if inspect.isawaitable(sink_out):
+                    await sink_out
         self._update_baseline(norm_batch)
         return result
 
@@ -193,6 +200,7 @@ class KafkaStreamMonitor:
         bootstrap_servers: str = "localhost:9092",
         detector: Any | None = None,
         on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
+        alert_sinks: list[AlertSink] | None = None,
         on_schema_change: str = "strict",
         window_size: int = 1,
         baseline_strategy: str = "fixed",
@@ -211,6 +219,7 @@ class KafkaStreamMonitor:
         self._monitor = StreamMonitor(
             detector,
             on_drift=on_drift,
+            alert_sinks=alert_sinks,
             on_schema_change=on_schema_change,
             window_size=window_size,
             baseline_strategy=baseline_strategy,
@@ -265,6 +274,7 @@ class RabbitMQStreamMonitor:
         url: str = "amqp://localhost/",
         detector: Any | None = None,
         on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
+        alert_sinks: list[AlertSink] | None = None,
         on_schema_change: str = "strict",
         window_size: int = 1,
         baseline_strategy: str = "fixed",
@@ -284,6 +294,7 @@ class RabbitMQStreamMonitor:
         self._monitor = StreamMonitor(
             detector,
             on_drift=on_drift,
+            alert_sinks=alert_sinks,
             on_schema_change=on_schema_change,
             window_size=window_size,
             baseline_strategy=baseline_strategy,

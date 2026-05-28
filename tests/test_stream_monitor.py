@@ -270,3 +270,76 @@ def test_stream_monitor_window_size_batches_input_frames():
 def test_stream_monitor_window_size_validation():
     with pytest.raises(ValueError, match="window_size"):
         StreamMonitor(window_size=0)
+
+
+def test_stream_monitor_calls_alert_sinks_on_drift():
+    baseline = pd.DataFrame({'x': [0, 1, 2]})
+    current_batches = [pd.DataFrame({'x': [3, 4, 5]})]
+    calls = {'n': 0}
+
+    async def data_stream():
+        for batch in current_batches:
+            yield batch
+
+    class _Sink:
+        def send(self, result):
+            calls['n'] += 1
+            assert result['x']['drift'] is True
+
+    monitor = StreamMonitor(alert_sinks=[_Sink()])
+    monitor.set_baseline(baseline)
+
+    async def run():
+        async for _ in monitor.monitor(data_stream()):
+            pass
+
+    asyncio.run(run())
+    assert calls['n'] == 1
+
+
+def test_stream_monitor_calls_async_alert_sink_on_drift():
+    baseline = pd.DataFrame({'x': [0, 1, 2]})
+    current_batches = [pd.DataFrame({'x': [3, 4, 5]})]
+    calls = {'n': 0}
+
+    async def data_stream():
+        for batch in current_batches:
+            yield batch
+
+    class _AsyncSink:
+        async def send(self, _result):
+            calls['n'] += 1
+
+    monitor = StreamMonitor(alert_sinks=[_AsyncSink()])
+    monitor.set_baseline(baseline)
+
+    async def run():
+        async for _ in monitor.monitor(data_stream()):
+            pass
+
+    asyncio.run(run())
+    assert calls['n'] == 1
+
+
+def test_stream_monitor_does_not_call_alert_sink_without_drift():
+    baseline = pd.DataFrame({'x': [0.0, 0.1, 0.2]})
+    current_batches = [pd.DataFrame({'x': [0.0, 0.1, 0.2]})]
+    calls = {'n': 0}
+
+    async def data_stream():
+        for batch in current_batches:
+            yield batch
+
+    class _Sink:
+        def send(self, _result):
+            calls['n'] += 1
+
+    monitor = StreamMonitor(alert_sinks=[_Sink()])
+    monitor.set_baseline(baseline)
+
+    async def run():
+        async for _ in monitor.monitor(data_stream()):
+            pass
+
+    asyncio.run(run())
+    assert calls['n'] == 0

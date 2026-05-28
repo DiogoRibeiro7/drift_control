@@ -64,6 +64,9 @@ _LAZY: dict[str, str] = {
     "S3BaselineStore": "drift_control.baseline_store",
     "GCSBaselineStore": "drift_control.baseline_store",
     "AzureBlobBaselineStore": "drift_control.baseline_store",
+    "AlertSink": "drift_control.alert_sinks",
+    "LogAlertSink": "drift_control.alert_sinks",
+    "WebhookAlertSink": "drift_control.alert_sinks",
 }
 
 __all__ = list(_LAZY.keys())
