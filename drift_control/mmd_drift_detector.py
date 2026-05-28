@@ -32,6 +32,7 @@ class MMDDriftDetector:
         gamma: float | None = None,
         random_state: int = 42,
         estimator: Literal["exact", "linear"] = "exact",
+        chunk_size: int | None = None,
     ) -> None:
         if not (0 < alpha < 1):
             raise ValueError("alpha must be between 0 and 1")
@@ -39,12 +40,15 @@ class MMDDriftDetector:
             raise ValueError("n_permutations must be >= 50")
         if estimator not in {"exact", "linear"}:
             raise ValueError("estimator must be one of: exact, linear")
+        if chunk_size is not None and chunk_size < 2:
+            raise ValueError("chunk_size must be >= 2 when provided")
 
         self.alpha = float(alpha)
         self.n_permutations = int(n_permutations)
         self.gamma = gamma
         self.random_state = int(random_state)
         self.estimator: Literal["exact", "linear"] = estimator
+        self.chunk_size = chunk_size
 
     @staticmethod
     def _as_2d_array(x: np.ndarray | list | tuple, name: str) -> np.ndarray:
@@ -89,17 +93,35 @@ class MMDDriftDetector:
         sq_dists = np.maximum(a_norm + b_norm - 2 * A @ B.T, 0.0)
         return np.exp(-gamma * sq_dists)
 
-    def _mmd2_unbiased(self, X: np.ndarray, Y: np.ndarray, gamma: float) -> float:
-        Kxx = self._rbf_kernel(X, X, gamma)
-        Kyy = self._rbf_kernel(Y, Y, gamma)
-        Kxy = self._rbf_kernel(X, Y, gamma)
+    def _rbf_kernel_sum(
+        self,
+        A: np.ndarray,
+        B: np.ndarray,
+        gamma: float,
+        chunk_size: int | None,
+    ) -> float:
+        if chunk_size is None:
+            return float(np.sum(self._rbf_kernel(A, B, gamma)))
 
+        total = 0.0
+        for i in range(0, A.shape[0], chunk_size):
+            Ai = A[i : i + chunk_size]
+            for j in range(0, B.shape[0], chunk_size):
+                Bj = B[j : j + chunk_size]
+                total += float(np.sum(self._rbf_kernel(Ai, Bj, gamma)))
+        return total
+
+    def _mmd2_unbiased(self, X: np.ndarray, Y: np.ndarray, gamma: float) -> float:
         m = X.shape[0]
         n = Y.shape[0]
+        sum_xx = self._rbf_kernel_sum(X, X, gamma, self.chunk_size)
+        sum_yy = self._rbf_kernel_sum(Y, Y, gamma, self.chunk_size)
+        sum_xy = self._rbf_kernel_sum(X, Y, gamma, self.chunk_size)
 
-        term_x = (np.sum(Kxx) - np.trace(Kxx)) / (m * (m - 1))
-        term_y = (np.sum(Kyy) - np.trace(Kyy)) / (n * (n - 1))
-        term_xy = np.sum(Kxy) * (2.0 / (m * n))
+        # For RBF kernels, diagonal is exactly 1.0.
+        term_x = (sum_xx - m) / (m * (m - 1))
+        term_y = (sum_yy - n) / (n * (n - 1))
+        term_xy = sum_xy * (2.0 / (m * n))
         return float(term_x + term_y - term_xy)
 
     def _mmd2_linear(self, X: np.ndarray, Y: np.ndarray, gamma: float) -> float:
@@ -192,5 +214,6 @@ class MMDDriftDetector:
             metadata={
                 "calibrated_threshold": float(details.threshold),
                 "estimator": self.estimator,
+                "chunk_size": self.chunk_size,
             },
         )

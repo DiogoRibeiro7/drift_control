@@ -53,3 +53,31 @@ def test_mmd_linear_estimator_detects_shift():
 def test_mmd_rejects_unknown_estimator():
     with pytest.raises(ValueError, match="estimator must be one of"):
         MMDDriftDetector(estimator="bad")  # type: ignore[arg-type]
+
+
+def test_mmd_chunked_exact_matches_non_chunked_score():
+    rng = np.random.default_rng(3)
+    ref = rng.normal(0, 1, size=(120, 3))
+    cur = rng.normal(0.5, 1, size=(120, 3))
+    dense = MMDDriftDetector(
+        alpha=0.05,
+        n_permutations=60,
+        random_state=11,
+        estimator="exact",
+        chunk_size=None,
+    ).detect_drift(ref, cur, return_details=True)
+    chunked = MMDDriftDetector(
+        alpha=0.05,
+        n_permutations=60,
+        random_state=11,
+        estimator="exact",
+        chunk_size=32,
+    ).detect_drift(ref, cur, return_details=True)
+
+    assert dense.mmd2 == pytest.approx(chunked.mmd2, rel=1e-10, abs=1e-10)
+    assert dense.p_value == pytest.approx(chunked.p_value, rel=1e-10, abs=1e-10)
+
+
+def test_mmd_rejects_too_small_chunk_size():
+    with pytest.raises(ValueError, match="chunk_size must be >= 2"):
+        MMDDriftDetector(chunk_size=1)

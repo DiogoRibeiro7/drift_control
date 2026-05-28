@@ -35,7 +35,7 @@ This document tracks the concrete work needed to evolve `drift-control` from a s
 ## P3 - Performance and Scale
 
 - [x] Add vectorized/approximate kernels for large-batch MMD.
-- [ ] Add chunked processing mode for out-of-memory datasets.
+- [x] Add chunked processing mode for out-of-memory datasets.
 - [ ] Add GPU acceleration path (optional, e.g., CuPy) for kernel methods.
 
 ## Definition of Done
