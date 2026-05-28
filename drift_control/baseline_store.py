@@ -482,3 +482,160 @@ class GCSBaselineStore:
             for key in (self._object_key(name, version, fmt=fmt), self._meta_key(name, version, fmt=fmt)):
                 if self._exists(key):
                     self.bucket.blob(key).delete()
+
+
+class AzureBlobBaselineStore:
+    def __init__(
+        self,
+        container: str,
+        prefix: str = "baselines",
+        default_format: Literal["parquet", "csv"] = "parquet",
+        blob_service_client: object | None = None,
+    ) -> None:
+        if not container:
+            raise ValueError("container must be a non-empty string")
+        self.container_name = container
+        self.prefix = prefix.strip("/")
+        self.default_format = default_format
+        if blob_service_client is None:
+            try:
+                from azure.storage.blob import BlobServiceClient  # type: ignore
+            except Exception as exc:
+                raise RuntimeError("azure-storage-blob is required for AzureBlobBaselineStore") from exc
+            conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+            if not conn_str:
+                raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING must be set")
+            blob_service_client = BlobServiceClient.from_connection_string(conn_str)
+        self.container_client = blob_service_client.get_container_client(self.container_name)
+
+    def _object_key(self, name: str, version: str, fmt: Literal["parquet", "csv"] = "csv") -> str:
+        _validate_component(name, "name")
+        _validate_component(version, "version")
+        ext = "parquet" if fmt == "parquet" else "csv"
+        base = f"{name}_v{version}.{ext}"
+        return f"{self.prefix}/{base}" if self.prefix else base
+
+    def _meta_key(self, name: str, version: str, fmt: Literal["parquet", "csv"] = "csv") -> str:
+        return self._object_key(name, version, fmt=fmt) + ".meta.json"
+
+    @staticmethod
+    def _parquet_available() -> bool:
+        try:
+            import pyarrow  # type: ignore # noqa: F401
+            return True
+        except Exception:
+            try:
+                import fastparquet  # type: ignore # noqa: F401
+                return True
+            except Exception:
+                return False
+
+    @staticmethod
+    def _bytes_sha256(payload: bytes) -> str:
+        return hashlib.sha256(payload).hexdigest()
+
+    def _read_blob_bytes(self, key: str) -> bytes:
+        return self.container_client.download_blob(key).readall()
+
+    def _exists(self, key: str) -> bool:
+        return bool(self.container_client.get_blob_client(key).exists())
+
+    def _resolve_existing_key(self, name: str, version: str) -> tuple[str, Literal["parquet", "csv"]]:
+        k_parquet = self._object_key(name, version, fmt="parquet")
+        k_csv = self._object_key(name, version, fmt="csv")
+        if self._exists(k_parquet):
+            return k_parquet, "parquet"
+        if self._exists(k_csv):
+            return k_csv, "csv"
+        raise FileNotFoundError(f"Baseline {name} v{version} not found")
+
+    def save(
+        self,
+        data: pd.DataFrame,
+        name: str,
+        version: str,
+        owner: str | None = None,
+        training_job_id: str | None = None,
+        fmt: Literal["parquet", "csv"] | None = None,
+    ) -> str:
+        selected = fmt or self.default_format
+        if selected == "parquet" and not self._parquet_available():
+            selected = "csv"
+        key = self._object_key(name, version, fmt=selected)
+        buf = BytesIO()
+        if selected == "parquet":
+            data.to_parquet(buf, index=False)
+        else:
+            buf.write(data.to_csv(index=False).encode("utf-8"))
+        payload = buf.getvalue()
+        self.container_client.upload_blob(name=key, data=payload, overwrite=True)
+        meta = {
+            "name": name,
+            "version": version,
+            "path": f"azure://{self.container_name}/{key}",
+            "format": selected,
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "row_count": int(len(data)),
+            "dataset_sha256": self._bytes_sha256(payload),
+            "owner": owner,
+            "training_job_id": training_job_id,
+        }
+        self.container_client.upload_blob(
+            name=self._meta_key(name, version, fmt=selected),
+            data=json.dumps(meta).encode("utf-8"),
+            overwrite=True,
+        )
+        return meta["path"]
+
+    def load(self, name: str, version: str, verify_integrity: bool = True) -> pd.DataFrame:
+        key, resolved_fmt = self._resolve_existing_key(name, version)
+        payload = self._read_blob_bytes(key)
+        if verify_integrity:
+            meta = self.metadata(name, version)
+            expected = str(meta.get("dataset_sha256", ""))
+            actual = self._bytes_sha256(payload)
+            if expected and expected != actual:
+                raise ValueError(
+                    f"Integrity check failed for baseline {name} v{version}: "
+                    f"expected {expected}, got {actual}"
+                )
+        buf = BytesIO(payload)
+        if resolved_fmt == "parquet":
+            return pd.read_parquet(buf)
+        return pd.read_csv(buf)
+
+    def list(self, name: str | None = None) -> list[str]:
+        prefix = f"{self.prefix}/" if self.prefix else ""
+        out: list[str] = []
+        for blob in self.container_client.list_blobs(name_starts_with=prefix):
+            key = blob.name
+            if key.endswith(".meta.json"):
+                continue
+            stem = key.split("/")[-1]
+            if stem.endswith(".csv"):
+                stem = stem[:-4]
+            elif stem.endswith(".parquet"):
+                stem = stem[:-8]
+            else:
+                continue
+            if "_v" not in stem:
+                continue
+            n, v = stem.rsplit("_v", 1)
+            if name is not None and n != name:
+                continue
+            out.append(f"{n}@{v}")
+        return sorted(out)
+
+    def metadata(self, name: str, version: str) -> dict:
+        mk_parquet = self._meta_key(name, version, fmt="parquet")
+        mk_csv = self._meta_key(name, version, fmt="csv")
+        key = mk_parquet if self._exists(mk_parquet) else mk_csv
+        if not self._exists(key):
+            raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
+        return json.loads(self._read_blob_bytes(key).decode("utf-8"))
+
+    def delete(self, name: str, version: str) -> None:
+        for fmt in ("csv", "parquet"):
+            for key in (self._object_key(name, version, fmt=fmt), self._meta_key(name, version, fmt=fmt)):
+                if self._exists(key):
+                    self.container_client.delete_blob(key)
