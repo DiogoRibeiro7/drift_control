@@ -7,7 +7,8 @@ delegate to the same engine.
 """
 
 from io import StringIO
-from typing import AsyncIterable, Dict, Any
+import inspect
+from typing import AsyncIterable, Dict, Any, Callable
 import pandas as pd
 
 from .psi_drift_detector import PSIDriftDetector
@@ -25,9 +26,18 @@ def _read_json_frame(payload: str) -> pd.DataFrame:
 class StreamMonitor:
     """Asynchronously monitor drift for streaming data."""
 
-    def __init__(self, detector: Any | None = None) -> None:
+    def __init__(
+        self,
+        detector: Any | None = None,
+        on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
+        on_schema_change: str = "strict",
+    ) -> None:
+        if on_schema_change not in {"strict", "ignore", "drop"}:
+            raise ValueError("on_schema_change must be one of: strict, ignore, drop")
         self.detector = detector or PSIDriftDetector()
         self.baseline: pd.DataFrame | None = None
+        self.on_drift = on_drift
+        self.on_schema_change = on_schema_change
 
     def set_baseline(self, data: pd.DataFrame) -> None:
         """Store the baseline used for drift comparison."""
@@ -37,9 +47,14 @@ class StreamMonitor:
         """Score a single batch against the baseline."""
         if self.baseline is None:
             raise ValueError("Baseline not set")
+        extra = [c for c in batch.columns if c not in self.baseline.columns]
+        if extra and self.on_schema_change == "strict":
+            raise ValueError(f"Batch contains unknown columns: {extra}")
         missing = [c for c in self.baseline.columns if c not in batch.columns]
         if missing:
             raise ValueError(f"Batch is missing baseline columns: {missing}")
+        if self.on_schema_change == "drop":
+            batch = batch.loc[:, self.baseline.columns]
         results: Dict[str, Dict[str, Any]] = {}
         for col in self.baseline.columns:
             drift, score = self.detector.detect_drift(
@@ -58,7 +73,14 @@ class StreamMonitor:
         if self.baseline is None:
             raise ValueError("Baseline not set")
         async for batch in stream:
-            yield await self.compare(batch)
+            result = await self.compare(batch)
+            if self.on_drift is not None and any(
+                bool(col_result.get("drift")) for col_result in result.values()
+            ):
+                callback_out = self.on_drift(result)
+                if inspect.isawaitable(callback_out):
+                    await callback_out
+            yield result
 
 
 class KafkaStreamMonitor:
@@ -73,12 +95,18 @@ class KafkaStreamMonitor:
         topic: str,
         bootstrap_servers: str = "localhost:9092",
         detector: Any | None = None,
+        on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
+        on_schema_change: str = "strict",
     ) -> None:
         try:
             from aiokafka import AIOKafkaConsumer
         except Exception as exc:  # pragma: no cover - optional dependency
             raise ImportError("aiokafka is required for KafkaStreamMonitor") from exc
-        self._monitor = StreamMonitor(detector)
+        self._monitor = StreamMonitor(
+            detector,
+            on_drift=on_drift,
+            on_schema_change=on_schema_change,
+        )
         self._consumer_factory = lambda: AIOKafkaConsumer(
             topic, bootstrap_servers=bootstrap_servers
         )
@@ -113,13 +141,19 @@ class RabbitMQStreamMonitor:
         queue: str,
         url: str = "amqp://localhost/",
         detector: Any | None = None,
+        on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
+        on_schema_change: str = "strict",
     ) -> None:
         try:
             import aio_pika
         except Exception as exc:  # pragma: no cover - optional dependency
             raise ImportError("aio_pika is required for RabbitMQStreamMonitor") from exc
         self._aio_pika = aio_pika
-        self._monitor = StreamMonitor(detector)
+        self._monitor = StreamMonitor(
+            detector,
+            on_drift=on_drift,
+            on_schema_change=on_schema_change,
+        )
         self.queue_name = queue
         self.url = url
 
