@@ -12,6 +12,7 @@ from .benchmark import BenchmarkResult, SyntheticDriftBenchmark
 from .ensemble_drift_detector import EnsembleDriftDetector
 from .multiple_testing import adjust_pvalues
 from .telemetry import DriftTelemetry
+from .drift_report import DriftReport
 from .unified_drift_detector import UnifiedDriftDetector
 from .validation import (
     coerce_categorical_series,
@@ -81,6 +82,12 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
     is_flag=True,
     help='Exit with non-zero status if drift is detected.',
 )
+@click.option(
+    '--html-report',
+    type=click.Path(),
+    default=None,
+    help='Optional output path for self-contained HTML drift report.',
+)
 def check(
     baseline: str,
     current: str,
@@ -96,6 +103,7 @@ def check(
     config_path: str | None,
     columns: str | None,
     fail_on_drift: bool,
+    html_report: str | None,
 ) -> None:
     """Run a drift check between two CSV files."""
     telemetry = DriftTelemetry(namespace="drift_control.cli")
@@ -259,6 +267,10 @@ def check(
                 ),
             }
         click.echo(json.dumps(payload))
+
+    if html_report is not None:
+        report = DriftReport(method=cfg.method, columns=results, correction=cfg.correction)
+        report.render(html_report)
 
     if use_mlflow:
         try:

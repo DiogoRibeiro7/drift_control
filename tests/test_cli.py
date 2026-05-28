@@ -448,3 +448,23 @@ def test_cli_tvdcat_output_json(tmp_path):
     payload = json.loads(result.output)
     assert payload['method'] == 'tvdcat'
     assert 'p_value' not in payload['columns']['x']
+
+
+def test_cli_html_report_output(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    report = tmp_path / 'report.html'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'ks', '--html-report', str(report),
+        ],
+    )
+    assert result.exit_code == 0
+    assert report.exists()
+    html = report.read_text(encoding='utf-8')
+    assert 'Drift Report' in html
