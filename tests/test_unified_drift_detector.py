@@ -10,6 +10,7 @@ class _SpyTelemetry:
         self.latency_calls = 0
         self.error_calls = 0
         self.drift_rate_calls = 0
+        self.span_calls = 0
 
     def record_latency(self, value_ms, attributes=None):
         self.latency_calls += 1
@@ -19,6 +20,20 @@ class _SpyTelemetry:
 
     def record_drift_rate(self, value, attributes=None):
         self.drift_rate_calls += 1
+
+    class _SpanCtx:
+        def __init__(self, owner):
+            self.owner = owner
+
+        def __enter__(self):
+            self.owner.span_calls += 1
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def start_span(self, name, attributes=None):
+        return _SpyTelemetry._SpanCtx(self)
 
 
 def test_unified_psi_result_schema():
@@ -147,6 +162,7 @@ def test_unified_telemetry_records_latency_and_drift_rate():
     assert spy.latency_calls == 1
     assert spy.drift_rate_calls == 1
     assert spy.error_calls == 0
+    assert spy.span_calls == 1
 
 
 def test_unified_telemetry_records_errors():

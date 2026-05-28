@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -17,10 +18,13 @@ class DriftTelemetry:
         self._latency_hist = None
         self._drift_rate_hist = None
         self._error_counter = None
+        self._tracer = None
         try:
             from opentelemetry import metrics
+            from opentelemetry import trace
 
             meter = metrics.get_meter(self.namespace)
+            self._tracer = trace.get_tracer(self.namespace)
             self._latency_hist = meter.create_histogram(
                 name="drift_control.latency_ms",
                 unit="ms",
@@ -39,6 +43,7 @@ class DriftTelemetry:
             self._latency_hist = None
             self._drift_rate_hist = None
             self._error_counter = None
+            self._tracer = None
 
     def record_latency(self, value_ms: float, attributes: Attributes | None = None) -> None:
         if self._latency_hist is not None:
@@ -51,3 +56,8 @@ class DriftTelemetry:
     def record_error(self, attributes: Attributes | None = None) -> None:
         if self._error_counter is not None:
             self._error_counter.add(1, attributes=attributes)
+
+    def start_span(self, name: str, attributes: Attributes | None = None):
+        if self._tracer is None:
+            return nullcontext()
+        return self._tracer.start_as_current_span(name, attributes=attributes)

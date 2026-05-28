@@ -4,6 +4,7 @@ from typing import Any, Protocol, Union, cast
 import numpy as np
 import time
 import warnings
+from contextlib import nullcontext
 
 from .c2st_drift_detector import C2STDriftDetector
 from .categorical_chi2_drift_detector import ChiSquareDriftDetector
@@ -160,87 +161,96 @@ class UnifiedDriftDetector:
 
     def detect_drift(self, reference_data: Any, current_data: Any) -> DriftResult:
         started = time.perf_counter()
-        try:
-            self._check_sample_sizes(reference_data, current_data)
-            if self.method == "wasserstein":
-                details = cast(_DetailedDetector, self.detector).detect_drift(
-                    reference_data, current_data, return_details=True
-                )
-                metadata_ws: dict[str, Any] = {"calibrated_threshold": float(details.threshold)}
-                ci_ws = self._bootstrap_ci(reference_data, current_data)
-                if ci_ws is not None:
-                    metadata_ws["score_ci"] = {"lo": ci_ws[0], "hi": ci_ws[1], "level": self.ci_level}
-                result = DriftResult(
-                    method=self.method,
-                    drift=bool(details.drift_detected),
-                    score=float(details.distance),
-                    p_value=float(details.p_value),
-                    threshold=self.threshold,
-                    comparator=self.comparator,
-                    metadata=metadata_ws,
-                )
-            elif self.method == "mmd":
-                details = cast(_DetailedDetector, self.detector).detect_drift(
-                    reference_data, current_data, return_details=True
-                )
-                result = DriftResult(
-                    method=self.method,
-                    drift=bool(details.drift_detected),
-                    score=float(details.mmd2),
-                    p_value=float(details.p_value),
-                    threshold=self.threshold,
-                    comparator=self.comparator,
-                    metadata={"calibrated_threshold": float(details.threshold)},
-                )
-            elif self.method in {"c2st", "energy"}:
-                details = cast(_DetailedDetector, self.detector).detect_drift(
-                    reference_data, current_data, return_details=True
-                )
-                score = float(details.roc_auc) if self.method == "c2st" else float(details.energy_distance)
-                result = DriftResult(
-                    method=self.method,
-                    drift=bool(details.drift_detected),
-                    score=score,
-                    p_value=float(details.p_value),
-                    threshold=self.threshold,
-                    comparator=self.comparator,
-                    metadata={"calibrated_threshold": float(details.threshold)},
-                )
-            else:
-                drift, score = cast(_SimpleDetector, self.detector).detect_drift(
-                    reference_data, current_data
-                )
-                p_value = float(score) if self.method in {"ks", "cvm", "chi2cat"} else None
-                metadata_simple: dict[str, Any] = {}
-                ci_simple = self._bootstrap_ci(reference_data, current_data)
-                if ci_simple is not None:
-                    metadata_simple["score_ci"] = {
-                        "lo": ci_simple[0],
-                        "hi": ci_simple[1],
-                        "level": self.ci_level,
-                    }
-                result = DriftResult(
-                    method=self.method,
-                    drift=bool(drift),
-                    score=float(score),
-                    p_value=p_value,
-                    threshold=self.threshold,
-                    comparator=self.comparator,
-                    metadata=metadata_simple,
-                )
-            if self.telemetry is not None:
-                self.telemetry.record_drift_rate(
-                    1.0 if result.drift else 0.0,
+        span_ctx = nullcontext()
+        if self.telemetry is not None:
+            start_span = getattr(self.telemetry, "start_span", None)
+            if callable(start_span):
+                span_ctx = start_span(
+                    "drift_control.detect_drift",
                     {"component": "detector", "method": self.method},
                 )
-            return result
-        except Exception:
-            if self.telemetry is not None:
-                self.telemetry.record_error({"component": "detector", "method": self.method})
-            raise
-        finally:
-            if self.telemetry is not None:
-                self.telemetry.record_latency(
-                    (time.perf_counter() - started) * 1000.0,
-                    {"component": "detector", "method": self.method},
-                )
+        with span_ctx:
+            try:
+                self._check_sample_sizes(reference_data, current_data)
+                if self.method == "wasserstein":
+                    details = cast(_DetailedDetector, self.detector).detect_drift(
+                        reference_data, current_data, return_details=True
+                    )
+                    metadata_ws: dict[str, Any] = {"calibrated_threshold": float(details.threshold)}
+                    ci_ws = self._bootstrap_ci(reference_data, current_data)
+                    if ci_ws is not None:
+                        metadata_ws["score_ci"] = {"lo": ci_ws[0], "hi": ci_ws[1], "level": self.ci_level}
+                    result = DriftResult(
+                        method=self.method,
+                        drift=bool(details.drift_detected),
+                        score=float(details.distance),
+                        p_value=float(details.p_value),
+                        threshold=self.threshold,
+                        comparator=self.comparator,
+                        metadata=metadata_ws,
+                    )
+                elif self.method == "mmd":
+                    details = cast(_DetailedDetector, self.detector).detect_drift(
+                        reference_data, current_data, return_details=True
+                    )
+                    result = DriftResult(
+                        method=self.method,
+                        drift=bool(details.drift_detected),
+                        score=float(details.mmd2),
+                        p_value=float(details.p_value),
+                        threshold=self.threshold,
+                        comparator=self.comparator,
+                        metadata={"calibrated_threshold": float(details.threshold)},
+                    )
+                elif self.method in {"c2st", "energy"}:
+                    details = cast(_DetailedDetector, self.detector).detect_drift(
+                        reference_data, current_data, return_details=True
+                    )
+                    score = float(details.roc_auc) if self.method == "c2st" else float(details.energy_distance)
+                    result = DriftResult(
+                        method=self.method,
+                        drift=bool(details.drift_detected),
+                        score=score,
+                        p_value=float(details.p_value),
+                        threshold=self.threshold,
+                        comparator=self.comparator,
+                        metadata={"calibrated_threshold": float(details.threshold)},
+                    )
+                else:
+                    drift, score = cast(_SimpleDetector, self.detector).detect_drift(
+                        reference_data, current_data
+                    )
+                    p_value = float(score) if self.method in {"ks", "cvm", "chi2cat"} else None
+                    metadata_simple: dict[str, Any] = {}
+                    ci_simple = self._bootstrap_ci(reference_data, current_data)
+                    if ci_simple is not None:
+                        metadata_simple["score_ci"] = {
+                            "lo": ci_simple[0],
+                            "hi": ci_simple[1],
+                            "level": self.ci_level,
+                        }
+                    result = DriftResult(
+                        method=self.method,
+                        drift=bool(drift),
+                        score=float(score),
+                        p_value=p_value,
+                        threshold=self.threshold,
+                        comparator=self.comparator,
+                        metadata=metadata_simple,
+                    )
+                if self.telemetry is not None:
+                    self.telemetry.record_drift_rate(
+                        1.0 if result.drift else 0.0,
+                        {"component": "detector", "method": self.method},
+                    )
+                return result
+            except Exception:
+                if self.telemetry is not None:
+                    self.telemetry.record_error({"component": "detector", "method": self.method})
+                raise
+            finally:
+                if self.telemetry is not None:
+                    self.telemetry.record_latency(
+                        (time.perf_counter() - started) * 1000.0,
+                        {"component": "detector", "method": self.method},
+                    )
