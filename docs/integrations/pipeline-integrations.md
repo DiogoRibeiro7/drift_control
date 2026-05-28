@@ -96,3 +96,54 @@ result = detector.detect_drift(baseline_df, current_df)
 - Keep baseline generation logic versioned (commit hash or data version ID).
 - Persist JSON outputs (`--output-json`) for auditability.
 - Use `--fail-on-drift` for pipeline gates when policy requires blocking deployment.
+
+## Versioned baseline stores
+
+For production pipelines, store baselines as versioned artifacts and resolve with `--baseline-version`:
+
+```bash
+# local filesystem store (default)
+drift-control \
+  --baseline-version my_features@v3 \
+  --baseline-store local \
+  --baseline-dir baselines \
+  --current data/current.csv \
+  --method ks \
+  --output-json
+```
+
+```bash
+# S3 store
+drift-control \
+  --baseline-version my_features@v3 \
+  --baseline-store s3 \
+  --baseline-bucket my-drift-bucket \
+  --baseline-prefix baselines \
+  --current data/current.csv \
+  --method ks \
+  --output-json
+```
+
+```bash
+# GCS store
+drift-control \
+  --baseline-version my_features@v3 \
+  --baseline-store gcs \
+  --baseline-bucket my-drift-bucket \
+  --baseline-prefix baselines \
+  --current data/current.csv \
+  --method ks \
+  --output-json
+```
+
+```bash
+# Azure Blob store
+drift-control \
+  --baseline-version my_features@v3 \
+  --baseline-store azure \
+  --baseline-container drift-baselines \
+  --baseline-prefix baselines \
+  --current data/current.csv \
+  --method ks \
+  --output-json
+```

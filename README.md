@@ -10,7 +10,7 @@ Maintained by [Diogo Ribeiro](https://orcid.org/0009-0001-2022-7072).
 - Multivariate drift: covariate shift classifier and kernel MMD (permutation-calibrated)
 - Concept drift (streaming): DDM, EDDM, ADWIN, Page-Hinkley
 - Batch + streaming workflows (`StreamMonitor`, sklearn-compatible `DriftMonitor`)
-- Baseline management helpers (with optional DVC integration)
+- Baseline management helpers with pluggable stores (local, S3, GCS, Azure Blob) and optional DVC integration
 - CLI with JSON output for automation pipelines
 
 ## Installation
@@ -54,11 +54,17 @@ print(mmd.detect_drift(ref, cur, return_details=True))
 drift-control --baseline baseline.csv --current current.csv --method psi
 drift-control --baseline baseline.csv --current current.csv --method ks --threshold 0.01 --output-json
 drift-control --baseline baseline.csv --current current.csv --method mmd --threshold 0.05 --output-json
+drift-control --baseline-version mydata@1 --baseline-store local --baseline-dir baselines --current current.csv --output-json
+drift-control --baseline-version mydata@1 --baseline-store s3 --baseline-bucket my-bucket --baseline-prefix baselines --current current.csv --output-json
 ```
 
 - `psi`: drift if score > threshold
 - `ks`: drift if p-value < threshold
 - `mmd`: drift if p-value < threshold
+- `--baseline-version name@version`: load baseline from configured store backend
+- `--baseline-store`: choose `local` (default), `s3`, `gcs`, or `azure`
+- `--baseline-bucket`: required for `s3` and `gcs`
+- `--baseline-container`: required for `azure`
 
 ## Quality
 
