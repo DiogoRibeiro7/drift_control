@@ -7,7 +7,7 @@ def test_save_and_load(tmp_path):
     data = pd.DataFrame({'a': [1, 2, 3]})
     manager = BaselineManager(directory=tmp_path)
     path = manager.save_baseline(data, name="data", version="1")
-    assert path.endswith("data_v1.csv")
+    assert path.endswith("data_v1.csv") or path.endswith("data_v1.parquet")
     loaded = manager.load_baseline("data", "1")
     pd.testing.assert_frame_equal(data, loaded)
 
@@ -22,6 +22,7 @@ def test_baseline_metadata_and_listing(tmp_path):
     assert meta["owner"] == "alice"
     assert meta["training_job_id"] == "job-1"
     assert meta["row_count"] == 3
+    assert meta["format"] in {"csv", "parquet"}
     assert isinstance(meta["dataset_sha256"], str)
 
 

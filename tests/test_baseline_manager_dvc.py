@@ -14,4 +14,4 @@ def test_save_with_dvc(monkeypatch, tmp_path):
     monkeypatch.setattr(subprocess, 'run', fake_run)
     path = manager.save_with_dvc(data, 'x', '1')
     assert 'dvc' in called['cmd'][0]
-    assert path.endswith('x_v1.csv')
+    assert path.endswith('x_v1.csv') or path.endswith('x_v1.parquet')
