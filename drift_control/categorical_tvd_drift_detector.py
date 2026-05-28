@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from .result_schema import DriftResult
 
 
 class TotalVariationDriftDetector:
@@ -35,3 +36,15 @@ class TotalVariationDriftDetector:
     def detect_drift(self, reference, current):
         score = self.calculate_tvd(reference, current)
         return score > self.threshold, score
+
+    def detect_drift_result(self, reference, current) -> DriftResult:
+        drift, score = self.detect_drift(reference, current)
+        return DriftResult(
+            method="tvdcat",
+            drift=bool(drift),
+            score=float(score),
+            p_value=None,
+            threshold=float(self.threshold),
+            comparator=">",
+            metadata={},
+        )

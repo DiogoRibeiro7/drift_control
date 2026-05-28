@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.stats import wasserstein_distance
+from .result_schema import DriftResult
 
 
 @dataclass(frozen=True)
@@ -61,3 +62,15 @@ class WassersteinDriftDetector:
                 threshold=threshold,
             )
         return drift, observed
+
+    def detect_drift_result(self, reference, current) -> DriftResult:
+        details = self.detect_drift(reference, current, return_details=True)
+        return DriftResult(
+            method="wasserstein",
+            drift=bool(details.drift_detected),
+            score=float(details.distance),
+            p_value=float(details.p_value),
+            threshold=float(self.alpha),
+            comparator="<",
+            metadata={"calibrated_threshold": float(details.threshold)},
+        )

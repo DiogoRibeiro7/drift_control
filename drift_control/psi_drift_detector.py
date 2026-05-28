@@ -1,4 +1,5 @@
 import numpy as np
+from .result_schema import DriftResult
 
 
 class PSIDriftDetector:
@@ -58,3 +59,15 @@ class PSIDriftDetector:
         """Return whether drift is detected and the PSI value."""
         psi = self.calculate_psi(reference, current)
         return psi > self.threshold, psi
+
+    def detect_drift_result(self, reference, current) -> DriftResult:
+        drift, psi = self.detect_drift(reference, current)
+        return DriftResult(
+            method="psi",
+            drift=bool(drift),
+            score=float(psi),
+            p_value=None,
+            threshold=float(self.threshold),
+            comparator=">",
+            metadata={},
+        )

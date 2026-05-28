@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+from .result_schema import DriftResult
 
 
 @dataclass(frozen=True)
@@ -138,3 +139,19 @@ class MMDDriftDetector:
                 threshold=threshold,
             )
         return drift, float(observed_mmd2)
+
+    def detect_drift_result(
+        self,
+        reference_data: np.ndarray | list | tuple,
+        current_data: np.ndarray | list | tuple,
+    ) -> DriftResult:
+        details = self.detect_drift(reference_data, current_data, return_details=True)
+        return DriftResult(
+            method="mmd",
+            drift=bool(details.drift_detected),
+            score=float(details.mmd2),
+            p_value=float(details.p_value),
+            threshold=float(self.alpha),
+            comparator="<",
+            metadata={"calibrated_threshold": float(details.threshold)},
+        )

@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
+from .result_schema import DriftResult
 
 
 @dataclass(frozen=True)
@@ -94,3 +95,15 @@ class C2STDriftDetector:
                 threshold=threshold,
             )
         return drift, observed_auc
+
+    def detect_drift_result(self, reference_data, current_data) -> DriftResult:
+        details = self.detect_drift(reference_data, current_data, return_details=True)
+        return DriftResult(
+            method="c2st",
+            drift=bool(details.drift_detected),
+            score=float(details.roc_auc),
+            p_value=float(details.p_value),
+            threshold=float(self.alpha),
+            comparator="<",
+            metadata={"calibrated_threshold": float(details.threshold)},
+        )

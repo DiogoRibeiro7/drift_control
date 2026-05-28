@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import ks_2samp
+from .result_schema import DriftResult
 
 class KSDriftDetector:
     """Detect drift using the Kolmogorov-Smirnov test."""
@@ -21,3 +22,15 @@ class KSDriftDetector:
         """Return whether drift is detected and the p-value."""
         pvalue = self.calculate_pvalue(reference, current)
         return pvalue < self.alpha, pvalue
+
+    def detect_drift_result(self, reference, current) -> DriftResult:
+        drift, pvalue = self.detect_drift(reference, current)
+        return DriftResult(
+            method="ks",
+            drift=bool(drift),
+            score=float(pvalue),
+            p_value=float(pvalue),
+            threshold=float(self.alpha),
+            comparator="<",
+            metadata={},
+        )

@@ -14,7 +14,7 @@ This document tracks the concrete work needed to evolve `drift-control` from a s
 
 ## P0 - Reliability and API Stability
 
-- [ ] Introduce a common result schema for all detectors (`drift`, `score`, `p_value`, `threshold`, `metadata`).
+- [x] Introduce a common result schema for all detectors (`drift`, `score`, `p_value`, `threshold`, `metadata`).
 - [ ] Add strict type checking in CI (`mypy`) and raise type coverage over public API.
 - [ ] Add backwards-compatibility tests for CLI JSON payload versions.
 - [ ] Add dataset validation policies (schema, null handling, numeric coercion policy) as reusable utilities.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.stats import chisquare
+from .result_schema import DriftResult
 
 
 class ChiSquareDriftDetector:
@@ -37,3 +38,15 @@ class ChiSquareDriftDetector:
     def detect_drift(self, reference, current):
         pvalue = self.calculate_pvalue(reference, current)
         return pvalue < self.alpha, pvalue
+
+    def detect_drift_result(self, reference, current) -> DriftResult:
+        drift, pvalue = self.detect_drift(reference, current)
+        return DriftResult(
+            method="chi2cat",
+            drift=bool(drift),
+            score=float(pvalue),
+            p_value=float(pvalue),
+            threshold=float(self.alpha),
+            comparator="<",
+            metadata={},
+        )

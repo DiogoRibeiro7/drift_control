@@ -1,4 +1,5 @@
 import numpy as np
+from .result_schema import DriftResult
 
 
 class JensenShannonDriftDetector:
@@ -50,3 +51,15 @@ class JensenShannonDriftDetector:
     def detect_drift(self, reference, current):
         js_distance = self.calculate_js_distance(reference, current)
         return js_distance > self.threshold, js_distance
+
+    def detect_drift_result(self, reference, current) -> DriftResult:
+        drift, js_distance = self.detect_drift(reference, current)
+        return DriftResult(
+            method="js",
+            drift=bool(drift),
+            score=float(js_distance),
+            p_value=None,
+            threshold=float(self.threshold),
+            comparator=">",
+            metadata={},
+        )

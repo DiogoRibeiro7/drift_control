@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import cramervonmises_2samp
+from .result_schema import DriftResult
 
 
 class CVMDriftDetector:
@@ -21,3 +22,15 @@ class CVMDriftDetector:
     def detect_drift(self, reference, current):
         pvalue = self.calculate_pvalue(reference, current)
         return pvalue < self.alpha, pvalue
+
+    def detect_drift_result(self, reference, current) -> DriftResult:
+        drift, pvalue = self.detect_drift(reference, current)
+        return DriftResult(
+            method="cvm",
+            drift=bool(drift),
+            score=float(pvalue),
+            p_value=float(pvalue),
+            threshold=float(self.alpha),
+            comparator="<",
+            metadata={},
+        )
