@@ -5,6 +5,22 @@ from drift_control.result_schema import DriftResult
 from drift_control.unified_drift_detector import UnifiedDriftDetector
 
 
+class _SpyTelemetry:
+    def __init__(self):
+        self.latency_calls = 0
+        self.error_calls = 0
+        self.drift_rate_calls = 0
+
+    def record_latency(self, value_ms, attributes=None):
+        self.latency_calls += 1
+
+    def record_error(self, attributes=None):
+        self.error_calls += 1
+
+    def record_drift_rate(self, value, attributes=None):
+        self.drift_rate_calls += 1
+
+
 def test_unified_psi_result_schema():
     detector = UnifiedDriftDetector(method="psi")
     result = detector.detect_drift([1, 2, 3, 4, 5], [10, 11, 12, 13, 14])
@@ -122,3 +138,21 @@ def test_unified_tvdcat():
     out = detector.detect_drift(['a', 'a', 'b', 'c'], ['c', 'c', 'c', 'b'])
     assert out.method == 'tvdcat'
     assert out.p_value is None
+
+
+def test_unified_telemetry_records_latency_and_drift_rate():
+    spy = _SpyTelemetry()
+    detector = UnifiedDriftDetector(method="psi", telemetry=spy)
+    _ = detector.detect_drift([1, 2, 3, 4, 5], [10, 11, 12, 13, 14])
+    assert spy.latency_calls == 1
+    assert spy.drift_rate_calls == 1
+    assert spy.error_calls == 0
+
+
+def test_unified_telemetry_records_errors():
+    spy = _SpyTelemetry()
+    detector = UnifiedDriftDetector(method="ks", alpha=0.05, telemetry=spy)
+    with pytest.raises(ValueError):
+        detector.detect_drift([1], [1, 2, 3])
+    assert spy.error_calls == 1
+    assert spy.latency_calls == 1
