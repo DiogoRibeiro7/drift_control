@@ -1,7 +1,31 @@
 from __future__ import annotations
 
 import pandas as pd
+from dataclasses import dataclass
+from pandas.api.types import is_numeric_dtype
 from typing import cast
+
+
+SchemaPolicy = str
+NullPolicy = str
+NumericPolicy = str
+
+
+@dataclass(frozen=True)
+class DatasetValidationPolicy:
+    """Policy for validating and normalizing baseline/current datasets."""
+
+    schema_policy: SchemaPolicy = "strict"
+    null_policy: NullPolicy = "error"
+    numeric_policy: NumericPolicy = "strict"
+
+    def __post_init__(self) -> None:
+        if self.schema_policy not in {"strict", "align_intersection"}:
+            raise ValueError("schema_policy must be one of: strict, align_intersection")
+        if self.null_policy not in {"error", "drop_rows"}:
+            raise ValueError("null_policy must be one of: error, drop_rows")
+        if self.numeric_policy not in {"strict", "coerce"}:
+            raise ValueError("numeric_policy must be one of: strict, coerce")
 
 
 def validate_matching_columns(df_prior: pd.DataFrame, df_post: pd.DataFrame) -> None:
@@ -75,3 +99,57 @@ def coerce_numeric_frame(
             f"Input contains null values after numeric conversion; cannot run '{method_name}'."
         )
     return out
+
+
+def validate_dataset_pair(
+    df_prior: pd.DataFrame,
+    df_post: pd.DataFrame,
+    policy: DatasetValidationPolicy | None = None,
+    numeric_columns: list[str] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Validate and normalize a baseline/current pair under explicit policies."""
+    cfg = policy or DatasetValidationPolicy()
+    prior = df_prior.copy(deep=True)
+    post = df_post.copy(deep=True)
+
+    prior_cols = set(prior.columns)
+    post_cols = set(post.columns)
+    if cfg.schema_policy == "strict":
+        validate_matching_columns(prior, post)
+        ordered = list(prior.columns)
+        post = post.loc[:, ordered]
+    else:
+        shared = [c for c in prior.columns if c in post.columns]
+        if not shared:
+            raise ValueError("No shared columns between baseline and current datasets.")
+        prior = prior.loc[:, shared]
+        post = post.loc[:, shared]
+
+    cols_to_check = numeric_columns or list(prior.columns)
+    missing_cols = [c for c in cols_to_check if c not in prior.columns]
+    if missing_cols:
+        raise ValueError(f"Unknown numeric_columns requested: {missing_cols}")
+
+    if cfg.numeric_policy == "strict":
+        non_numeric = [
+            c
+            for c in cols_to_check
+            if not (is_numeric_dtype(prior[c]) and is_numeric_dtype(post[c]))
+        ]
+        if non_numeric:
+            raise ValueError(f"Non-numeric columns under strict numeric policy: {non_numeric}")
+    else:
+        for c in cols_to_check:
+            prior[c] = pd.to_numeric(prior[c], errors="coerce")
+            post[c] = pd.to_numeric(post[c], errors="coerce")
+
+    if cfg.null_policy == "error":
+        if prior.isna().any().any() or post.isna().any().any():
+            raise ValueError("Null values present after validation/coercion.")
+    else:
+        prior = prior.dropna().reset_index(drop=True)
+        post = post.dropna().reset_index(drop=True)
+        if prior.empty or post.empty:
+            raise ValueError("Null-row dropping removed all rows from baseline or current.")
+
+    return prior, post
