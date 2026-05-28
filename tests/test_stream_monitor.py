@@ -13,6 +13,15 @@ class _StubThresholdDetector:
         return score > self.threshold, score
 
 
+class _RecordingDetector:
+    def __init__(self) -> None:
+        self.calls: list[int] = []
+
+    def detect_drift(self, _reference, current):
+        self.calls.append(len(current))
+        return False, float(current.mean())
+
+
 def test_stream_monitor_async():
     baseline = pd.DataFrame({'x': [0, 1, 2]})
     current_batches = [pd.DataFrame({'x': [3, 4, 5]})]
@@ -228,3 +237,36 @@ def test_stream_monitor_adaptive_threshold_validation():
         StreamMonitor(adaptive_threshold=True, threshold_history=3)
     with pytest.raises(ValueError, match="min_threshold_samples"):
         StreamMonitor(adaptive_threshold=True, min_threshold_samples=3)
+
+
+def test_stream_monitor_window_size_batches_input_frames():
+    baseline = pd.DataFrame({'x': [0, 1, 2]})
+    batches = [
+        pd.DataFrame({'x': [10]}),
+        pd.DataFrame({'x': [11]}),
+        pd.DataFrame({'x': [12]}),
+        pd.DataFrame({'x': [13]}),
+        pd.DataFrame({'x': [14]}),
+    ]
+
+    async def data_stream():
+        for b in batches:
+            yield b
+
+    detector = _RecordingDetector()
+    monitor = StreamMonitor(detector=detector, window_size=2)
+    monitor.set_baseline(baseline)
+    results = []
+
+    async def run():
+        async for res in monitor.monitor(data_stream()):
+            results.append(res)
+
+    asyncio.run(run())
+    assert len(results) == 3
+    assert detector.calls == [2, 2, 1]
+
+
+def test_stream_monitor_window_size_validation():
+    with pytest.raises(ValueError, match="window_size"):
+        StreamMonitor(window_size=0)

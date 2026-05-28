@@ -32,6 +32,7 @@ class StreamMonitor:
         detector: Any | None = None,
         on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
         on_schema_change: str = "strict",
+        window_size: int = 1,
         baseline_strategy: str = "fixed",
         sliding_window_batches: int = 3,
         ewma_alpha: float = 0.2,
@@ -43,6 +44,8 @@ class StreamMonitor:
     ) -> None:
         if on_schema_change not in {"strict", "ignore", "drop"}:
             raise ValueError("on_schema_change must be one of: strict, ignore, drop")
+        if window_size < 1:
+            raise ValueError("window_size must be >= 1")
         if baseline_strategy not in {"fixed", "sliding", "ewma"}:
             raise ValueError("baseline_strategy must be one of: fixed, sliding, ewma")
         if sliding_window_batches < 1:
@@ -59,6 +62,7 @@ class StreamMonitor:
         self.baseline: pd.DataFrame | None = None
         self.on_drift = on_drift
         self.on_schema_change = on_schema_change
+        self.window_size = window_size
         self.baseline_strategy = baseline_strategy
         self.sliding_window_batches = sliding_window_batches
         self.ewma_alpha = ewma_alpha
@@ -164,8 +168,16 @@ class StreamMonitor:
         """Yield drift results as new batches arrive."""
         if self.baseline is None:
             raise ValueError("Baseline not set")
+        window: list[pd.DataFrame] = []
         async for batch in stream:
-            yield await self._process_batch(batch)
+            window.append(batch)
+            if len(window) >= self.window_size:
+                merged = pd.concat(window, ignore_index=True)
+                window.clear()
+                yield await self._process_batch(merged)
+        if window:
+            merged = pd.concat(window, ignore_index=True)
+            yield await self._process_batch(merged)
 
 
 class KafkaStreamMonitor:
@@ -182,6 +194,7 @@ class KafkaStreamMonitor:
         detector: Any | None = None,
         on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
         on_schema_change: str = "strict",
+        window_size: int = 1,
         baseline_strategy: str = "fixed",
         sliding_window_batches: int = 3,
         ewma_alpha: float = 0.2,
@@ -199,6 +212,7 @@ class KafkaStreamMonitor:
             detector,
             on_drift=on_drift,
             on_schema_change=on_schema_change,
+            window_size=window_size,
             baseline_strategy=baseline_strategy,
             sliding_window_batches=sliding_window_batches,
             ewma_alpha=ewma_alpha,
@@ -222,10 +236,18 @@ class KafkaStreamMonitor:
         if self._consumer is None:
             self._consumer = self._consumer_factory()
         await self._consumer.start()
+        window: list[pd.DataFrame] = []
         try:
             async for msg in self._consumer:
                 batch = _read_json_frame(msg.value.decode())
-                yield await self._monitor._process_batch(batch)
+                window.append(batch)
+                if len(window) >= self._monitor.window_size:
+                    merged = pd.concat(window, ignore_index=True)
+                    window.clear()
+                    yield await self._monitor._process_batch(merged)
+            if window:
+                merged = pd.concat(window, ignore_index=True)
+                yield await self._monitor._process_batch(merged)
         finally:
             await self._consumer.stop()
 
@@ -244,6 +266,7 @@ class RabbitMQStreamMonitor:
         detector: Any | None = None,
         on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
         on_schema_change: str = "strict",
+        window_size: int = 1,
         baseline_strategy: str = "fixed",
         sliding_window_batches: int = 3,
         ewma_alpha: float = 0.2,
@@ -262,6 +285,7 @@ class RabbitMQStreamMonitor:
             detector,
             on_drift=on_drift,
             on_schema_change=on_schema_change,
+            window_size=window_size,
             baseline_strategy=baseline_strategy,
             sliding_window_batches=sliding_window_batches,
             ewma_alpha=ewma_alpha,
@@ -284,8 +308,16 @@ class RabbitMQStreamMonitor:
         async with connection:
             channel = await connection.channel()
             queue = await channel.declare_queue(self.queue_name, passive=True)
+            window: list[pd.DataFrame] = []
             async with queue.iterator() as queue_iter:
                 async for message in queue_iter:
                     async with message.process():
                         batch = _read_json_frame(message.body.decode())
-                        yield await self._monitor._process_batch(batch)
+                        window.append(batch)
+                        if len(window) >= self._monitor.window_size:
+                            merged = pd.concat(window, ignore_index=True)
+                            window.clear()
+                            yield await self._monitor._process_batch(merged)
+                if window:
+                    merged = pd.concat(window, ignore_index=True)
+                    yield await self._monitor._process_batch(merged)
