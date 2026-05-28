@@ -3,6 +3,7 @@ import json
 from click.testing import CliRunner
 import pandas as pd
 from drift_control.baseline_manager import BaselineManager
+import drift_control.cli as cli_mod
 from drift_control.cli import check
 
 
@@ -529,3 +530,49 @@ def test_cli_baseline_and_baseline_version_are_mutually_exclusive(tmp_path):
     )
     assert result.exit_code != 0
     assert 'either --baseline or --baseline-version' in result.output
+
+
+def test_cli_baseline_version_s3_store_loads(tmp_path, monkeypatch):
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+
+    class _FakeS3Store:
+        def __init__(self, bucket: str, prefix: str):
+            self.bucket = bucket
+            self.prefix = prefix
+
+        def load(self, name: str, version: str, verify_integrity: bool = True) -> pd.DataFrame:
+            return pd.DataFrame({'x': [0, 1, 2, 3, 4]})
+
+    monkeypatch.setattr(cli_mod, "S3BaselineStore", _FakeS3Store)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline-version', 'mydata@1',
+            '--baseline-store', 's3',
+            '--baseline-bucket', 'my-bucket',
+            '--baseline-prefix', 'my-prefix',
+            '--current', str(current),
+            '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'psi'
+
+
+def test_cli_baseline_version_s3_requires_bucket(tmp_path):
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [10, 11, 12]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline-version', 'mydata@1',
+            '--baseline-store', 's3',
+            '--current', str(current),
+        ],
+    )
+    assert result.exit_code != 0
+    assert '--baseline-bucket is required' in result.output
