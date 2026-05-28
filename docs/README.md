@@ -6,6 +6,7 @@ This folder contains the publish-ready reference docs for `drift-control`.
 
 - `api/reference.md`: public Python API reference
 - `cli/schema.md`: JSON output schema, versioning, and examples
+- `integrations/pipeline-integrations.md`: MLflow, DVC, and feature-store integration patterns
 - `operations/release-checklist.md`: pre-PyPI release checklist
 
 ## Suggested publication flow

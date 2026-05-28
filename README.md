@@ -71,6 +71,7 @@ drift-control --baseline baseline.csv --current current.csv --method mmd --thres
 - Docs index: [docs/README.md](docs/README.md)
 - API reference: [docs/api/reference.md](docs/api/reference.md)
 - CLI schema and versioning: [docs/cli/schema.md](docs/cli/schema.md)
+- Pipeline integrations: [docs/integrations/pipeline-integrations.md](docs/integrations/pipeline-integrations.md)
 - Pre-PyPI release checklist: [docs/operations/release-checklist.md](docs/operations/release-checklist.md)
 
 ## License
