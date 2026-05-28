@@ -73,6 +73,8 @@ _LAZY: dict[str, str] = {
     "PrometheusAlertSink": "drift_control.alert_sinks",
     "SlackWebhookAlertSink": "drift_control.alert_sinks",
     "PagerDutyAlertSink": "drift_control.alert_sinks",
+    "create_airflow_drift_task": "drift_control.integrations.airflow",
+    "create_prefect_drift_task": "drift_control.integrations.prefect",
 }
 
 __all__ = list(_LAZY.keys())

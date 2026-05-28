@@ -52,6 +52,12 @@ stream = [
     "aiokafka",
     "aio-pika",
 ]
+airflow = [
+    "apache-airflow",
+]
+prefect = [
+    "prefect",
+]
 ml = [
     "category_encoders",
 ]
@@ -63,6 +69,8 @@ full = [
     "mlflow",
     "aiokafka",
     "aio-pika",
+    "apache-airflow",
+    "prefect",
     "category_encoders",
 ]
 
