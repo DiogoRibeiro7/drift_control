@@ -33,6 +33,7 @@ class MMDDriftDetector:
         random_state: int = 42,
         estimator: Literal["exact", "linear"] = "exact",
         chunk_size: int | None = None,
+        use_gpu: bool = False,
     ) -> None:
         if not (0 < alpha < 1):
             raise ValueError("alpha must be between 0 and 1")
@@ -49,6 +50,7 @@ class MMDDriftDetector:
         self.random_state = int(random_state)
         self.estimator: Literal["exact", "linear"] = estimator
         self.chunk_size = chunk_size
+        self.use_gpu = bool(use_gpu)
 
     @staticmethod
     def _as_2d_array(x: np.ndarray | list | tuple, name: str) -> np.ndarray:
@@ -93,6 +95,16 @@ class MMDDriftDetector:
         sq_dists = np.maximum(a_norm + b_norm - 2 * A @ B.T, 0.0)
         return np.exp(-gamma * sq_dists)
 
+    def _rbf_kernel_gpu(self, A: np.ndarray, B: np.ndarray, gamma: float) -> np.ndarray:
+        import cupy as cp  # type: ignore[import-not-found]
+
+        A_cp = cp.asarray(A)
+        B_cp = cp.asarray(B)
+        a_norm = cp.sum(A_cp * A_cp, axis=1, keepdims=True)
+        b_norm = cp.sum(B_cp * B_cp, axis=1, keepdims=True).T
+        sq_dists = cp.maximum(a_norm + b_norm - 2 * A_cp @ B_cp.T, 0.0)
+        return cp.asnumpy(cp.exp(-gamma * sq_dists))
+
     def _rbf_kernel_sum(
         self,
         A: np.ndarray,
@@ -101,6 +113,11 @@ class MMDDriftDetector:
         chunk_size: int | None,
     ) -> float:
         if chunk_size is None:
+            if self.use_gpu:
+                try:
+                    return float(np.sum(self._rbf_kernel_gpu(A, B, gamma)))
+                except Exception:
+                    pass
             return float(np.sum(self._rbf_kernel(A, B, gamma)))
 
         total = 0.0
@@ -215,5 +232,6 @@ class MMDDriftDetector:
                 "calibrated_threshold": float(details.threshold),
                 "estimator": self.estimator,
                 "chunk_size": self.chunk_size,
+                "use_gpu": self.use_gpu,
             },
         )

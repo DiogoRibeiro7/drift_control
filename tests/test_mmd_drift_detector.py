@@ -81,3 +81,24 @@ def test_mmd_chunked_exact_matches_non_chunked_score():
 def test_mmd_rejects_too_small_chunk_size():
     with pytest.raises(ValueError, match="chunk_size must be >= 2"):
         MMDDriftDetector(chunk_size=1)
+
+
+def test_mmd_gpu_mode_falls_back_to_cpu_when_gpu_unavailable(monkeypatch):
+    rng = np.random.default_rng(7)
+    ref = rng.normal(0, 1, size=(80, 3))
+    cur = rng.normal(0.4, 1, size=(80, 3))
+
+    detector = MMDDriftDetector(
+        alpha=0.05,
+        n_permutations=50,
+        random_state=3,
+        use_gpu=True,
+    )
+
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("gpu unavailable")
+
+    monkeypatch.setattr(detector, "_rbf_kernel_gpu", _raise)
+    result = detector.detect_drift_result(ref, cur)
+    assert result.method == "mmd"
+    assert result.metadata["use_gpu"] is True
