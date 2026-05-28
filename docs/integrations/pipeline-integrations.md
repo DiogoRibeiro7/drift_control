@@ -147,3 +147,34 @@ drift-control \
   --method ks \
   --output-json
 ```
+
+## Alert sinks (Slack / PagerDuty / custom)
+
+Use `StreamMonitor(alert_sinks=[...])` to fan out drift events to one or more destinations:
+
+```python
+from drift_control.alert_sinks import (
+    ColumnFilterAlertSink,
+    CompositeAlertSink,
+    PagerDutyAlertSink,
+    SlackWebhookAlertSink,
+)
+from drift_control.stream_monitor import StreamMonitor
+
+sink = CompositeAlertSink(
+    [
+        SlackWebhookAlertSink(url="https://hooks.slack.com/services/..."),
+        ColumnFilterAlertSink(
+            PagerDutyAlertSink(routing_key="PD_ROUTING_KEY", severity="critical"),
+            columns=["payment_amount", "fraud_score"],
+        ),
+    ]
+)
+
+monitor = StreamMonitor(alert_sinks=[sink], on_schema_change="ignore")
+monitor.set_baseline(baseline_df)
+```
+
+Pattern:
+- Send all drift notifications to Slack for visibility.
+- Escalate only selected high-risk columns to PagerDuty to reduce alert fatigue.

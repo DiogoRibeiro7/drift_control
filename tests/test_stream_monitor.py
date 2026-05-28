@@ -1,6 +1,7 @@
 import asyncio
 import pandas as pd
 import pytest
+from drift_control.alert_sinks import ColumnFilterAlertSink, CompositeAlertSink
 from drift_control.stream_monitor import StreamMonitor
 
 
@@ -343,3 +344,47 @@ def test_stream_monitor_does_not_call_alert_sink_without_drift():
 
     asyncio.run(run())
     assert calls['n'] == 0
+
+
+def test_stream_monitor_composite_and_filtered_sinks_route_columns():
+    baseline = pd.DataFrame({'x': [0, 1, 2], 'y': [0, 1, 2]})
+    current_batches = [pd.DataFrame({'x': [10, 11, 12], 'y': [0, 1, 2]})]
+    calls = {'all': 0, 'x_only': 0}
+    seen = {}
+
+    async def data_stream():
+        for batch in current_batches:
+            yield batch
+
+    class _AllSink:
+        def send(self, result):
+            calls['all'] += 1
+            seen['all'] = result
+
+    class _XSink:
+        def send(self, result):
+            calls['x_only'] += 1
+            seen['x_only'] = result
+
+    monitor = StreamMonitor(
+        alert_sinks=[
+            CompositeAlertSink(
+                [
+                    _AllSink(),
+                    ColumnFilterAlertSink(_XSink(), columns=['x']),
+                ]
+            )
+        ]
+    )
+    monitor.set_baseline(baseline)
+
+    async def run():
+        async for _ in monitor.monitor(data_stream()):
+            pass
+
+    asyncio.run(run())
+    assert calls['all'] == 1
+    assert calls['x_only'] == 1
+    assert seen['all']['x']['drift'] is True
+    assert seen['all']['y']['drift'] is False
+    assert set(seen['x_only'].keys()) == {'x'}
