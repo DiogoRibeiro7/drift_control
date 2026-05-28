@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any, Protocol
 from urllib import request
 
@@ -127,3 +128,38 @@ class PagerDutyAlertSink(WebhookAlertSink):
         if self.dedup_key is not None:
             payload["dedup_key"] = self.dedup_key
         self.send_payload(json.dumps(payload).encode("utf-8"))
+
+
+class RetryingWebhookAlertSink(WebhookAlertSink):
+    """Webhook sink with bounded retries and fixed backoff."""
+
+    def __init__(
+        self,
+        url: str,
+        timeout_seconds: float = 5.0,
+        max_retries: int = 3,
+        backoff_seconds: float = 0.5,
+    ) -> None:
+        super().__init__(url=url, timeout_seconds=timeout_seconds)
+        if max_retries < 0:
+            raise ValueError("max_retries must be >= 0")
+        if backoff_seconds < 0:
+            raise ValueError("backoff_seconds must be >= 0")
+        self.max_retries = max_retries
+        self.backoff_seconds = backoff_seconds
+
+    def send_payload(self, payload: bytes) -> None:
+        attempts = self.max_retries + 1
+        last_exc: Exception | None = None
+        for i in range(attempts):
+            try:
+                super().send_payload(payload)
+                return
+            except Exception as exc:  # pragma: no cover - exercised in tests via monkeypatch
+                last_exc = exc
+                if i == attempts - 1:
+                    break
+                if self.backoff_seconds > 0:
+                    time.sleep(self.backoff_seconds)
+        if last_exc is not None:
+            raise last_exc

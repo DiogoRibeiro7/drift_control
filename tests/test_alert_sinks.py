@@ -4,6 +4,7 @@ from drift_control.alert_sinks import (
     ColumnFilterAlertSink,
     CompositeAlertSink,
     PagerDutyAlertSink,
+    RetryingWebhookAlertSink,
     SlackWebhookAlertSink,
     WebhookAlertSink,
 )
@@ -124,3 +125,60 @@ def test_column_filter_alert_sink_noop_when_nothing_matches():
     sink = ColumnFilterAlertSink(_Sink(), columns=["x"])
     sink.send({"y": {"drift": True, "score": 0.9}})
     assert calls["n"] == 0
+
+
+def test_retrying_webhook_alert_sink_retries_then_succeeds(monkeypatch):
+    calls = {"n": 0}
+
+    def _fake_urlopen(req, timeout):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise RuntimeError("temporary failure")
+        return _FakeResponse()
+
+    monkeypatch.setattr("drift_control.alert_sinks.request.urlopen", _fake_urlopen)
+    monkeypatch.setattr("drift_control.alert_sinks.time.sleep", lambda _: None)
+    sink = RetryingWebhookAlertSink(
+        url="https://example.test/webhook",
+        timeout_seconds=1.0,
+        max_retries=3,
+        backoff_seconds=0.01,
+    )
+    sink.send({"x": {"drift": True, "score": 0.9}})
+    assert calls["n"] == 3
+
+
+def test_retrying_webhook_alert_sink_raises_after_exhausted_retries(monkeypatch):
+    calls = {"n": 0}
+
+    def _fake_urlopen(req, timeout):
+        calls["n"] += 1
+        raise RuntimeError("always fails")
+
+    monkeypatch.setattr("drift_control.alert_sinks.request.urlopen", _fake_urlopen)
+    monkeypatch.setattr("drift_control.alert_sinks.time.sleep", lambda _: None)
+    sink = RetryingWebhookAlertSink(
+        url="https://example.test/webhook",
+        timeout_seconds=1.0,
+        max_retries=2,
+        backoff_seconds=0.01,
+    )
+    try:
+        sink.send({"x": {"drift": True, "score": 0.9}})
+        assert False, "expected RuntimeError"
+    except RuntimeError as exc:
+        assert str(exc) == "always fails"
+    assert calls["n"] == 3
+
+
+def test_retrying_webhook_alert_sink_validates_parameters():
+    try:
+        RetryingWebhookAlertSink(url="https://example.test/webhook", max_retries=-1)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "max_retries" in str(exc)
+    try:
+        RetryingWebhookAlertSink(url="https://example.test/webhook", backoff_seconds=-0.1)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "backoff_seconds" in str(exc)
