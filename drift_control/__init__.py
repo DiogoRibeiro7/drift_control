@@ -65,6 +65,8 @@ _LAZY: dict[str, str] = {
     "GCSBaselineStore": "drift_control.baseline_store",
     "AzureBlobBaselineStore": "drift_control.baseline_store",
     "AlertSink": "drift_control.alert_sinks",
+    "CompositeAlertSink": "drift_control.alert_sinks",
+    "ColumnFilterAlertSink": "drift_control.alert_sinks",
     "LogAlertSink": "drift_control.alert_sinks",
     "WebhookAlertSink": "drift_control.alert_sinks",
     "SlackWebhookAlertSink": "drift_control.alert_sinks",

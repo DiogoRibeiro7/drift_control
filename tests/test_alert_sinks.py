@@ -1,6 +1,12 @@
 import json
 
-from drift_control.alert_sinks import PagerDutyAlertSink, SlackWebhookAlertSink, WebhookAlertSink
+from drift_control.alert_sinks import (
+    ColumnFilterAlertSink,
+    CompositeAlertSink,
+    PagerDutyAlertSink,
+    SlackWebhookAlertSink,
+    WebhookAlertSink,
+)
 
 
 class _FakeResponse:
@@ -72,3 +78,49 @@ def test_pagerduty_alert_sink_formats_event_v2_payload(monkeypatch):
     assert payload["payload"]["severity"] == "error"
     assert payload["payload"]["component"] == "stream"
     assert "Drift detected in 1 column(s): x" == payload["payload"]["summary"]
+
+
+def test_composite_alert_sink_fans_out_to_all_sinks():
+    calls = {"a": 0, "b": 0}
+
+    class _SinkA:
+        def send(self, _result):
+            calls["a"] += 1
+
+    class _SinkB:
+        def send(self, _result):
+            calls["b"] += 1
+
+    sink = CompositeAlertSink([_SinkA(), _SinkB()])
+    sink.send({"x": {"drift": True, "score": 0.7}})
+    assert calls == {"a": 1, "b": 1}
+
+
+def test_column_filter_alert_sink_forwards_only_selected_drifting_columns():
+    captured = {}
+
+    class _Sink:
+        def send(self, result):
+            captured["result"] = result
+
+    sink = ColumnFilterAlertSink(_Sink(), columns=["x", "z"])
+    sink.send(
+        {
+            "x": {"drift": True, "score": 0.7},
+            "y": {"drift": True, "score": 0.9},
+            "z": {"drift": False, "score": 0.1},
+        }
+    )
+    assert captured["result"] == {"x": {"drift": True, "score": 0.7}}
+
+
+def test_column_filter_alert_sink_noop_when_nothing_matches():
+    calls = {"n": 0}
+
+    class _Sink:
+        def send(self, _result):
+            calls["n"] += 1
+
+    sink = ColumnFilterAlertSink(_Sink(), columns=["x"])
+    sink.send({"y": {"drift": True, "score": 0.9}})
+    assert calls["n"] == 0

@@ -12,6 +12,33 @@ class AlertSink(Protocol):
     def send(self, result: dict[str, dict[str, Any]]) -> Any: ...
 
 
+class CompositeAlertSink:
+    """Fan out drift events to multiple sinks."""
+
+    def __init__(self, sinks: list[AlertSink]) -> None:
+        self.sinks = list(sinks)
+
+    def send(self, result: dict[str, dict[str, Any]]) -> None:
+        for sink in self.sinks:
+            sink.send(result)
+
+
+class ColumnFilterAlertSink:
+    """Forward events to an inner sink only for selected drifting columns."""
+
+    def __init__(self, sink: AlertSink, columns: list[str]) -> None:
+        self.sink = sink
+        self.columns = set(columns)
+
+    def send(self, result: dict[str, dict[str, Any]]) -> None:
+        filtered: dict[str, dict[str, Any]] = {}
+        for col, payload in result.items():
+            if col in self.columns and bool(payload.get("drift")):
+                filtered[col] = payload
+        if filtered:
+            self.sink.send(filtered)
+
+
 class LogAlertSink:
     """Log drift payloads to a named logger."""
 
