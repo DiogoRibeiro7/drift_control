@@ -7,6 +7,7 @@ delegate to the same engine.
 """
 
 from io import StringIO
+from collections import deque
 import inspect
 from typing import AsyncIterable, Dict, Any, Callable
 import pandas as pd
@@ -31,13 +32,29 @@ class StreamMonitor:
         detector: Any | None = None,
         on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
         on_schema_change: str = "strict",
+        baseline_strategy: str = "fixed",
+        sliding_window_batches: int = 3,
+        ewma_alpha: float = 0.2,
+        random_state: int = 42,
     ) -> None:
         if on_schema_change not in {"strict", "ignore", "drop"}:
             raise ValueError("on_schema_change must be one of: strict, ignore, drop")
+        if baseline_strategy not in {"fixed", "sliding", "ewma"}:
+            raise ValueError("baseline_strategy must be one of: fixed, sliding, ewma")
+        if sliding_window_batches < 1:
+            raise ValueError("sliding_window_batches must be >= 1")
+        if not (0 < ewma_alpha <= 1):
+            raise ValueError("ewma_alpha must be in (0, 1]")
         self.detector = detector or PSIDriftDetector()
         self.baseline: pd.DataFrame | None = None
         self.on_drift = on_drift
         self.on_schema_change = on_schema_change
+        self.baseline_strategy = baseline_strategy
+        self.sliding_window_batches = sliding_window_batches
+        self.ewma_alpha = ewma_alpha
+        self.random_state = random_state
+        self._rng_counter = 0
+        self._recent_batches: deque[pd.DataFrame] = deque(maxlen=sliding_window_batches)
 
     def set_baseline(self, data: pd.DataFrame) -> None:
         """Store the baseline used for drift comparison."""
@@ -47,14 +64,7 @@ class StreamMonitor:
         """Score a single batch against the baseline."""
         if self.baseline is None:
             raise ValueError("Baseline not set")
-        extra = [c for c in batch.columns if c not in self.baseline.columns]
-        if extra and self.on_schema_change == "strict":
-            raise ValueError(f"Batch contains unknown columns: {extra}")
-        missing = [c for c in self.baseline.columns if c not in batch.columns]
-        if missing:
-            raise ValueError(f"Batch is missing baseline columns: {missing}")
-        if self.on_schema_change == "drop":
-            batch = batch.loc[:, self.baseline.columns]
+        batch = self._normalize_batch(batch)
         results: Dict[str, Dict[str, Any]] = {}
         for col in self.baseline.columns:
             drift, score = self.detector.detect_drift(
@@ -62,6 +72,39 @@ class StreamMonitor:
             )
             results[col] = {"drift": drift, "score": score}
         return results
+
+    def _normalize_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
+        if self.baseline is None:
+            raise ValueError("Baseline not set")
+        extra = [c for c in batch.columns if c not in self.baseline.columns]
+        if extra and self.on_schema_change == "strict":
+            raise ValueError(f"Batch contains unknown columns: {extra}")
+        missing = [c for c in self.baseline.columns if c not in batch.columns]
+        if missing:
+            raise ValueError(f"Batch is missing baseline columns: {missing}")
+        return batch.loc[:, self.baseline.columns]
+
+    def _update_baseline(self, batch: pd.DataFrame) -> None:
+        if self.baseline is None:
+            raise ValueError("Baseline not set")
+        if self.baseline_strategy == "fixed":
+            return
+        if self.baseline_strategy == "sliding":
+            self._recent_batches.append(batch.copy())
+            self.baseline = pd.concat(list(self._recent_batches), ignore_index=True)
+            return
+        n_total = len(self.baseline)
+        if n_total == 0:
+            self.baseline = batch.copy()
+            return
+        n_new = int(round(n_total * self.ewma_alpha))
+        n_new = max(1, min(n_total, n_new))
+        n_old = n_total - n_new
+        rs = self.random_state + self._rng_counter
+        self._rng_counter += 1
+        old_part = self.baseline.sample(n=n_old, replace=(n_old > len(self.baseline)), random_state=rs)
+        new_part = batch.sample(n=n_new, replace=(n_new > len(batch)), random_state=rs + 1)
+        self.baseline = pd.concat([old_part, new_part], ignore_index=True)
 
     # Backwards-compatible private alias.
     _compare = compare
@@ -73,13 +116,15 @@ class StreamMonitor:
         if self.baseline is None:
             raise ValueError("Baseline not set")
         async for batch in stream:
-            result = await self.compare(batch)
+            norm_batch = self._normalize_batch(batch)
+            result = await self.compare(norm_batch)
             if self.on_drift is not None and any(
                 bool(col_result.get("drift")) for col_result in result.values()
             ):
                 callback_out = self.on_drift(result)
                 if inspect.isawaitable(callback_out):
                     await callback_out
+            self._update_baseline(norm_batch)
             yield result
 
 
@@ -97,6 +142,10 @@ class KafkaStreamMonitor:
         detector: Any | None = None,
         on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
         on_schema_change: str = "strict",
+        baseline_strategy: str = "fixed",
+        sliding_window_batches: int = 3,
+        ewma_alpha: float = 0.2,
+        random_state: int = 42,
     ) -> None:
         try:
             from aiokafka import AIOKafkaConsumer
@@ -106,6 +155,10 @@ class KafkaStreamMonitor:
             detector,
             on_drift=on_drift,
             on_schema_change=on_schema_change,
+            baseline_strategy=baseline_strategy,
+            sliding_window_batches=sliding_window_batches,
+            ewma_alpha=ewma_alpha,
+            random_state=random_state,
         )
         self._consumer_factory = lambda: AIOKafkaConsumer(
             topic, bootstrap_servers=bootstrap_servers
@@ -143,6 +196,10 @@ class RabbitMQStreamMonitor:
         detector: Any | None = None,
         on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
         on_schema_change: str = "strict",
+        baseline_strategy: str = "fixed",
+        sliding_window_batches: int = 3,
+        ewma_alpha: float = 0.2,
+        random_state: int = 42,
     ) -> None:
         try:
             import aio_pika
@@ -153,6 +210,10 @@ class RabbitMQStreamMonitor:
             detector,
             on_drift=on_drift,
             on_schema_change=on_schema_change,
+            baseline_strategy=baseline_strategy,
+            sliding_window_batches=sliding_window_batches,
+            ewma_alpha=ewma_alpha,
+            random_state=random_state,
         )
         self.queue_name = queue
         self.url = url
