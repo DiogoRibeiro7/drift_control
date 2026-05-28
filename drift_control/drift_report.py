@@ -16,9 +16,19 @@ class DriftReport:
     correction: str = "none"
     generated_at: str | None = None
 
+    def _sorted_items(self) -> list[tuple[str, dict[str, object]]]:
+        def _key(item: tuple[str, dict[str, object]]) -> tuple[int, float]:
+            payload = item[1]
+            drift = 1 if bool(payload.get("drift")) else 0
+            score = payload.get("score")
+            score_val = float(score) if isinstance(score, (int, float)) else float("-inf")
+            return (drift, score_val)
+
+        return sorted(self.columns.items(), key=_key, reverse=True)
+
     def _render_rows(self) -> str:
         rows: list[str] = []
-        for name, payload in sorted(self.columns.items()):
+        for name, payload in self._sorted_items():
             score = payload.get("score")
             drift = payload.get("drift")
             p_value = payload.get("p_value")
@@ -68,3 +78,31 @@ class DriftReport:
         out.write_text(self.to_html(), encoding="utf-8")
         return out
 
+    def top_drifting_markdown(self, limit: int | None = None) -> str:
+        rows: list[str] = [
+            "| Column | Score | P-Value | Drift | Reference N | Current N |",
+            "|---|---:|---:|---|---:|---:|",
+        ]
+        items = self._sorted_items()
+        if limit is not None and limit > 0:
+            items = items[:limit]
+        for name, payload in items:
+            score = payload.get("score")
+            p_value = payload.get("p_value")
+            drift = bool(payload.get("drift"))
+            n_ref = payload.get("n_ref")
+            n_cur = payload.get("n_cur")
+            score_str = f"{float(score):.6f}" if isinstance(score, (int, float)) else "-"
+            pval_str = f"{float(p_value):.6f}" if isinstance(p_value, (int, float)) else "-"
+            nref_str = str(n_ref) if isinstance(n_ref, int) else "-"
+            ncur_str = str(n_cur) if isinstance(n_cur, int) else "-"
+            rows.append(
+                f"| {name} | {score_str} | {pval_str} | "
+                f"{'YES' if drift else 'NO'} | {nref_str} | {ncur_str} |"
+            )
+        return "\n".join(rows)
+
+    def render_markdown(self, path: str | Path, limit: int | None = None) -> Path:
+        out = Path(path)
+        out.write_text(self.top_drifting_markdown(limit=limit), encoding="utf-8")
+        return out

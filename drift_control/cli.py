@@ -88,6 +88,18 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
     default=None,
     help='Optional output path for self-contained HTML drift report.',
 )
+@click.option(
+    '--markdown-report',
+    type=click.Path(),
+    default=None,
+    help='Optional output path for markdown top-drifting table.',
+)
+@click.option(
+    '--report-top-n',
+    type=int,
+    default=None,
+    help='Optional row limit for markdown top-drifting report.',
+)
 def check(
     baseline: str,
     current: str,
@@ -104,6 +116,8 @@ def check(
     columns: str | None,
     fail_on_drift: bool,
     html_report: str | None,
+    markdown_report: str | None,
+    report_top_n: int | None,
 ) -> None:
     """Run a drift check between two CSV files."""
     telemetry = DriftTelemetry(namespace="drift_control.cli")
@@ -268,9 +282,11 @@ def check(
             }
         click.echo(json.dumps(payload))
 
+    report = DriftReport(method=cfg.method, columns=results, correction=cfg.correction)
     if html_report is not None:
-        report = DriftReport(method=cfg.method, columns=results, correction=cfg.correction)
         report.render(html_report)
+    if markdown_report is not None:
+        report.render_markdown(markdown_report, limit=report_top_n)
 
     if use_mlflow:
         try:

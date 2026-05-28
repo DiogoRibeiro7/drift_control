@@ -468,3 +468,23 @@ def test_cli_html_report_output(tmp_path):
     assert report.exists()
     html = report.read_text(encoding='utf-8')
     assert 'Drift Report' in html
+
+
+def test_cli_markdown_report_output(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    report = tmp_path / 'report.md'
+    pd.DataFrame({'x': [0, 1, 2, 3, 4]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'ks', '--markdown-report', str(report), '--report-top-n', '1',
+        ],
+    )
+    assert result.exit_code == 0
+    assert report.exists()
+    md = report.read_text(encoding='utf-8')
+    assert md.startswith('| Column | Score |')
