@@ -178,3 +178,25 @@ monitor.set_baseline(baseline_df)
 Pattern:
 - Send all drift notifications to Slack for visibility.
 - Escalate only selected high-risk columns to PagerDuty to reduce alert fatigue.
+
+## Prometheus metrics export
+
+Use `PrometheusAlertSink` to emit per-column drift metrics from `StreamMonitor`.
+
+```python
+from prometheus_client import CollectorRegistry, start_http_server
+from drift_control.alert_sinks import PrometheusAlertSink
+from drift_control.stream_monitor import StreamMonitor
+
+registry = CollectorRegistry()
+start_http_server(9108, registry=registry)
+
+sink = PrometheusAlertSink(namespace="fraud_model")
+monitor = StreamMonitor(alert_sinks=[sink])
+monitor.set_baseline(baseline_df)
+```
+
+This exposes:
+- `fraud_model_drift_events_total{column="..."}`
+- `fraud_model_drift_score{column="..."}`
+- `fraud_model_drift_flag{column="..."}`

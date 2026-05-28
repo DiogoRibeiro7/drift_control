@@ -11,6 +11,7 @@ Maintained by [Diogo Ribeiro](https://orcid.org/0009-0001-2022-7072).
 - Concept drift (streaming): DDM, EDDM, ADWIN, Page-Hinkley
 - Batch + streaming workflows (`StreamMonitor`, sklearn-compatible `DriftMonitor`)
 - Baseline management helpers with pluggable stores (local, S3, GCS, Azure Blob) and optional DVC integration
+- Alert sinks for Slack, PagerDuty, webhooks, and Prometheus metrics
 - CLI with JSON output for automation pipelines
 
 ## Installation
