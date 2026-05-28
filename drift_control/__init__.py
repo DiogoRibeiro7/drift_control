@@ -61,6 +61,7 @@ _LAZY: dict[str, str] = {
     "AccuracyMonitor": "drift_control.concept_drift",
     "BaselineStore": "drift_control.baseline_store",
     "LocalBaselineStore": "drift_control.baseline_store",
+    "S3BaselineStore": "drift_control.baseline_store",
 }
 
 __all__ = list(_LAZY.keys())
