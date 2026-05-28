@@ -36,6 +36,10 @@ class StreamMonitor:
         sliding_window_batches: int = 3,
         ewma_alpha: float = 0.2,
         random_state: int = 42,
+        adaptive_threshold: bool = False,
+        threshold_quantile: float = 0.95,
+        threshold_history: int = 100,
+        min_threshold_samples: int = 20,
     ) -> None:
         if on_schema_change not in {"strict", "ignore", "drop"}:
             raise ValueError("on_schema_change must be one of: strict, ignore, drop")
@@ -45,6 +49,12 @@ class StreamMonitor:
             raise ValueError("sliding_window_batches must be >= 1")
         if not (0 < ewma_alpha <= 1):
             raise ValueError("ewma_alpha must be in (0, 1]")
+        if not (0 < threshold_quantile < 1):
+            raise ValueError("threshold_quantile must be in (0, 1)")
+        if threshold_history < 5:
+            raise ValueError("threshold_history must be >= 5")
+        if min_threshold_samples < 5:
+            raise ValueError("min_threshold_samples must be >= 5")
         self.detector = detector or PSIDriftDetector()
         self.baseline: pd.DataFrame | None = None
         self.on_drift = on_drift
@@ -53,8 +63,13 @@ class StreamMonitor:
         self.sliding_window_batches = sliding_window_batches
         self.ewma_alpha = ewma_alpha
         self.random_state = random_state
+        self.adaptive_threshold = adaptive_threshold
+        self.threshold_quantile = threshold_quantile
+        self.threshold_history = threshold_history
+        self.min_threshold_samples = min_threshold_samples
         self._rng_counter = 0
         self._recent_batches: deque[pd.DataFrame] = deque(maxlen=sliding_window_batches)
+        self._score_history: dict[str, deque[float]] = {}
 
     def set_baseline(self, data: pd.DataFrame) -> None:
         """Store the baseline used for drift comparison."""
@@ -106,6 +121,40 @@ class StreamMonitor:
         new_part = batch.sample(n=n_new, replace=(n_new > len(batch)), random_state=rs + 1)
         self.baseline = pd.concat([old_part, new_part], ignore_index=True)
 
+    def _update_adaptive_thresholds(self, result: Dict[str, Dict[str, Any]]) -> None:
+        if not self.adaptive_threshold:
+            return
+        detector_threshold = getattr(self.detector, "threshold", None)
+        if not isinstance(detector_threshold, (int, float)):
+            return
+        for col, col_result in result.items():
+            if bool(col_result.get("drift")):
+                continue
+            score = col_result.get("score")
+            if not isinstance(score, (int, float)):
+                continue
+            history = self._score_history.get(col)
+            if history is None:
+                history = deque(maxlen=self.threshold_history)
+                self._score_history[col] = history
+            history.append(float(score))
+            if len(history) >= self.min_threshold_samples:
+                new_threshold = float(pd.Series(history, dtype=float).quantile(self.threshold_quantile))
+                setattr(self.detector, "threshold", new_threshold)
+
+    async def _process_batch(self, batch: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
+        norm_batch = self._normalize_batch(batch)
+        result = await self.compare(norm_batch)
+        self._update_adaptive_thresholds(result)
+        if self.on_drift is not None and any(
+            bool(col_result.get("drift")) for col_result in result.values()
+        ):
+            callback_out = self.on_drift(result)
+            if inspect.isawaitable(callback_out):
+                await callback_out
+        self._update_baseline(norm_batch)
+        return result
+
     # Backwards-compatible private alias.
     _compare = compare
 
@@ -116,16 +165,7 @@ class StreamMonitor:
         if self.baseline is None:
             raise ValueError("Baseline not set")
         async for batch in stream:
-            norm_batch = self._normalize_batch(batch)
-            result = await self.compare(norm_batch)
-            if self.on_drift is not None and any(
-                bool(col_result.get("drift")) for col_result in result.values()
-            ):
-                callback_out = self.on_drift(result)
-                if inspect.isawaitable(callback_out):
-                    await callback_out
-            self._update_baseline(norm_batch)
-            yield result
+            yield await self._process_batch(batch)
 
 
 class KafkaStreamMonitor:
@@ -146,6 +186,10 @@ class KafkaStreamMonitor:
         sliding_window_batches: int = 3,
         ewma_alpha: float = 0.2,
         random_state: int = 42,
+        adaptive_threshold: bool = False,
+        threshold_quantile: float = 0.95,
+        threshold_history: int = 100,
+        min_threshold_samples: int = 20,
     ) -> None:
         try:
             from aiokafka import AIOKafkaConsumer
@@ -159,6 +203,10 @@ class KafkaStreamMonitor:
             sliding_window_batches=sliding_window_batches,
             ewma_alpha=ewma_alpha,
             random_state=random_state,
+            adaptive_threshold=adaptive_threshold,
+            threshold_quantile=threshold_quantile,
+            threshold_history=threshold_history,
+            min_threshold_samples=min_threshold_samples,
         )
         self._consumer_factory = lambda: AIOKafkaConsumer(
             topic, bootstrap_servers=bootstrap_servers
@@ -177,7 +225,7 @@ class KafkaStreamMonitor:
         try:
             async for msg in self._consumer:
                 batch = _read_json_frame(msg.value.decode())
-                yield await self._monitor.compare(batch)
+                yield await self._monitor._process_batch(batch)
         finally:
             await self._consumer.stop()
 
@@ -200,6 +248,10 @@ class RabbitMQStreamMonitor:
         sliding_window_batches: int = 3,
         ewma_alpha: float = 0.2,
         random_state: int = 42,
+        adaptive_threshold: bool = False,
+        threshold_quantile: float = 0.95,
+        threshold_history: int = 100,
+        min_threshold_samples: int = 20,
     ) -> None:
         try:
             import aio_pika
@@ -214,6 +266,10 @@ class RabbitMQStreamMonitor:
             sliding_window_batches=sliding_window_batches,
             ewma_alpha=ewma_alpha,
             random_state=random_state,
+            adaptive_threshold=adaptive_threshold,
+            threshold_quantile=threshold_quantile,
+            threshold_history=threshold_history,
+            min_threshold_samples=min_threshold_samples,
         )
         self.queue_name = queue
         self.url = url
@@ -232,4 +288,4 @@ class RabbitMQStreamMonitor:
                 async for message in queue_iter:
                     async with message.process():
                         batch = _read_json_frame(message.body.decode())
-                        yield await self._monitor.compare(batch)
+                        yield await self._monitor._process_batch(batch)

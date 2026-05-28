@@ -4,6 +4,15 @@ import pytest
 from drift_control.stream_monitor import StreamMonitor
 
 
+class _StubThresholdDetector:
+    def __init__(self, threshold: float = 0.5) -> None:
+        self.threshold = threshold
+
+    def detect_drift(self, _reference, current):
+        score = float(current.mean())
+        return score > self.threshold, score
+
+
 def test_stream_monitor_async():
     baseline = pd.DataFrame({'x': [0, 1, 2]})
     current_batches = [pd.DataFrame({'x': [3, 4, 5]})]
@@ -178,3 +187,44 @@ def test_stream_monitor_ewma_baseline_blends_and_keeps_size():
 def test_stream_monitor_baseline_strategy_validation():
     with pytest.raises(ValueError, match="baseline_strategy"):
         StreamMonitor(baseline_strategy="bad")
+
+
+def test_stream_monitor_adaptive_threshold_updates_from_no_drift_scores():
+    baseline = pd.DataFrame({'x': [0.0, 0.0, 0.0]})
+    batches = [
+        pd.DataFrame({'x': [0.10, 0.10, 0.10]}),
+        pd.DataFrame({'x': [0.20, 0.20, 0.20]}),
+        pd.DataFrame({'x': [0.30, 0.30, 0.30]}),
+        pd.DataFrame({'x': [0.25, 0.25, 0.25]}),
+        pd.DataFrame({'x': [0.40, 0.40, 0.40]}),
+    ]
+
+    async def data_stream():
+        for b in batches:
+            yield b
+
+    detector = _StubThresholdDetector(threshold=0.50)
+    monitor = StreamMonitor(
+        detector=detector,
+        adaptive_threshold=True,
+        threshold_quantile=0.9,
+        threshold_history=20,
+        min_threshold_samples=5,
+    )
+    monitor.set_baseline(baseline)
+
+    async def run():
+        async for _ in monitor.monitor(data_stream()):
+            pass
+
+    asyncio.run(run())
+    assert detector.threshold < 0.5
+
+
+def test_stream_monitor_adaptive_threshold_validation():
+    with pytest.raises(ValueError, match="threshold_quantile"):
+        StreamMonitor(adaptive_threshold=True, threshold_quantile=1.5)
+    with pytest.raises(ValueError, match="threshold_history"):
+        StreamMonitor(adaptive_threshold=True, threshold_history=3)
+    with pytest.raises(ValueError, match="min_threshold_samples"):
+        StreamMonitor(adaptive_threshold=True, min_threshold_samples=3)
