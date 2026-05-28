@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.spatial.distance import cdist
+from typing import cast
 from .result_schema import DriftResult
 
 
@@ -93,7 +94,10 @@ class EnergyDriftDetector:
         reference_data: np.ndarray | list[float] | list[list[float]],
         current_data: np.ndarray | list[float] | list[list[float]],
     ) -> DriftResult:
-        details = self.detect_drift(reference_data, current_data, return_details=True)
+        details = cast(
+            EnergyResult,
+            self.detect_drift(reference_data, current_data, return_details=True),
+        )
         return DriftResult(
             method="energy",
             drift=bool(details.drift_detected),

@@ -96,6 +96,7 @@ strict_equality = true
 files = [
   "drift_control/cli.py",
   "drift_control/config.py",
+  "drift_control/energy_drift_detector.py",
   "drift_control/ensemble_drift_detector.py",
   "drift_control/result_schema.py",
   "drift_control/unified_drift_detector.py",
@@ -104,6 +105,13 @@ files = [
 exclude = [
   "^tests/",
 ]
+
+[[tool.mypy.overrides]]
+module = [
+  "scipy",
+  "scipy.*",
+]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
