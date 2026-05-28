@@ -70,6 +70,7 @@ _LAZY: dict[str, str] = {
     "LogAlertSink": "drift_control.alert_sinks",
     "WebhookAlertSink": "drift_control.alert_sinks",
     "RetryingWebhookAlertSink": "drift_control.alert_sinks",
+    "PrometheusAlertSink": "drift_control.alert_sinks",
     "SlackWebhookAlertSink": "drift_control.alert_sinks",
     "PagerDutyAlertSink": "drift_control.alert_sinks",
 }

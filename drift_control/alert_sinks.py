@@ -163,3 +163,48 @@ class RetryingWebhookAlertSink(WebhookAlertSink):
                     time.sleep(self.backoff_seconds)
         if last_exc is not None:
             raise last_exc
+
+
+class PrometheusAlertSink:
+    """Export drift results as Prometheus metrics."""
+
+    def __init__(
+        self,
+        namespace: str = "drift_control",
+        drift_events_total: Any | None = None,
+        drift_score: Any | None = None,
+        drift_flag: Any | None = None,
+    ) -> None:
+        if drift_events_total is None or drift_score is None or drift_flag is None:
+            try:
+                from prometheus_client import Counter, Gauge  # type: ignore
+            except Exception as exc:
+                raise RuntimeError("prometheus_client is required for PrometheusAlertSink") from exc
+            drift_events_total = drift_events_total or Counter(
+                f"{namespace}_drift_events_total",
+                "Number of drift events per column.",
+                ["column"],
+            )
+            drift_score = drift_score or Gauge(
+                f"{namespace}_drift_score",
+                "Latest drift score per column.",
+                ["column"],
+            )
+            drift_flag = drift_flag or Gauge(
+                f"{namespace}_drift_flag",
+                "Latest drift flag (0/1) per column.",
+                ["column"],
+            )
+        self.drift_events_total = drift_events_total
+        self.drift_score = drift_score
+        self.drift_flag = drift_flag
+
+    def send(self, result: dict[str, dict[str, Any]]) -> None:
+        for col, payload in result.items():
+            score = payload.get("score")
+            is_drift = bool(payload.get("drift"))
+            if isinstance(score, (int, float)):
+                self.drift_score.labels(column=col).set(float(score))
+            self.drift_flag.labels(column=col).set(1.0 if is_drift else 0.0)
+            if is_drift:
+                self.drift_events_total.labels(column=col).inc()
