@@ -41,3 +41,20 @@ def test_drift_report_markdown_top_drifting_sorted_and_limited(tmp_path: Path):
     out = tmp_path / "top.md"
     report.render_markdown(out, limit=2)
     assert out.exists()
+
+
+def test_drift_report_renders_time_series_heatmap(tmp_path: Path):
+    report = DriftReport(method="ks", correction="none", columns={})
+    history = [
+        {"x": {"score": 0.1}, "y": {"score": 0.3}},
+        {"x": {"score": 0.2}, "y": {"score": 0.05}},
+    ]
+    out = tmp_path / "heatmap.html"
+    report.render_time_series_heatmap(out, history=history, labels=["t1", "t2"])
+    html = out.read_text(encoding="utf-8")
+    assert "Drift Heatmap" in html
+    assert "Feature \\ Time" in html
+    assert "x" in html
+    assert "y" in html
+    assert "t1" in html
+    assert "t2" in html

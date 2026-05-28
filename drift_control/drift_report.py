@@ -106,3 +106,74 @@ class DriftReport:
         out = Path(path)
         out.write_text(self.top_drifting_markdown(limit=limit), encoding="utf-8")
         return out
+
+    @staticmethod
+    def _heat_color(value: float, max_value: float) -> str:
+        if max_value <= 0:
+            return "#f5f5f5"
+        ratio = max(0.0, min(1.0, value / max_value))
+        # White -> red gradient.
+        green_blue = int(245 - (140 * ratio))
+        return f"#ff{green_blue:02x}{green_blue:02x}"
+
+    def render_time_series_heatmap(
+        self,
+        path: str | Path,
+        history: list[dict[str, dict[str, object]]],
+        labels: list[str] | None = None,
+        title: str = "Drift Heatmap",
+    ) -> Path:
+        if not history:
+            raise ValueError("history must be non-empty")
+        if labels is not None and len(labels) != len(history):
+            raise ValueError("labels length must match history length")
+
+        time_labels = labels or [f"t{i+1}" for i in range(len(history))]
+        features: list[str] = sorted({k for snap in history for k in snap.keys()})
+
+        matrix: list[list[float]] = []
+        max_score = 0.0
+        for feature in features:
+            row: list[float] = []
+            for snap in history:
+                raw = snap.get(feature, {}).get("score")
+                score = float(raw) if isinstance(raw, (int, float)) else 0.0
+                row.append(score)
+                if score > max_score:
+                    max_score = score
+            matrix.append(row)
+
+        head_cells = "".join(f"<th>{escape(lbl)}</th>" for lbl in time_labels)
+        body_rows: list[str] = []
+        for feature, row in zip(features, matrix):
+            tds = "".join(
+                f'<td style="background:{self._heat_color(val, max_score)}">{val:.4f}</td>'
+                for val in row
+            )
+            body_rows.append(f"<tr><th>{escape(feature)}</th>{tds}</tr>")
+
+        html = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escape(title)}</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; }}
+    table {{ border-collapse: collapse; }}
+    th, td {{ border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: center; }}
+    thead th {{ background: #f4f4f4; }}
+    tbody th {{ text-align: left; background: #fafafa; }}
+  </style>
+</head>
+<body>
+  <h1>{escape(title)}</h1>
+  <table>
+    <thead><tr><th>Feature \\ Time</th>{head_cells}</tr></thead>
+    <tbody>{''.join(body_rows)}</tbody>
+  </table>
+</body>
+</html>"""
+        out = Path(path)
+        out.write_text(html, encoding="utf-8")
+        return out
