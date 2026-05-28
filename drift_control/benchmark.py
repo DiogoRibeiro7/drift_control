@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Callable
 
@@ -123,68 +124,86 @@ class SyntheticDriftBenchmark:
         rng = np.random.default_rng(self.random_seed)
         out: list[BenchmarkResult] = []
 
-        for method in self.methods:
-            detector = self._detector_for_method(method)
-            method_scenarios = (
-                categorical_scenarios
-                if method in {"chi2cat", "tvdcat"}
-                else scenarios
-            )
-            for scenario_name, scenario_fn in method_scenarios.items():
-                drift_flags: list[bool] = []
-                scores: list[float] = []
-                latencies_ms: list[float] = []
-                expected: bool | None = None
+        run_span = nullcontext()
+        if self.telemetry is not None:
+            start_span = getattr(self.telemetry, "start_span", None)
+            if callable(start_span):
+                run_span = start_span(
+                    "drift_control.benchmark.run",
+                    {"component": "benchmark", "n_trials": self.n_trials, "sample_size": self.sample_size},
+                )
+        with run_span:
+            for method in self.methods:
+                detector = self._detector_for_method(method)
+                method_scenarios = (
+                    categorical_scenarios
+                    if method in {"chi2cat", "tvdcat"}
+                    else scenarios
+                )
+                for scenario_name, scenario_fn in method_scenarios.items():
+                    scenario_span = nullcontext()
+                    if self.telemetry is not None:
+                        start_span = getattr(self.telemetry, "start_span", None)
+                        if callable(start_span):
+                            scenario_span = start_span(
+                                "drift_control.benchmark.scenario",
+                                {"component": "benchmark", "method": method, "scenario": scenario_name},
+                            )
+                    with scenario_span:
+                        drift_flags: list[bool] = []
+                        scores: list[float] = []
+                        latencies_ms: list[float] = []
+                        expected: bool | None = None
 
-                for _ in range(self.n_trials):
-                    ref, cur, exp = scenario_fn(rng, self.sample_size)
-                    expected = exp if expected is None else expected
-                    start = time.perf_counter()
-                    try:
-                        result = detector.detect_drift(ref, cur)
-                    except Exception:
+                        for _ in range(self.n_trials):
+                            ref, cur, exp = scenario_fn(rng, self.sample_size)
+                            expected = exp if expected is None else expected
+                            start = time.perf_counter()
+                            try:
+                                result = detector.detect_drift(ref, cur)
+                            except Exception:
+                                if self.telemetry is not None:
+                                    self.telemetry.record_error(
+                                        {
+                                            "component": "benchmark",
+                                            "method": method,
+                                            "scenario": scenario_name,
+                                        }
+                                    )
+                                raise
+                            elapsed_ms = (time.perf_counter() - start) * 1000.0
+                            drift_flags.append(bool(result.drift))
+                            scores.append(float(result.score))
+                            latencies_ms.append(float(elapsed_ms))
+                            if self.telemetry is not None:
+                                self.telemetry.record_latency(
+                                    elapsed_ms,
+                                    {
+                                        "component": "benchmark",
+                                        "method": method,
+                                        "scenario": scenario_name,
+                                    },
+                                )
+
+                        out.append(
+                            BenchmarkResult(
+                                method=method,
+                                scenario=scenario_name,
+                                n_trials=self.n_trials,
+                                expected_drift=bool(expected),
+                                drift_rate=float(np.mean(drift_flags)),
+                                avg_score=float(np.mean(scores)),
+                                avg_latency_ms=float(np.mean(latencies_ms)),
+                            )
+                        )
                         if self.telemetry is not None:
-                            self.telemetry.record_error(
+                            self.telemetry.record_drift_rate(
+                                float(np.mean(drift_flags)),
                                 {
                                     "component": "benchmark",
                                     "method": method,
                                     "scenario": scenario_name,
-                                }
+                                },
                             )
-                        raise
-                    elapsed_ms = (time.perf_counter() - start) * 1000.0
-                    drift_flags.append(bool(result.drift))
-                    scores.append(float(result.score))
-                    latencies_ms.append(float(elapsed_ms))
-                    if self.telemetry is not None:
-                        self.telemetry.record_latency(
-                            elapsed_ms,
-                            {
-                                "component": "benchmark",
-                                "method": method,
-                                "scenario": scenario_name,
-                            },
-                        )
-
-                out.append(
-                    BenchmarkResult(
-                        method=method,
-                        scenario=scenario_name,
-                        n_trials=self.n_trials,
-                        expected_drift=bool(expected),
-                        drift_rate=float(np.mean(drift_flags)),
-                        avg_score=float(np.mean(scores)),
-                        avg_latency_ms=float(np.mean(latencies_ms)),
-                    )
-                )
-                if self.telemetry is not None:
-                    self.telemetry.record_drift_rate(
-                        float(np.mean(drift_flags)),
-                        {
-                            "component": "benchmark",
-                            "method": method,
-                            "scenario": scenario_name,
-                        },
-                    )
 
         return out

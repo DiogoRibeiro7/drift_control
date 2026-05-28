@@ -34,6 +34,7 @@ class _SpyTelemetry:
         self.latency_calls = 0
         self.drift_rate_calls = 0
         self.error_calls = 0
+        self.span_calls = 0
 
     def record_latency(self, value_ms, attributes=None):
         self.latency_calls += 1
@@ -44,6 +45,20 @@ class _SpyTelemetry:
     def record_error(self, attributes=None):
         self.error_calls += 1
 
+    class _SpanCtx:
+        def __init__(self, owner):
+            self.owner = owner
+
+        def __enter__(self):
+            self.owner.span_calls += 1
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def start_span(self, name, attributes=None):
+        return _SpyTelemetry._SpanCtx(self)
+
 
 def test_benchmark_emits_telemetry_calls():
     spy = _SpyTelemetry()
@@ -53,6 +68,7 @@ def test_benchmark_emits_telemetry_calls():
     assert spy.latency_calls > 0
     assert spy.drift_rate_calls == 4
     assert spy.error_calls == 0
+    assert spy.span_calls == 5
 
 
 def test_benchmark_default_methods_include_categorical_detectors():
