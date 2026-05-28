@@ -8,6 +8,7 @@ import click
 import pandas as pd
 
 from .config import DriftCheckConfig
+from .baseline_manager import BaselineManager
 from .benchmark import BenchmarkResult, SyntheticDriftBenchmark
 from .ensemble_drift_detector import EnsembleDriftDetector
 from .multiple_testing import adjust_pvalues
@@ -25,7 +26,18 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
 
 
 @click.command()
-@click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
+@click.option('--baseline', type=click.Path(exists=True), required=False, help='Baseline CSV file')
+@click.option(
+    '--baseline-version',
+    default=None,
+    help='Versioned baseline id in the form name@version (loaded via BaselineManager).',
+)
+@click.option(
+    '--baseline-dir',
+    default='baselines',
+    show_default=True,
+    help='Baseline storage directory for --baseline-version.',
+)
 @click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
 @click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'energy', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'ensemble']), default='psi', help='Drift detection method')
 @click.option('--threshold', type=float, default=None,
@@ -101,7 +113,9 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
     help='Optional row limit for markdown top-drifting report.',
 )
 def check(
-    baseline: str,
+    baseline: str | None,
+    baseline_version: str | None,
+    baseline_dir: str,
     current: str,
     method: str,
     threshold: float | None,
@@ -143,7 +157,21 @@ def check(
     except ValueError as exc:
         _raise_click(str(exc), "config")
 
-    base_df = pd.read_csv(baseline)
+    if baseline is None and baseline_version is None:
+        _raise_click("One of --baseline or --baseline-version is required.", "baseline")
+    if baseline is not None and baseline_version is not None:
+        _raise_click("Use either --baseline or --baseline-version, not both.", "baseline")
+    if baseline_version is not None:
+        if "@" not in baseline_version:
+            _raise_click("--baseline-version must be in the form name@version.", "baseline")
+        name, version = baseline_version.split("@", 1)
+        try:
+            base_df = BaselineManager(directory=baseline_dir).load_baseline(name, version)
+        except Exception as exc:
+            _raise_click(f"Failed to load baseline version '{baseline_version}': {exc}", "baseline")
+    else:
+        assert baseline is not None
+        base_df = pd.read_csv(baseline)
     cur_df = pd.read_csv(current)
     try:
         validate_matching_columns(base_df, cur_df)

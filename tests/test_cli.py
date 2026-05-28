@@ -2,6 +2,7 @@ import json
 
 from click.testing import CliRunner
 import pandas as pd
+from drift_control.baseline_manager import BaselineManager
 from drift_control.cli import check
 
 
@@ -488,3 +489,43 @@ def test_cli_markdown_report_output(tmp_path):
     assert report.exists()
     md = report.read_text(encoding='utf-8')
     assert md.startswith('| Column | Score |')
+
+
+def test_cli_baseline_version_loads_from_manager(tmp_path):
+    baseline_dir = tmp_path / 'baselines'
+    manager = BaselineManager(directory=str(baseline_dir))
+    manager.save_baseline(pd.DataFrame({'x': [0, 1, 2, 3, 4]}), name='mydata', version='1')
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [10, 11, 12, 13, 14]}).to_csv(current, index=False)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline-version', 'mydata@1',
+            '--baseline-dir', str(baseline_dir),
+            '--current', str(current),
+            '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'psi'
+
+
+def test_cli_baseline_and_baseline_version_are_mutually_exclusive(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [3, 4, 5]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline),
+            '--baseline-version', 'mydata@1',
+            '--current', str(current),
+        ],
+    )
+    assert result.exit_code != 0
+    assert 'either --baseline or --baseline-version' in result.output
