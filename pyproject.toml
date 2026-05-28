@@ -28,6 +28,7 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "click",
+    "hypothesis",
     "tomli; python_version < '3.11'",
 ]
 

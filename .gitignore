@@ -4,4 +4,9 @@ __pycache__/
 .poetry
 .env
 .pytest_cache/
+.hypothesis/
+.mypy_cache/
+.benchmarks/
+build/
+dist/
 .venv/
