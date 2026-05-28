@@ -59,6 +59,8 @@ _LAZY: dict[str, str] = {
     "PageHinkleyDetector": "drift_control.concept_drift",
     "KSWINDetector": "drift_control.concept_drift",
     "AccuracyMonitor": "drift_control.concept_drift",
+    "BaselineStore": "drift_control.baseline_store",
+    "LocalBaselineStore": "drift_control.baseline_store",
 }
 
 __all__ = list(_LAZY.keys())
