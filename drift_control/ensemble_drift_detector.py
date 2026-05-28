@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from html import escape
 from typing import Any, Callable, Protocol, cast
 
 import pandas as pd
@@ -26,6 +27,38 @@ class EnsembleColumnResult:
     votes: int
     required_votes: int
     method_results: dict[str, dict[str, float | bool]]
+
+    def _repr_html_(self) -> str:
+        detail_rows: list[str] = []
+        for method, payload in sorted(self.method_results.items()):
+            score = payload.get("score")
+            p_value = payload.get("p_value")
+            drift = bool(payload.get("drift"))
+            score_str = f"{float(score):.6f}" if isinstance(score, (int, float)) else "-"
+            pval_str = f"{float(p_value):.6f}" if isinstance(p_value, (int, float)) else "-"
+            detail_rows.append(
+                "<tr>"
+                f"<td>{escape(method)}</td>"
+                f"<td>{score_str}</td>"
+                f"<td>{pval_str}</td>"
+                f"<td>{'YES' if drift else 'NO'}</td>"
+                "</tr>"
+            )
+
+        return (
+            "<div>"
+            "<table>"
+            "<thead><tr><th>Drift</th><th>Votes</th><th>Required Votes</th></tr></thead>"
+            "<tbody>"
+            f"<tr><td>{'YES' if self.drift_detected else 'NO'}</td>"
+            f"<td>{self.votes}</td><td>{self.required_votes}</td></tr>"
+            "</tbody></table>"
+            "<table>"
+            "<thead><tr><th>Method</th><th>Score</th><th>P-Value</th><th>Drift</th></tr></thead>"
+            f"<tbody>{''.join(detail_rows)}</tbody>"
+            "</table>"
+            "</div>"
+        )
 
 
 class _SimpleDetector(Protocol):
