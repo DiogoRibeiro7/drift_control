@@ -668,3 +668,44 @@ def test_cli_baseline_version_azure_requires_container(tmp_path):
     )
     assert result.exit_code != 0
     assert '--baseline-container is required' in result.output
+
+
+def test_cli_invokes_telemetry_span(tmp_path, monkeypatch):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [3, 4, 5]}).to_csv(current, index=False)
+    calls = {'n': 0}
+
+    class _SpanCtx:
+        def __enter__(self):
+            calls['n'] += 1
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class _FakeTelemetry:
+        def __init__(self, namespace="drift_control.cli"):
+            self.namespace = namespace
+
+        def start_span(self, name, attributes=None):
+            return _SpanCtx()
+
+        def record_error(self, attributes=None):
+            return None
+
+        def record_drift_rate(self, value, attributes=None):
+            return None
+
+        def record_latency(self, value_ms, attributes=None):
+            return None
+
+    monkeypatch.setattr(cli_mod, "DriftTelemetry", _FakeTelemetry)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--output-json'],
+    )
+    assert result.exit_code == 0
+    assert calls['n'] == 1

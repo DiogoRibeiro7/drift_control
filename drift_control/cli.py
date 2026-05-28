@@ -3,6 +3,7 @@
 import json
 import time
 from typing import Any
+from contextlib import nullcontext
 
 import click
 import pandas as pd
@@ -164,236 +165,241 @@ def check(
     """Run a drift check between two CSV files."""
     telemetry = DriftTelemetry(namespace="drift_control.cli")
     started = time.perf_counter()
+    span_ctx = nullcontext()
+    start_span = getattr(telemetry, "start_span", None)
+    if callable(start_span):
+        span_ctx = start_span("drift_control.cli.check", {"component": "cli", "method": method})
 
     def _raise_click(message: str, stage: str) -> None:
         telemetry.record_error({"component": "cli", "stage": stage, "method": method})
         raise click.ClickException(message)
 
-    try:
-        if config_path is not None:
-            cfg = DriftCheckConfig.from_file(config_path)
-        else:
-            cfg = DriftCheckConfig.from_cli(
-                method=method,
-                threshold=threshold,
-                correction=correction,
-                ensemble_methods=ensemble_methods,
-                vote_mode=vote_mode,
-                min_votes=min_votes,
-                stack_threshold=stack_threshold,
-            )
-    except ValueError as exc:
-        _raise_click(str(exc), "config")
-
-    if baseline is None and baseline_version is None:
-        _raise_click("One of --baseline or --baseline-version is required.", "baseline")
-    if baseline is not None and baseline_version is not None:
-        _raise_click("Use either --baseline or --baseline-version, not both.", "baseline")
-    if baseline_version is not None:
-        if "@" not in baseline_version:
-            _raise_click("--baseline-version must be in the form name@version.", "baseline")
-        name, version = baseline_version.split("@", 1)
+    with span_ctx:
         try:
-            if baseline_store == "local":
-                store = LocalBaselineStore(directory=baseline_dir)
-            elif baseline_store == "s3":
-                if not baseline_bucket:
-                    _raise_click("--baseline-bucket is required for --baseline-store s3.", "baseline")
-                store = S3BaselineStore(bucket=baseline_bucket, prefix=baseline_prefix)
-            elif baseline_store == "gcs":
-                if not baseline_bucket:
-                    _raise_click("--baseline-bucket is required for --baseline-store gcs.", "baseline")
-                store = GCSBaselineStore(bucket=baseline_bucket, prefix=baseline_prefix)
+            if config_path is not None:
+                cfg = DriftCheckConfig.from_file(config_path)
             else:
-                if not baseline_container:
-                    _raise_click("--baseline-container is required for --baseline-store azure.", "baseline")
-                store = AzureBlobBaselineStore(container=baseline_container, prefix=baseline_prefix)
-            base_df = BaselineManager(directory=baseline_dir, store=store).load_baseline(name, version)
-        except Exception as exc:
-            _raise_click(f"Failed to load baseline version '{baseline_version}': {exc}", "baseline")
-    else:
-        assert baseline is not None
-        base_df = pd.read_csv(baseline)
-    cur_df = pd.read_csv(current)
-    try:
-        validate_matching_columns(base_df, cur_df)
-    except ValueError as exc:
-        _raise_click(str(exc), "schema")
-    base_cols = set(base_df.columns)
-    if columns is not None:
-        selected = [c.strip() for c in columns.split(",") if c.strip()]
-        unknown = [c for c in selected if c not in base_cols]
-        if unknown:
-            _raise_click(f"Unknown column(s) in --columns: {unknown}", "columns")
-        base_cols = set(selected)
-
-    ensemble_detector: EnsembleDriftDetector | None = None
-    unified_detector: UnifiedDriftDetector | None = None
-    if cfg.method == 'ensemble':
-        try:
-            ensemble_detector = EnsembleDriftDetector(
-                methods=cfg.ensemble.methods,
-                vote_mode=cfg.ensemble.vote_mode,
-                min_votes=cfg.ensemble.min_votes,
-                correction=cfg.correction,
-                stack_threshold=cfg.ensemble.stack_threshold,
-            )
+                cfg = DriftCheckConfig.from_cli(
+                    method=method,
+                    threshold=threshold,
+                    correction=correction,
+                    ensemble_methods=ensemble_methods,
+                    vote_mode=vote_mode,
+                    min_votes=min_votes,
+                    stack_threshold=stack_threshold,
+                )
         except ValueError as exc:
-            _raise_click(str(exc), "ensemble_init")
-        effective_threshold = None
-    else:
-        method_kwargs: dict[str, float] = {}
-        if cfg.threshold is not None:
-            if cfg.method in {'psi', 'js', 'tvdcat'}:
-                method_kwargs['threshold'] = cfg.threshold
-            else:
-                method_kwargs['alpha'] = cfg.threshold
-        unified_detector = UnifiedDriftDetector(method=cfg.method, **method_kwargs)
-        effective_threshold = unified_detector.threshold
+            _raise_click(str(exc), "config")
 
-    results: dict[str, dict[str, object]] = {}
-    if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat'}:
-        assert unified_detector is not None
-        for col in sorted(base_cols):
+        if baseline is None and baseline_version is None:
+            _raise_click("One of --baseline or --baseline-version is required.", "baseline")
+        if baseline is not None and baseline_version is not None:
+            _raise_click("Use either --baseline or --baseline-version, not both.", "baseline")
+        if baseline_version is not None:
+            if "@" not in baseline_version:
+                _raise_click("--baseline-version must be in the form name@version.", "baseline")
+            name, version = baseline_version.split("@", 1)
             try:
-                if cfg.method in {'chi2cat', 'tvdcat'}:
-                    base_col, cur_col = coerce_categorical_series(
-                        base_df[col], cur_df[col], column_name=col, method_name=cfg.method
-                    )
+                if baseline_store == "local":
+                    store = LocalBaselineStore(directory=baseline_dir)
+                elif baseline_store == "s3":
+                    if not baseline_bucket:
+                        _raise_click("--baseline-bucket is required for --baseline-store s3.", "baseline")
+                    store = S3BaselineStore(bucket=baseline_bucket, prefix=baseline_prefix)
+                elif baseline_store == "gcs":
+                    if not baseline_bucket:
+                        _raise_click("--baseline-bucket is required for --baseline-store gcs.", "baseline")
+                    store = GCSBaselineStore(bucket=baseline_bucket, prefix=baseline_prefix)
                 else:
-                    base_col, cur_col = coerce_numeric_series(
-                        base_df[col], cur_df[col], column_name=col, method_name=cfg.method
-                    )
-            except ValueError as exc:
-                _raise_click(str(exc), "column_validation")
-
-            outcome = unified_detector.detect_drift(base_col, cur_col)
-            results[col] = {'score': float(outcome.score), 'drift': bool(outcome.drift)}
-            if outcome.p_value is not None:
-                results[col]['p_value'] = float(outcome.p_value)
-            if not output_json:
-                click.echo(f"{col}: {outcome.score:.4f} (drift={outcome.drift})")
-        if cfg.correction != 'none':
-            pvalue_items: list[tuple[str, float]] = []
-            for c, col_payload in results.items():
-                p_val = col_payload.get('p_value')
-                if isinstance(p_val, (int, float)):
-                    pvalue_items.append((c, float(p_val)))
-            pvalue_cols = [c for c, _ in pvalue_items]
-            raw = [p for _, p in pvalue_items]
-            adj = adjust_pvalues(raw, method=cfg.correction)
-            for c, p_adj in zip(pvalue_cols, adj):
-                results[c]['p_value'] = float(p_adj)
-                threshold_used = (
-                    float(effective_threshold) if effective_threshold is not None else 0.05
-                )
-                results[c]['drift'] = bool(p_adj < threshold_used)
-    elif cfg.method in {'mmd', 'c2st', 'energy'}:
-        assert unified_detector is not None
+                    if not baseline_container:
+                        _raise_click("--baseline-container is required for --baseline-store azure.", "baseline")
+                    store = AzureBlobBaselineStore(container=baseline_container, prefix=baseline_prefix)
+                base_df = BaselineManager(directory=baseline_dir, store=store).load_baseline(name, version)
+            except Exception as exc:
+                _raise_click(f"Failed to load baseline version '{baseline_version}': {exc}", "baseline")
+        else:
+            assert baseline is not None
+            base_df = pd.read_csv(baseline)
+        cur_df = pd.read_csv(current)
         try:
-            base_num = coerce_numeric_frame(base_df, method_name=cfg.method)
-            cur_num = coerce_numeric_frame(cur_df, method_name=cfg.method)
+            validate_matching_columns(base_df, cur_df)
         except ValueError as exc:
-            _raise_click(str(exc), "frame_validation")
-        outcome = unified_detector.detect_drift(base_num.values, cur_num.values)
-        results['dataset'] = {
-            'score': float(outcome.score),
-            'p_value': float(outcome.p_value) if outcome.p_value is not None else None,
-            'drift': bool(outcome.drift),
-        }
-        if not output_json:
-            if cfg.method == 'mmd':
-                score_name = 'mmd2'
-            elif cfg.method == 'c2st':
-                score_name = 'roc_auc'
-            else:
-                score_name = 'energy_distance'
-            click.echo(
-                f"dataset: {score_name}={outcome.score:.6f}, p_value={outcome.p_value:.6f} "
-                f"(drift={outcome.drift})"
-            )
-    else:
-        assert ensemble_detector is not None
-        try:
-            base_num = coerce_numeric_frame(base_df, method_name='ensemble')
-            cur_num = coerce_numeric_frame(cur_df, method_name='ensemble')
-        except ValueError as exc:
-            _raise_click(str(exc), "frame_validation")
-        ensemble_res = ensemble_detector.detect_drift(base_num, cur_num)
-        for col, col_res in ensemble_res.items():
-            results[col] = {
-                'score': float(col_res.votes),
-                'drift': bool(col_res.drift_detected),
-                'votes': col_res.votes,
-                'required_votes': col_res.required_votes,
-            }
-            if not output_json:
-                click.echo(
-                    f"{col}: votes={col_res.votes}/{col_res.required_votes} "
-                    f"(drift={col_res.drift_detected})"
-                )
+            _raise_click(str(exc), "schema")
+        base_cols = set(base_df.columns)
+        if columns is not None:
+            selected = [c.strip() for c in columns.split(",") if c.strip()]
+            unknown = [c for c in selected if c not in base_cols]
+            if unknown:
+                _raise_click(f"Unknown column(s) in --columns: {unknown}", "columns")
+            base_cols = set(selected)
 
-    if output_json:
-        payload: dict[str, Any] = {
-            'schema_version': CLI_JSON_SCHEMA_VERSION,
-            'method': cfg.method,
-            'threshold': None if effective_threshold is None else float(effective_threshold),
-            'correction': cfg.correction,
-            'columns': results,
-        }
+        ensemble_detector: EnsembleDriftDetector | None = None
+        unified_detector: UnifiedDriftDetector | None = None
         if cfg.method == 'ensemble':
-            payload['ensemble'] = {
-                'methods': ensemble_detector.methods if ensemble_detector is not None else [],
-                'vote_mode': ensemble_detector.vote_mode if ensemble_detector is not None else None,
-                'min_votes': ensemble_detector.min_votes if ensemble_detector is not None else None,
-                'stack_threshold': (
-                    ensemble_detector.stack_threshold if ensemble_detector is not None else None
-                ),
+            try:
+                ensemble_detector = EnsembleDriftDetector(
+                    methods=cfg.ensemble.methods,
+                    vote_mode=cfg.ensemble.vote_mode,
+                    min_votes=cfg.ensemble.min_votes,
+                    correction=cfg.correction,
+                    stack_threshold=cfg.ensemble.stack_threshold,
+                )
+            except ValueError as exc:
+                _raise_click(str(exc), "ensemble_init")
+            effective_threshold = None
+        else:
+            method_kwargs: dict[str, float] = {}
+            if cfg.threshold is not None:
+                if cfg.method in {'psi', 'js', 'tvdcat'}:
+                    method_kwargs['threshold'] = cfg.threshold
+                else:
+                    method_kwargs['alpha'] = cfg.threshold
+            unified_detector = UnifiedDriftDetector(method=cfg.method, **method_kwargs)
+            effective_threshold = unified_detector.threshold
+
+        results: dict[str, dict[str, object]] = {}
+        if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat'}:
+            assert unified_detector is not None
+            for col in sorted(base_cols):
+                try:
+                    if cfg.method in {'chi2cat', 'tvdcat'}:
+                        base_col, cur_col = coerce_categorical_series(
+                            base_df[col], cur_df[col], column_name=col, method_name=cfg.method
+                        )
+                    else:
+                        base_col, cur_col = coerce_numeric_series(
+                            base_df[col], cur_df[col], column_name=col, method_name=cfg.method
+                        )
+                except ValueError as exc:
+                    _raise_click(str(exc), "column_validation")
+
+                outcome = unified_detector.detect_drift(base_col, cur_col)
+                results[col] = {'score': float(outcome.score), 'drift': bool(outcome.drift)}
+                if outcome.p_value is not None:
+                    results[col]['p_value'] = float(outcome.p_value)
+                if not output_json:
+                    click.echo(f"{col}: {outcome.score:.4f} (drift={outcome.drift})")
+            if cfg.correction != 'none':
+                pvalue_items: list[tuple[str, float]] = []
+                for c, col_payload in results.items():
+                    p_val = col_payload.get('p_value')
+                    if isinstance(p_val, (int, float)):
+                        pvalue_items.append((c, float(p_val)))
+                pvalue_cols = [c for c, _ in pvalue_items]
+                raw = [p for _, p in pvalue_items]
+                adj = adjust_pvalues(raw, method=cfg.correction)
+                for c, p_adj in zip(pvalue_cols, adj):
+                    results[c]['p_value'] = float(p_adj)
+                    threshold_used = (
+                        float(effective_threshold) if effective_threshold is not None else 0.05
+                    )
+                    results[c]['drift'] = bool(p_adj < threshold_used)
+        elif cfg.method in {'mmd', 'c2st', 'energy'}:
+            assert unified_detector is not None
+            try:
+                base_num = coerce_numeric_frame(base_df, method_name=cfg.method)
+                cur_num = coerce_numeric_frame(cur_df, method_name=cfg.method)
+            except ValueError as exc:
+                _raise_click(str(exc), "frame_validation")
+            outcome = unified_detector.detect_drift(base_num.values, cur_num.values)
+            results['dataset'] = {
+                'score': float(outcome.score),
+                'p_value': float(outcome.p_value) if outcome.p_value is not None else None,
+                'drift': bool(outcome.drift),
             }
-        click.echo(json.dumps(payload))
+            if not output_json:
+                if cfg.method == 'mmd':
+                    score_name = 'mmd2'
+                elif cfg.method == 'c2st':
+                    score_name = 'roc_auc'
+                else:
+                    score_name = 'energy_distance'
+                click.echo(
+                    f"dataset: {score_name}={outcome.score:.6f}, p_value={outcome.p_value:.6f} "
+                    f"(drift={outcome.drift})"
+                )
+        else:
+            assert ensemble_detector is not None
+            try:
+                base_num = coerce_numeric_frame(base_df, method_name='ensemble')
+                cur_num = coerce_numeric_frame(cur_df, method_name='ensemble')
+            except ValueError as exc:
+                _raise_click(str(exc), "frame_validation")
+            ensemble_res = ensemble_detector.detect_drift(base_num, cur_num)
+            for col, col_res in ensemble_res.items():
+                results[col] = {
+                    'score': float(col_res.votes),
+                    'drift': bool(col_res.drift_detected),
+                    'votes': col_res.votes,
+                    'required_votes': col_res.required_votes,
+                }
+                if not output_json:
+                    click.echo(
+                        f"{col}: votes={col_res.votes}/{col_res.required_votes} "
+                        f"(drift={col_res.drift_detected})"
+                    )
 
-    report = DriftReport(method=cfg.method, columns=results, correction=cfg.correction)
-    if html_report is not None:
-        report.render(html_report)
-    if markdown_report is not None:
-        report.render_markdown(markdown_report, limit=report_top_n)
+        if output_json:
+            payload: dict[str, Any] = {
+                'schema_version': CLI_JSON_SCHEMA_VERSION,
+                'method': cfg.method,
+                'threshold': None if effective_threshold is None else float(effective_threshold),
+                'correction': cfg.correction,
+                'columns': results,
+            }
+            if cfg.method == 'ensemble':
+                payload['ensemble'] = {
+                    'methods': ensemble_detector.methods if ensemble_detector is not None else [],
+                    'vote_mode': ensemble_detector.vote_mode if ensemble_detector is not None else None,
+                    'min_votes': ensemble_detector.min_votes if ensemble_detector is not None else None,
+                    'stack_threshold': (
+                        ensemble_detector.stack_threshold if ensemble_detector is not None else None
+                    ),
+                }
+            click.echo(json.dumps(payload))
 
-    if use_mlflow:
-        try:
-            import mlflow
-        except ImportError as exc:
-            _raise_click('MLflow logging requested but mlflow is not installed.', "mlflow")
-        active_run = mlflow.active_run()
-        run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()
-        with run_ctx:
-            for col, metric_payload in results.items():
-                score = metric_payload.get('score')
-                if isinstance(score, (int, float)):
-                    mlflow.log_metric(col, float(score))
+        report = DriftReport(method=cfg.method, columns=results, correction=cfg.correction)
+        if html_report is not None:
+            report.render(html_report)
+        if markdown_report is not None:
+            report.render_markdown(markdown_report, limit=report_top_n)
 
-    if fail_on_drift:
-        any_drift = any(
+        if use_mlflow:
+            try:
+                import mlflow
+            except ImportError as exc:
+                _raise_click('MLflow logging requested but mlflow is not installed.', "mlflow")
+            active_run = mlflow.active_run()
+            run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()
+            with run_ctx:
+                for col, metric_payload in results.items():
+                    score = metric_payload.get('score')
+                    if isinstance(score, (int, float)):
+                        mlflow.log_metric(col, float(score))
+
+        if fail_on_drift:
+            any_drift = any(
+                bool(payload.get("drift"))
+                for payload in results.values()
+                if isinstance(payload, dict)
+            )
+            if any_drift:
+                raise click.ClickException("Drift detected and --fail-on-drift is enabled.")
+
+        drift_flags = [
             bool(payload.get("drift"))
             for payload in results.values()
-            if isinstance(payload, dict)
-        )
-        if any_drift:
-            raise click.ClickException("Drift detected and --fail-on-drift is enabled.")
-
-    drift_flags = [
-        bool(payload.get("drift"))
-        for payload in results.values()
-        if isinstance(payload.get("drift"), bool)
-    ]
-    if drift_flags:
-        telemetry.record_drift_rate(
-            float(sum(drift_flags) / len(drift_flags)),
+            if isinstance(payload.get("drift"), bool)
+        ]
+        if drift_flags:
+            telemetry.record_drift_rate(
+                float(sum(drift_flags) / len(drift_flags)),
+                {"component": "cli", "method": cfg.method},
+            )
+        telemetry.record_latency(
+            (time.perf_counter() - started) * 1000.0,
             {"component": "cli", "method": cfg.method},
         )
-    telemetry.record_latency(
-        (time.perf_counter() - started) * 1000.0,
-        {"component": "cli", "method": cfg.method},
-    )
 
 
 if __name__ == '__main__':
