@@ -221,3 +221,53 @@ trace.set_tracer_provider(provider)
 ```
 
 After this, run detector/CLI/benchmark paths as usual; spans are emitted automatically.
+
+## Airflow wrapper
+
+Install with the airflow extra:
+
+```bash
+pip install "drift-control[airflow]"
+```
+
+Create a task with the built-in wrapper:
+
+```python
+from drift_control.integrations.airflow import create_airflow_drift_task
+
+drift_task = create_airflow_drift_task(
+    task_id="drift_check",
+    args=[
+        "--baseline", "data/baseline.csv",
+        "--current", "data/current.csv",
+        "--method", "ks",
+        "--output-json",
+        "--fail-on-drift",
+    ],
+)
+```
+
+## Prefect wrapper
+
+Install with the prefect extra:
+
+```bash
+pip install "drift-control[prefect]"
+```
+
+Create a task with the built-in wrapper:
+
+```python
+from drift_control.integrations.prefect import create_prefect_drift_task
+
+drift_task = create_prefect_drift_task(
+    args=[
+        "--baseline", "data/baseline.csv",
+        "--current", "data/current.csv",
+        "--method", "ks",
+        "--output-json",
+        "--fail-on-drift",
+    ],
+    name="drift-check",
+)
+```

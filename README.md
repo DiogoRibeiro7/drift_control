@@ -13,6 +13,7 @@ Maintained by [Diogo Ribeiro](https://orcid.org/0009-0001-2022-7072).
 - Baseline management helpers with pluggable stores (local, S3, GCS, Azure Blob) and optional DVC integration
 - Alert sinks for Slack, PagerDuty, webhooks, and Prometheus metrics
 - Optional OpenTelemetry metrics and spans for detector/CLI/benchmark observability
+- Optional Airflow/Prefect workflow wrappers for orchestration
 - CLI with JSON output for automation pipelines
 
 ## Installation
