@@ -11,6 +11,7 @@ from .categorical_chi2_drift_detector import ChiSquareDriftDetector
 from .categorical_tvd_drift_detector import TotalVariationDriftDetector
 from .cvm_drift_detector import CVMDriftDetector
 from .energy_drift_detector import EnergyDriftDetector
+from .datetime_drift_detector import DateTimeDriftDetector
 from .js_drift_detector import JensenShannonDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .mmd_drift_detector import MMDDriftDetector
@@ -89,9 +90,13 @@ class UnifiedDriftDetector:
             self.detector = TotalVariationDriftDetector(**kwargs)
             self.threshold = float(self.detector.threshold)
             self.comparator = ">"
+        elif method == "datetime":
+            self.detector = DateTimeDriftDetector(**kwargs)
+            self.threshold = float(self.detector.threshold)
+            self.comparator = ">"
         else:
             raise ValueError(
-                "method must be one of: psi, ks, cvm, js, wasserstein, mmd, c2st, energy, chi2cat, tvdcat"
+                "method must be one of: psi, ks, cvm, js, wasserstein, mmd, c2st, energy, chi2cat, tvdcat, datetime"
             )
 
     @staticmethod
@@ -108,6 +113,7 @@ class UnifiedDriftDetector:
             "energy": 50,
             "chi2cat": 50,
             "tvdcat": 50,
+            "datetime": 20,
         }
         return rec.get(method, 20)
 

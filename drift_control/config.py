@@ -18,6 +18,7 @@ SUPPORTED_METHODS = {
     "wasserstein",
     "chi2cat",
     "tvdcat",
+    "datetime",
     "ensemble",
 }
 SUPPORTED_ENSEMBLE_METHODS = {"psi", "ks", "cvm", "js", "wasserstein", "chi2cat", "tvdcat"}

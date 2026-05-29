@@ -65,7 +65,7 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
     help='Object/blob prefix for remote baseline stores.',
 )
 @click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
-@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'energy', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'ensemble']), default='psi', help='Drift detection method')
+@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'energy', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'datetime', 'ensemble']), default='psi', help='Drift detection method')
 @click.option('--threshold', type=float, default=None,
               help='Override the detector threshold (PSI: drift if score > threshold; '
                    'JS/TVDCAT: drift if score > threshold; KS/CVM/MMD/C2ST/Energy/Wasserstein/CHI2CAT: drift if p-value < threshold). Uses the method default if omitted.')
@@ -297,7 +297,7 @@ def check(
             effective_threshold = unified_detector.threshold
 
         results: dict[str, dict[str, object]] = {}
-        if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat'}:
+        if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'datetime'}:
             assert unified_detector is not None
             ordered_cols = sorted(base_cols)
 
@@ -307,6 +307,14 @@ def check(
                         base_col, cur_col = coerce_categorical_series(
                             base_df[col], cur_df[col], column_name=col, method_name=cfg.method
                         )
+                    elif cfg.method == 'datetime':
+                        base_col = pd.to_datetime(base_df[col], errors='coerce', utc=True)
+                        cur_col = pd.to_datetime(cur_df[col], errors='coerce', utc=True)
+                        if base_col.isna().all() or cur_col.isna().all():
+                            _raise_click(
+                                f"Column '{col}' must contain valid datetime values for method 'datetime'.",
+                                "column_validation",
+                            )
                     else:
                         base_col, cur_col = coerce_numeric_series(
                             base_df[col], cur_df[col], column_name=col, method_name=cfg.method

@@ -248,3 +248,16 @@ def test_unified_accepts_polars_like_frame_for_c2st():
     out = detector.detect_drift(ref, cur)
     assert out.method == "c2st"
     assert out.p_value is not None
+
+
+def test_unified_datetime_method():
+    ref = np.array(
+        ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T02:00:00Z", "2026-01-01T03:00:00Z"]
+    )
+    cur = np.array(
+        ["2026-01-02T10:00:00Z", "2026-01-02T11:00:00Z", "2026-01-02T12:00:00Z", "2026-01-02T13:00:00Z"]
+    )
+    detector = UnifiedDriftDetector(method="datetime", threshold=0.01)
+    out = detector.detect_drift(ref, cur)
+    assert out.method == "datetime"
+    assert out.p_value is None

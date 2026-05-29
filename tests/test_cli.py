@@ -473,6 +473,26 @@ def test_cli_tvdcat_output_json(tmp_path):
     assert 'p_value' not in payload['columns']['x']
 
 
+def test_cli_datetime_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'ts': pd.date_range("2026-01-01", periods=120, freq="h").astype(str)}).to_csv(
+        baseline, index=False
+    )
+    pd.DataFrame({'ts': pd.date_range("2026-01-05 10:00:00", periods=120, freq="h").astype(str)}).to_csv(
+        current, index=False
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--method', 'datetime', '--output-json'],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'datetime'
+    assert 'ts' in payload['columns']
+
+
 def test_cli_html_report_output(tmp_path):
     baseline = tmp_path / 'b.csv'
     current = tmp_path / 'c.csv'
