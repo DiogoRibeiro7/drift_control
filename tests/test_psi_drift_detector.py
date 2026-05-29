@@ -70,5 +70,18 @@ class TestPSIDriftDetector(unittest.TestCase):
         psi_arrow = detector.calculate_psi(pa.array(reference), pa.array(current))
         self.assertAlmostEqual(psi_numpy, psi_arrow, places=6)
 
+    def test_quantile_pyarrow_native_path_matches_numpy(self):
+        try:
+            pa = __import__("pyarrow")
+        except Exception:
+            self.skipTest("pyarrow not installed")
+        rng = np.random.default_rng(1)
+        reference = rng.normal(0.0, 1.0, size=1200)
+        current = rng.normal(0.3, 1.0, size=1200)
+        detector = PSIDriftDetector(strategy="quantile", bins=12)
+        psi_numpy = detector.calculate_psi(reference, current)
+        psi_arrow = detector.calculate_psi(pa.array(reference), pa.array(current))
+        self.assertAlmostEqual(psi_numpy, psi_arrow, places=6)
+
 if __name__ == '__main__':
     unittest.main()

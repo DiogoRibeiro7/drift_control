@@ -118,6 +118,60 @@ class PSIDriftDetector:
         psi = float(np.sum((cur_perc - ref_perc) * np.log(cur_perc / ref_perc)))
         return psi
 
+    def _calculate_psi_pyarrow_quantile(self, reference, current) -> float:
+        """Compute PSI with a PyArrow-native quantile-binning path."""
+        try:
+            import pyarrow as pa  # type: ignore
+            import pyarrow.compute as pc  # type: ignore
+        except Exception:
+            raise RuntimeError("pyarrow unavailable")
+
+        ref_arr = pa.array(reference, type=pa.float64())
+        cur_arr = pa.array(current, type=pa.float64())
+        if len(ref_arr) == 0 or len(cur_arr) == 0:
+            raise ValueError("reference and current must be non-empty")
+
+        q = np.linspace(0, 1, self.bins + 1).tolist()
+        q_vals = pc.quantile(ref_arr, q=q, interpolation="linear")
+        edges = np.asarray(q_vals.to_pylist(), dtype=float)
+        edges = np.unique(edges)
+        if edges.size < 2:
+            ref_mm = pc.min_max(ref_arr).as_py()
+            ref_min = float(ref_mm["min"])
+            edges = np.array([ref_min, ref_min + 1.0], dtype=float)
+
+        cur_mm = pc.min_max(cur_arr).as_py()
+        ref_mm = pc.min_max(ref_arr).as_py()
+        lo = min(float(ref_mm["min"]), float(cur_mm["min"]))
+        hi = max(float(ref_mm["max"]), float(cur_mm["max"]))
+        edges[0] = lo
+        edges[-1] = hi if hi > lo else lo + 1.0
+
+        def _count_bins(arr):
+            counts = np.zeros(max(edges.size - 1, 1), dtype=float)
+            for i in range(edges.size - 1):
+                left = float(edges[i])
+                right = float(edges[i + 1])
+                ge_left = pc.greater_equal(arr, pa.scalar(left))
+                if i == edges.size - 2:
+                    lt_right = pc.less_equal(arr, pa.scalar(right))
+                else:
+                    lt_right = pc.less(arr, pa.scalar(right))
+                in_bin = pc.and_(ge_left, lt_right)
+                c = pc.sum(in_bin).as_py()
+                counts[i] = float(c if c is not None else 0.0)
+            return counts
+
+        ref_counts = _count_bins(ref_arr)
+        cur_counts = _count_bins(cur_arr)
+        ref_perc = ref_counts / max(ref_counts.sum(), 1.0)
+        cur_perc = cur_counts / max(cur_counts.sum(), 1.0)
+        epsilon = 1e-6
+        ref_perc = np.where(ref_perc == 0, epsilon, ref_perc)
+        cur_perc = np.where(cur_perc == 0, epsilon, cur_perc)
+        psi = float(np.sum((cur_perc - ref_perc) * np.log(cur_perc / ref_perc)))
+        return psi
+
     def fit_reference(self, reference) -> "PSIDriftDetector":
         """Fit a reusable reference sketch for online PSI binning."""
         ref = np.asarray(reference, dtype=float).ravel()
@@ -140,11 +194,12 @@ class PSIDriftDetector:
 
     def calculate_psi(self, reference, current) -> float:
         """Compute PSI between reference and current arrays."""
-        if self.strategy == "uniform" and (
-            self._is_pyarrow_like(reference) or self._is_pyarrow_like(current)
-        ):
+        if self._is_pyarrow_like(reference) or self._is_pyarrow_like(current):
             try:
-                return self._calculate_psi_pyarrow_uniform(reference, current)
+                if self.strategy == "uniform":
+                    return self._calculate_psi_pyarrow_uniform(reference, current)
+                if self.strategy == "quantile":
+                    return self._calculate_psi_pyarrow_quantile(reference, current)
             except RuntimeError:
                 pass
         ref = np.asarray(reference, dtype=float).ravel()
