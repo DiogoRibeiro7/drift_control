@@ -1,0 +1,27 @@
+name: Roadmap Soak (Nightly)
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  soak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install core deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+      - name: Run roadmap soak checks
+        run: |
+          python scripts/run_roadmap_soak.py --output roadmap-soak-report.json
+      - name: Upload soak report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: roadmap-soak-report
+          path: roadmap-soak-report.json
