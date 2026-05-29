@@ -55,6 +55,69 @@ class PSIDriftDetector:
         edges[-1] = max(edges[-1], cur.max())
         return edges
 
+    @staticmethod
+    def _is_pyarrow_like(values) -> bool:
+        mod = getattr(getattr(values, "__class__", None), "__module__", "")
+        return isinstance(mod, str) and mod.startswith("pyarrow.")
+
+    def _calculate_psi_pyarrow_uniform(self, reference, current) -> float:
+        """Compute PSI with a PyArrow-native uniform-binning path."""
+        try:
+            import pyarrow as pa  # type: ignore
+            import pyarrow.compute as pc  # type: ignore
+        except Exception:
+            # Optional dependency unavailable; caller should fallback.
+            raise RuntimeError("pyarrow unavailable")
+
+        ref_arr = pa.array(reference, type=pa.float64())
+        cur_arr = pa.array(current, type=pa.float64())
+        if len(ref_arr) == 0 or len(cur_arr) == 0:
+            raise ValueError("reference and current must be non-empty")
+
+        ref_mm = pc.min_max(ref_arr).as_py()
+        cur_mm = pc.min_max(cur_arr).as_py()
+        ref_min = float(ref_mm["min"])
+        ref_max = float(ref_mm["max"])
+        cur_min = float(cur_mm["min"])
+        cur_max = float(cur_mm["max"])
+
+        lo = min(ref_min, cur_min)
+        hi = max(ref_max, cur_max)
+        if hi <= lo:
+            hi = lo + 1.0
+
+        edges = np.linspace(ref_min, ref_max, self.bins + 1)
+        edges = np.unique(edges)
+        if edges.size < 2:
+            edges = np.array([ref_min, ref_min + 1.0], dtype=float)
+        edges[0] = lo
+        edges[-1] = hi
+
+        def _count_bins(arr):
+            counts = np.zeros(max(edges.size - 1, 1), dtype=float)
+            for i in range(edges.size - 1):
+                left = float(edges[i])
+                right = float(edges[i + 1])
+                ge_left = pc.greater_equal(arr, pa.scalar(left))
+                if i == edges.size - 2:
+                    lt_right = pc.less_equal(arr, pa.scalar(right))
+                else:
+                    lt_right = pc.less(arr, pa.scalar(right))
+                in_bin = pc.and_(ge_left, lt_right)
+                c = pc.sum(in_bin).as_py()
+                counts[i] = float(c if c is not None else 0.0)
+            return counts
+
+        ref_counts = _count_bins(ref_arr)
+        cur_counts = _count_bins(cur_arr)
+        ref_perc = ref_counts / max(ref_counts.sum(), 1.0)
+        cur_perc = cur_counts / max(cur_counts.sum(), 1.0)
+        epsilon = 1e-6
+        ref_perc = np.where(ref_perc == 0, epsilon, ref_perc)
+        cur_perc = np.where(cur_perc == 0, epsilon, cur_perc)
+        psi = float(np.sum((cur_perc - ref_perc) * np.log(cur_perc / ref_perc)))
+        return psi
+
     def fit_reference(self, reference) -> "PSIDriftDetector":
         """Fit a reusable reference sketch for online PSI binning."""
         ref = np.asarray(reference, dtype=float).ravel()
@@ -77,6 +140,13 @@ class PSIDriftDetector:
 
     def calculate_psi(self, reference, current) -> float:
         """Compute PSI between reference and current arrays."""
+        if self.strategy == "uniform" and (
+            self._is_pyarrow_like(reference) or self._is_pyarrow_like(current)
+        ):
+            try:
+                return self._calculate_psi_pyarrow_uniform(reference, current)
+            except RuntimeError:
+                pass
         ref = np.asarray(reference, dtype=float).ravel()
         cur = np.asarray(current, dtype=float).ravel()
         if ref.size == 0 or cur.size == 0:

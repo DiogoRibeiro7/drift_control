@@ -57,5 +57,18 @@ class TestPSIDriftDetector(unittest.TestCase):
         psi_k = k_detector.calculate_psi(reference, current)
         self.assertLess(abs(psi_q - psi_k), 0.1)
 
+    def test_uniform_pyarrow_native_path_matches_numpy(self):
+        try:
+            pa = __import__("pyarrow")
+        except Exception:
+            self.skipTest("pyarrow not installed")
+        rng = np.random.default_rng(0)
+        reference = rng.normal(0.0, 1.0, size=1000)
+        current = rng.normal(0.4, 1.0, size=1000)
+        detector = PSIDriftDetector(strategy="uniform", bins=12)
+        psi_numpy = detector.calculate_psi(reference, current)
+        psi_arrow = detector.calculate_psi(pa.array(reference), pa.array(current))
+        self.assertAlmostEqual(psi_numpy, psi_arrow, places=6)
+
 if __name__ == '__main__':
     unittest.main()
