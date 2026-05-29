@@ -136,9 +136,13 @@ class UnifiedDriftDetector:
             )
 
     @staticmethod
-    def _maybe_convert_polars(data: Any) -> Any:
+    def _maybe_convert_columnar(data: Any) -> Any:
         mod = getattr(getattr(data, "__class__", None), "__module__", "")
-        if isinstance(mod, str) and mod.startswith("polars.") and hasattr(data, "to_numpy"):
+        if (
+            isinstance(mod, str)
+            and (mod.startswith("polars.") or mod.startswith("pyarrow."))
+            and hasattr(data, "to_numpy")
+        ):
             return data.to_numpy()
         return data
 
@@ -174,8 +178,8 @@ class UnifiedDriftDetector:
 
     def detect_drift(self, reference_data: Any, current_data: Any) -> DriftResult:
         started = time.perf_counter()
-        reference_data = self._maybe_convert_polars(reference_data)
-        current_data = self._maybe_convert_polars(current_data)
+        reference_data = self._maybe_convert_columnar(reference_data)
+        current_data = self._maybe_convert_columnar(current_data)
         span_ctx = nullcontext()
         if self.telemetry is not None:
             start_span = getattr(self.telemetry, "start_span", None)

@@ -250,6 +250,44 @@ def test_unified_accepts_polars_like_frame_for_c2st():
     assert out.p_value is not None
 
 
+def test_unified_accepts_pyarrow_like_series_for_ks():
+    class _FakeArrowArray:
+        __module__ = "pyarrow.lib"
+
+        def __init__(self, values):
+            self._values = np.asarray(values, dtype=float)
+
+        def to_numpy(self):
+            return self._values
+
+    detector = UnifiedDriftDetector(method="ks", alpha=0.05)
+    out = detector.detect_drift(
+        _FakeArrowArray([1, 2, 3, 4, 5, 6]),
+        _FakeArrowArray([2, 3, 4, 5, 6, 7]),
+    )
+    assert out.method == "ks"
+    assert out.p_value is not None
+
+
+def test_unified_accepts_pyarrow_like_table_for_energy():
+    class _FakeArrowTable:
+        __module__ = "pyarrow.lib"
+
+        def __init__(self, values):
+            self._values = np.asarray(values, dtype=float)
+
+        def to_numpy(self):
+            return self._values
+
+    rng = np.random.default_rng(0)
+    ref = _FakeArrowTable(rng.normal(0, 1, size=(120, 3)))
+    cur = _FakeArrowTable(rng.normal(0.8, 1, size=(120, 3)))
+    detector = UnifiedDriftDetector(method="energy", alpha=0.05, n_permutations=50, random_state=7)
+    out = detector.detect_drift(ref, cur)
+    assert out.method == "energy"
+    assert out.p_value is not None
+
+
 def test_unified_datetime_method():
     ref = np.array(
         ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T02:00:00Z", "2026-01-01T03:00:00Z"]
