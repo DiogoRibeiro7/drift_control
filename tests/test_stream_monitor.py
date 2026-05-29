@@ -120,6 +120,43 @@ def test_stream_monitor_schema_drop_allows_extra_columns():
     assert 'y' not in result
 
 
+def test_stream_monitor_schema_ignore_rejects_missing_columns():
+    baseline = pd.DataFrame({'x': [0, 1, 2], 'z': [5, 6, 7]})
+    batch = pd.DataFrame({'x': [3, 4, 5]})
+    monitor = StreamMonitor(on_schema_change="ignore")
+    monitor.set_baseline(baseline)
+    with pytest.raises(ValueError, match="missing baseline columns"):
+        asyncio.run(monitor.compare(batch))
+
+
+def test_stream_monitor_schema_drop_allows_missing_columns():
+    baseline = pd.DataFrame({'x': [0, 1, 2], 'z': [5, 6, 7]})
+    batch = pd.DataFrame({'x': [3, 4, 5]})
+    monitor = StreamMonitor(on_schema_change="drop")
+    monitor.set_baseline(baseline)
+    result = asyncio.run(monitor.compare(batch))
+    assert set(result.keys()) == {'x'}
+
+
+def test_stream_monitor_schema_drop_updates_baseline_with_shared_columns():
+    baseline = pd.DataFrame({'x': [0, 1, 2], 'z': [5, 6, 7]})
+    batch = pd.DataFrame({'x': [10, 11, 12]})
+
+    async def data_stream():
+        yield batch
+
+    monitor = StreamMonitor(on_schema_change="drop", baseline_strategy="sliding", sliding_window_batches=1)
+    monitor.set_baseline(baseline)
+
+    async def run():
+        async for _ in monitor.monitor(data_stream()):
+            pass
+
+    asyncio.run(run())
+    assert monitor.baseline is not None
+    assert list(monitor.baseline.columns) == ['x']
+
+
 def test_stream_monitor_schema_mode_validation():
     with pytest.raises(ValueError, match="on_schema_change"):
         StreamMonitor(on_schema_change="bad")

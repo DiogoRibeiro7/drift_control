@@ -88,7 +88,7 @@ class StreamMonitor:
             raise ValueError("Baseline not set")
         batch = self._normalize_batch(batch)
         results: Dict[str, Dict[str, Any]] = {}
-        for col in self.baseline.columns:
+        for col in batch.columns:
             drift, score = self.detector.detect_drift(
                 self.baseline[col], batch[col]
             )
@@ -99,16 +99,31 @@ class StreamMonitor:
         if self.baseline is None:
             raise ValueError("Baseline not set")
         extra = [c for c in batch.columns if c not in self.baseline.columns]
-        if extra and self.on_schema_change == "strict":
-            raise ValueError(f"Batch contains unknown columns: {extra}")
         missing = [c for c in self.baseline.columns if c not in batch.columns]
-        if missing:
-            raise ValueError(f"Batch is missing baseline columns: {missing}")
-        return batch.loc[:, self.baseline.columns]
+        if self.on_schema_change == "strict":
+            if extra:
+                raise ValueError(f"Batch contains unknown columns: {extra}")
+            if missing:
+                raise ValueError(f"Batch is missing baseline columns: {missing}")
+            return batch.loc[:, self.baseline.columns]
+        if self.on_schema_change == "ignore":
+            if missing:
+                raise ValueError(f"Batch is missing baseline columns: {missing}")
+            return batch.loc[:, self.baseline.columns]
+        shared = [c for c in self.baseline.columns if c in batch.columns]
+        if not shared:
+            raise ValueError("Batch has no shared columns with baseline.")
+        return batch.loc[:, shared]
 
     def _update_baseline(self, batch: pd.DataFrame) -> None:
         if self.baseline is None:
             raise ValueError("Baseline not set")
+        if self.on_schema_change == "drop":
+            shared = [c for c in self.baseline.columns if c in batch.columns]
+            if not shared:
+                raise ValueError("Batch has no shared columns with baseline.")
+            self.baseline = self.baseline.loc[:, shared].copy()
+            batch = batch.loc[:, shared]
         if self.baseline_strategy == "fixed":
             return
         if self.baseline_strategy == "sliding":
