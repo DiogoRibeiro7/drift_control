@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -9,6 +10,8 @@ import numpy as np
 
 from .telemetry import DriftTelemetry
 from .unified_drift_detector import UnifiedDriftDetector
+from .stream_monitor import StreamMonitor
+from .psi_drift_detector import PSIDriftDetector
 
 
 ScenarioFn = Callable[[np.random.Generator, int], tuple[np.ndarray, np.ndarray, bool]]
@@ -23,6 +26,27 @@ class BenchmarkResult:
     drift_rate: float
     avg_score: float
     avg_latency_ms: float
+
+
+@dataclass(frozen=True)
+class LargeScaleParityResult:
+    method: str
+    small_n: int
+    large_n: int
+    small_score: float
+    large_score: float
+    abs_score_delta: float
+    same_drift_flag: bool
+    large_latency_ms: float
+
+
+@dataclass(frozen=True)
+class StreamingSmokeResult:
+    batches_processed: int
+    drift_events: int
+    callback_events: int
+    final_baseline_rows: int
+    final_columns: list[str]
 
 
 class SyntheticDriftBenchmark:
@@ -207,3 +231,141 @@ class SyntheticDriftBenchmark:
                             )
 
         return out
+
+    def run_large_scale_parity(
+        self,
+        methods: list[str] | None = None,
+        small_n: int = 2_000,
+        large_n: int = 20_000,
+        tolerance: float = 0.12,
+    ) -> list[LargeScaleParityResult]:
+        """Compare small vs large sample scoring and assert parity within tolerance."""
+        if small_n < 100 or large_n <= small_n:
+            raise ValueError("small_n must be >= 100 and large_n must be > small_n")
+        if tolerance <= 0:
+            raise ValueError("tolerance must be > 0")
+
+        selected = methods or ["psi", "ks", "js", "wasserstein"]
+        rng = np.random.default_rng(self.random_seed)
+        out: list[LargeScaleParityResult] = []
+
+        for method in selected:
+            detector = self._detector_for_method(method)
+            ref_small = rng.normal(0.0, 1.0, size=small_n)
+            cur_small = rng.normal(0.35, 1.0, size=small_n)
+
+            rep = int(np.ceil(large_n / small_n))
+            ref_large = np.tile(ref_small, rep)[:large_n]
+            cur_large = np.tile(cur_small, rep)[:large_n]
+
+            small = detector.detect_drift(ref_small, cur_small)
+            started = time.perf_counter()
+            large = detector.detect_drift(ref_large, cur_large)
+            large_latency_ms = (time.perf_counter() - started) * 1000.0
+
+            delta = float(abs(float(small.score) - float(large.score)))
+            out.append(
+                LargeScaleParityResult(
+                    method=method,
+                    small_n=small_n,
+                    large_n=large_n,
+                    small_score=float(small.score),
+                    large_score=float(large.score),
+                    abs_score_delta=delta,
+                    same_drift_flag=bool(small.drift) == bool(large.drift),
+                    large_latency_ms=float(large_latency_ms),
+                )
+            )
+
+        for row in out:
+            if row.abs_score_delta > tolerance:
+                raise AssertionError(
+                    f"Large-scale parity failed for {row.method}: "
+                    f"abs_score_delta={row.abs_score_delta:.6f} > tolerance={tolerance:.6f}"
+                )
+            if not row.same_drift_flag:
+                raise AssertionError(
+                    f"Large-scale parity drift decision mismatch for {row.method}: "
+                    "small and large runs disagree."
+                )
+        return out
+
+    def run_streaming_smoke(
+        self,
+        n_batches: int = 120,
+        batch_size: int = 64,
+    ) -> StreamingSmokeResult:
+        """Run a deterministic streaming smoke scenario with schema changes and callbacks."""
+        if n_batches < 10:
+            raise ValueError("n_batches must be >= 10")
+        if batch_size < 8:
+            raise ValueError("batch_size must be >= 8")
+
+        import pandas as pd
+
+        rng = np.random.default_rng(self.random_seed)
+        baseline = pd.DataFrame(
+            {
+                "x": rng.normal(0.0, 1.0, size=256),
+                "y": rng.normal(0.0, 1.0, size=256),
+            }
+        )
+        callback_events = 0
+
+        def _on_drift(_result: dict[str, dict[str, object]]) -> None:
+            nonlocal callback_events
+            callback_events += 1
+
+        monitor = StreamMonitor(
+            detector=PSIDriftDetector(strategy="kll", sketch_size=128, random_state=self.random_seed),
+            on_drift=_on_drift,
+            on_schema_change="drop",
+            window_size=4,
+            baseline_strategy="ewma",
+            ewma_alpha=0.25,
+            adaptive_threshold=True,
+            threshold_history=64,
+            min_threshold_samples=10,
+        )
+        monitor.set_baseline(baseline)
+
+        async def _stream():
+            for i in range(n_batches):
+                shift = 0.0 if i < (n_batches // 3) else (1.0 if i < (2 * n_batches // 3) else 0.2)
+                batch = pd.DataFrame(
+                    {
+                        "x": rng.normal(shift, 1.0, size=batch_size),
+                        "y": rng.normal(0.0, 1.0, size=batch_size),
+                    }
+                )
+                # Exercise schema-evolution path in drop mode.
+                if i % 11 == 0:
+                    batch["z"] = rng.normal(0.0, 1.0, size=batch_size)
+                if i % 13 == 0:
+                    batch = batch.drop(columns=["y"])
+                yield batch
+
+        async def _run() -> tuple[int, int]:
+            batches_processed = 0
+            drift_events = 0
+            async for result in monitor.monitor(_stream()):
+                batches_processed += 1
+                if any(bool(v.get("drift")) for v in result.values()):
+                    drift_events += 1
+            return batches_processed, drift_events
+
+        processed, drift_events = asyncio.run(_run())
+        if monitor.baseline is None:
+            raise AssertionError("Streaming smoke failed: baseline was unexpectedly cleared.")
+        if processed <= 0:
+            raise AssertionError("Streaming smoke failed: no batches processed.")
+        if callback_events <= 0:
+            raise AssertionError("Streaming smoke failed: no drift callbacks fired.")
+
+        return StreamingSmokeResult(
+            batches_processed=processed,
+            drift_events=drift_events,
+            callback_events=callback_events,
+            final_baseline_rows=int(len(monitor.baseline)),
+            final_columns=list(monitor.baseline.columns),
+        )
