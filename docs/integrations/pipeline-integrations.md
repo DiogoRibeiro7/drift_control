@@ -222,6 +222,11 @@ trace.set_tracer_provider(provider)
 
 After this, run detector/CLI/benchmark paths as usual; spans are emitted automatically.
 
+## Evidently / NannyML migration
+
+For a side-by-side capability mapping and migration checklist, see:
+- `docs/integrations/evidently-nannyml-compat.md`
+
 ## Airflow wrapper
 
 Install with the airflow extra:
