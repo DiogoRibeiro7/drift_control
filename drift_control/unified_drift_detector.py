@@ -168,9 +168,8 @@ class UnifiedDriftDetector:
 
     def detect_drift(self, reference_data: Any, current_data: Any) -> DriftResult:
         started = time.perf_counter()
-        if self.method in {"psi", "ks", "wasserstein"}:
-            reference_data = self._maybe_convert_polars(reference_data)
-            current_data = self._maybe_convert_polars(current_data)
+        reference_data = self._maybe_convert_polars(reference_data)
+        current_data = self._maybe_convert_polars(current_data)
         span_ctx = nullcontext()
         if self.telemetry is not None:
             start_span = getattr(self.telemetry, "start_span", None)

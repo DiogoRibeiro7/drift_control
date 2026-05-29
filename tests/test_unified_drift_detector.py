@@ -210,3 +210,41 @@ def test_unified_accepts_polars_like_series_for_wasserstein():
     )
     assert out.method == "wasserstein"
     assert out.p_value is not None
+
+
+def test_unified_accepts_polars_like_series_for_js():
+    class _FakePolarsSeries:
+        __module__ = "polars.series.series"
+
+        def __init__(self, values):
+            self._values = np.asarray(values, dtype=float)
+
+        def to_numpy(self):
+            return self._values
+
+    detector = UnifiedDriftDetector(method="js", threshold=0.05)
+    out = detector.detect_drift(
+        _FakePolarsSeries([1, 2, 3, 4, 5, 6]),
+        _FakePolarsSeries([2, 3, 4, 5, 6, 7]),
+    )
+    assert out.method == "js"
+    assert isinstance(out.score, float)
+
+
+def test_unified_accepts_polars_like_frame_for_c2st():
+    class _FakePolarsFrame:
+        __module__ = "polars.dataframe.frame"
+
+        def __init__(self, values):
+            self._values = np.asarray(values, dtype=float)
+
+        def to_numpy(self):
+            return self._values
+
+    rng = np.random.default_rng(0)
+    ref = _FakePolarsFrame(rng.normal(0, 1, size=(120, 3)))
+    cur = _FakePolarsFrame(rng.normal(0.8, 1, size=(120, 3)))
+    detector = UnifiedDriftDetector(method="c2st", alpha=0.05, n_permutations=50)
+    out = detector.detect_drift(ref, cur)
+    assert out.method == "c2st"
+    assert out.p_value is not None
