@@ -56,4 +56,6 @@ from drift_control import UnifiedDriftDetector, DriftCheckConfig, DriftResult
 
 - compute_text_embeddings(texts, model_name=...): convert raw text to vectors via sentence-transformers.
 - detect_text_embedding_drift(reference_texts, current_texts, method=...): end-to-end text drift check using mmd/energy/c2st.
+- compute_image_embeddings(images, embedder=None): convert image arrays to vectors via custom embedder or torchvision default.
+- detect_image_embedding_drift(reference_images, current_images, method=..., embedder=None): end-to-end image drift check using mmd/energy/c2st.
 
