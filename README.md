@@ -79,6 +79,7 @@ drift-control --baseline-version mydata@1 --baseline-store s3 --baseline-bucket 
 
 - Docs index: [docs/README.md](docs/README.md)
 - API reference: [docs/api/reference.md](docs/api/reference.md)
+- Detector selection guide: [docs/api/detector-selection-guide.md](docs/api/detector-selection-guide.md)
 - CLI schema and versioning: [docs/cli/schema.md](docs/cli/schema.md)
 - Pipeline integrations: [docs/integrations/pipeline-integrations.md](docs/integrations/pipeline-integrations.md)
 - Production drift playbook: [docs/operations/production-playbook.md](docs/operations/production-playbook.md)
