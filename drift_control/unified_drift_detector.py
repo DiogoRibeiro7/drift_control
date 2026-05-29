@@ -129,6 +129,13 @@ class UnifiedDriftDetector:
                 stacklevel=2,
             )
 
+    @staticmethod
+    def _maybe_convert_polars(data: Any) -> Any:
+        mod = getattr(getattr(data, "__class__", None), "__module__", "")
+        if isinstance(mod, str) and mod.startswith("polars.") and hasattr(data, "to_numpy"):
+            return data.to_numpy()
+        return data
+
     def _bootstrap_ci(self, reference_data: Any, current_data: Any) -> tuple[float, float] | None:
         if self.ci_bootstrap_samples <= 0:
             return None
@@ -161,6 +168,9 @@ class UnifiedDriftDetector:
 
     def detect_drift(self, reference_data: Any, current_data: Any) -> DriftResult:
         started = time.perf_counter()
+        if self.method in {"psi", "ks", "wasserstein"}:
+            reference_data = self._maybe_convert_polars(reference_data)
+            current_data = self._maybe_convert_polars(current_data)
         span_ctx = nullcontext()
         if self.telemetry is not None:
             start_span = getattr(self.telemetry, "start_span", None)

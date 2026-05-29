@@ -61,6 +61,9 @@ prefect = [
 ml = [
     "category_encoders",
 ]
+polars = [
+    "polars",
+]
 embeddings = [
     "sentence-transformers",
     "torch",
@@ -77,6 +80,7 @@ full = [
     "apache-airflow",
     "prefect",
     "category_encoders",
+    "polars",
     "sentence-transformers",
     "torch",
     "torchvision",

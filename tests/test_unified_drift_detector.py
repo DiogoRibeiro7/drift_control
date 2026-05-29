@@ -172,3 +172,41 @@ def test_unified_telemetry_records_errors():
         detector.detect_drift([1], [1, 2, 3])
     assert spy.error_calls == 1
     assert spy.latency_calls == 1
+
+
+def test_unified_accepts_polars_like_series_for_psi():
+    class _FakePolarsSeries:
+        __module__ = "polars.series.series"
+
+        def __init__(self, values):
+            self._values = np.asarray(values, dtype=float)
+
+        def to_numpy(self):
+            return self._values
+
+    detector = UnifiedDriftDetector(method="psi")
+    out = detector.detect_drift(
+        _FakePolarsSeries([1, 2, 3, 4, 5, 6]),
+        _FakePolarsSeries([2, 3, 4, 5, 6, 7]),
+    )
+    assert out.method == "psi"
+    assert isinstance(out.score, float)
+
+
+def test_unified_accepts_polars_like_series_for_wasserstein():
+    class _FakePolarsSeries:
+        __module__ = "polars.series.series"
+
+        def __init__(self, values):
+            self._values = np.asarray(values, dtype=float)
+
+        def to_numpy(self):
+            return self._values
+
+    detector = UnifiedDriftDetector(method="wasserstein", alpha=0.05, n_permutations=50)
+    out = detector.detect_drift(
+        _FakePolarsSeries([1, 2, 3, 4, 5, 6]),
+        _FakePolarsSeries([2, 3, 4, 5, 6, 7]),
+    )
+    assert out.method == "wasserstein"
+    assert out.p_value is not None
