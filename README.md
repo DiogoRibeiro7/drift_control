@@ -81,6 +81,7 @@ drift-control --baseline-version mydata@1 --baseline-store s3 --baseline-bucket 
 - API reference: [docs/api/reference.md](docs/api/reference.md)
 - CLI schema and versioning: [docs/cli/schema.md](docs/cli/schema.md)
 - Pipeline integrations: [docs/integrations/pipeline-integrations.md](docs/integrations/pipeline-integrations.md)
+- Production drift playbook: [docs/operations/production-playbook.md](docs/operations/production-playbook.md)
 - Pre-PyPI release checklist: [docs/operations/release-checklist.md](docs/operations/release-checklist.md)
 - Drift incident template: [docs/operations/drift-incident-template.md](docs/operations/drift-incident-template.md)
 - Drift postmortem checklist: [docs/operations/drift-postmortem-checklist.md](docs/operations/drift-postmortem-checklist.md)
