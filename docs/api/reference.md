@@ -51,3 +51,9 @@ from drift_control import UnifiedDriftDetector, DriftCheckConfig, DriftResult
 
 - `DriftResult` and CLI JSON schema are versioned/stable targets for integration.
 - New detector methods can be added without breaking existing method semantics.
+
+## Embedding helpers
+
+- compute_text_embeddings(texts, model_name=...): convert raw text to vectors via sentence-transformers.
+- detect_text_embedding_drift(reference_texts, current_texts, method=...): end-to-end text drift check using mmd/energy/c2st.
+

@@ -29,7 +29,7 @@ pip install "drift-control[viz]"
 pip install "drift-control[concept]"
 pip install "drift-control[mlflow]"
 pip install "drift-control[stream]"
-pip install "drift-control[ml]"
+pip install "drift-control[ml]"`npip install "drift-control[embeddings]"
 pip install "drift-control[full]"
 ```
 
@@ -92,3 +92,4 @@ drift-control --baseline-version mydata@1 --baseline-store s3 --baseline-bucket 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
