@@ -20,6 +20,19 @@ class TestTotalVariationDriftDetector(unittest.TestCase):
         self.assertTrue(drift)
         self.assertGreater(tvd, 0.1)
 
+    def test_pyarrow_native_path_matches_numpy(self):
+        try:
+            pa = __import__("pyarrow")
+        except Exception:
+            self.skipTest("pyarrow not installed")
+
+        reference = ['a', 'a', 'a', 'b', 'b', 'c', 'd']
+        current = ['c', 'c', 'c', 'c', 'b', 'c', 'd']
+        detector = TotalVariationDriftDetector(threshold=0.1)
+        score_np = detector.calculate_tvd(reference, current)
+        score_pa = detector.calculate_tvd(pa.array(reference), pa.array(current))
+        self.assertAlmostEqual(score_np, score_pa, places=12)
+
 
 if __name__ == '__main__':
     unittest.main()

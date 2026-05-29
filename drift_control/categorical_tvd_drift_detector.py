@@ -12,7 +12,37 @@ class TotalVariationDriftDetector:
             raise ValueError("threshold must be non-negative")
         self.threshold = float(threshold)
 
+    @staticmethod
+    def _is_pyarrow_like(values) -> bool:
+        mod = getattr(getattr(values, "__class__", None), "__module__", "")
+        return isinstance(mod, str) and mod.startswith("pyarrow.")
+
+    @staticmethod
+    def _arrow_counts(values) -> dict[str, int]:
+        import pyarrow as pa  # type: ignore
+        import pyarrow.compute as pc  # type: ignore
+
+        arr = pa.array(values)
+        vc = pc.value_counts(arr)
+        out: dict[str, int] = {}
+        for item in vc.to_pylist():
+            out[str(item["values"])] = int(item["counts"])
+        return out
+
     def calculate_tvd(self, reference, current) -> float:
+        if self._is_pyarrow_like(reference) or self._is_pyarrow_like(current):
+            try:
+                ref_map = self._arrow_counts(reference)
+                cur_map = self._arrow_counts(current)
+                categories = np.union1d(np.array(list(ref_map.keys())), np.array(list(cur_map.keys())))
+                ref_probs = np.array([ref_map.get(str(c), 0) for c in categories], dtype=float)
+                cur_probs = np.array([cur_map.get(str(c), 0) for c in categories], dtype=float)
+                ref_probs = ref_probs / max(ref_probs.sum(), 1.0)
+                cur_probs = cur_probs / max(cur_probs.sum(), 1.0)
+                return float(0.5 * np.sum(np.abs(ref_probs - cur_probs)))
+            except ImportError:
+                pass
+
         ref = np.asarray(reference, dtype=str).ravel()
         cur = np.asarray(current, dtype=str).ravel()
         if ref.size == 0 or cur.size == 0:
