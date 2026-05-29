@@ -31,6 +31,7 @@ class PSIDriftDetector:
         self.sketch_size = sketch_size
         self.random_state = random_state
         self._reference_sketch: KLLSketch | None = None
+        self.last_backend = "numpy"
 
     def _bin_edges(self, ref: np.ndarray, cur: np.ndarray) -> np.ndarray:
         """Return bin edges fitted on the reference distribution only.
@@ -197,11 +198,16 @@ class PSIDriftDetector:
         if self._is_pyarrow_like(reference) or self._is_pyarrow_like(current):
             try:
                 if self.strategy == "uniform":
-                    return self._calculate_psi_pyarrow_uniform(reference, current)
+                    out = self._calculate_psi_pyarrow_uniform(reference, current)
+                    self.last_backend = "pyarrow"
+                    return out
                 if self.strategy == "quantile":
-                    return self._calculate_psi_pyarrow_quantile(reference, current)
+                    out = self._calculate_psi_pyarrow_quantile(reference, current)
+                    self.last_backend = "pyarrow"
+                    return out
             except RuntimeError:
                 pass
+        self.last_backend = "numpy"
         ref = np.asarray(reference, dtype=float).ravel()
         cur = np.asarray(current, dtype=float).ravel()
         if ref.size == 0 or cur.size == 0:

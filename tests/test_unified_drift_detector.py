@@ -288,6 +288,30 @@ def test_unified_accepts_pyarrow_like_table_for_energy():
     assert out.p_value is not None
 
 
+def test_unified_metadata_includes_execution_backend_for_arrow_psi():
+    class _FakeArrowArray:
+        __module__ = "pyarrow.lib"
+
+        def __init__(self, values):
+            self._values = np.asarray(values, dtype=float)
+
+        def to_numpy(self):
+            return self._values
+
+    detector = UnifiedDriftDetector(method="psi", strategy="uniform")
+    out = detector.detect_drift(
+        _FakeArrowArray([1, 2, 3, 4, 5, 6]),
+        _FakeArrowArray([2, 3, 4, 5, 6, 7]),
+    )
+    assert out.metadata.get("execution_backend") in {"numpy", "pyarrow"}
+
+
+def test_unified_metadata_includes_execution_backend_for_numpy_psi():
+    detector = UnifiedDriftDetector(method="psi", strategy="uniform")
+    out = detector.detect_drift([1, 2, 3, 4, 5, 6], [2, 3, 4, 5, 6, 7])
+    assert out.metadata.get("execution_backend") == "numpy"
+
+
 def test_unified_datetime_method():
     ref = np.array(
         ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T02:00:00Z", "2026-01-01T03:00:00Z"]

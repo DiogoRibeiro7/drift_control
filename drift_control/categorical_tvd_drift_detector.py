@@ -11,6 +11,7 @@ class TotalVariationDriftDetector:
         if threshold < 0:
             raise ValueError("threshold must be non-negative")
         self.threshold = float(threshold)
+        self.last_backend = "numpy"
 
     @staticmethod
     def _is_pyarrow_like(values) -> bool:
@@ -39,10 +40,12 @@ class TotalVariationDriftDetector:
                 cur_probs = np.array([cur_map.get(str(c), 0) for c in categories], dtype=float)
                 ref_probs = ref_probs / max(ref_probs.sum(), 1.0)
                 cur_probs = cur_probs / max(cur_probs.sum(), 1.0)
+                self.last_backend = "pyarrow"
                 return float(0.5 * np.sum(np.abs(ref_probs - cur_probs)))
             except ImportError:
                 pass
 
+        self.last_backend = "numpy"
         ref = np.asarray(reference, dtype=str).ravel()
         cur = np.asarray(current, dtype=str).ravel()
         if ref.size == 0 or cur.size == 0:

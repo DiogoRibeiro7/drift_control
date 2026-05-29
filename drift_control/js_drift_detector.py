@@ -15,6 +15,7 @@ class JensenShannonDriftDetector:
         self.threshold = threshold
         self.bins = bins
         self.strategy = strategy
+        self.last_backend = "numpy"
 
     def _bin_edges(self, ref: np.ndarray, cur: np.ndarray) -> np.ndarray:
         if self.strategy == "quantile":
@@ -112,12 +113,14 @@ class JensenShannonDriftDetector:
                 eps = 1e-12
                 ref_p = np.where(ref_p == 0, eps, ref_p)
                 cur_p = np.where(cur_p == 0, eps, cur_p)
+                self.last_backend = "pyarrow"
                 return float(jensenshannon(ref_p, cur_p))
             except RuntimeError:
                 pass
             except ImportError:
                 pass
 
+        self.last_backend = "numpy"
         ref = np.asarray(reference, dtype=float).ravel()
         cur = np.asarray(current, dtype=float).ravel()
         if ref.size == 0 or cur.size == 0:

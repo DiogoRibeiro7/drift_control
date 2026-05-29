@@ -241,6 +241,9 @@ class UnifiedDriftDetector:
                     )
                     p_value = float(score) if self.method in {"ks", "cvm", "chi2cat"} else None
                     metadata_simple: dict[str, Any] = {}
+                    backend = getattr(self.detector, "last_backend", None)
+                    if isinstance(backend, str):
+                        metadata_simple["execution_backend"] = backend
                     ci_simple = self._bootstrap_ci(reference_data, current_data)
                     if ci_simple is not None:
                         metadata_simple["score_ci"] = {

@@ -12,6 +12,7 @@ class ChiSquareDriftDetector:
         if not (0 < alpha < 1):
             raise ValueError("alpha must be between 0 and 1")
         self.alpha = float(alpha)
+        self.last_backend = "numpy"
 
     @staticmethod
     def _is_pyarrow_like(values) -> bool:
@@ -42,10 +43,12 @@ class ChiSquareDriftDetector:
                 ref_probs = (ref_aligned + 1.0) / (ref_aligned.sum() + k)
                 expected = ref_probs * max(cur_aligned.sum(), 1.0)
                 _, pvalue = chisquare(cur_aligned, expected)
+                self.last_backend = "pyarrow"
                 return float(pvalue)
             except ImportError:
                 pass
 
+        self.last_backend = "numpy"
         ref = np.asarray(reference, dtype=str).ravel()
         cur = np.asarray(current, dtype=str).ravel()
         if ref.size == 0 or cur.size == 0:
