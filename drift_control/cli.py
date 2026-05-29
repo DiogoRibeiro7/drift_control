@@ -70,6 +70,27 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
               help='Override the detector threshold (PSI: drift if score > threshold; '
                    'JS/TVDCAT: drift if score > threshold; KS/CVM/MMD/C2ST/Energy/Wasserstein/CHI2CAT: drift if p-value < threshold). Uses the method default if omitted.')
 @click.option(
+    '--psi-strategy',
+    type=click.Choice(['quantile', 'uniform', 'kll']),
+    default='quantile',
+    show_default=True,
+    help='PSI binning strategy.',
+)
+@click.option(
+    '--psi-sketch-size',
+    type=int,
+    default=200,
+    show_default=True,
+    help='KLL sketch size for --psi-strategy kll.',
+)
+@click.option(
+    '--psi-random-state',
+    type=int,
+    default=42,
+    show_default=True,
+    help='Random seed for PSI KLL sketch compaction.',
+)
+@click.option(
     '--ensemble-methods',
     default='psi,ks,cvm,js',
     help="Comma-separated methods for ensemble mode (subset of psi,ks,cvm,js,wasserstein).",
@@ -156,6 +177,9 @@ def check(
     current: str,
     method: str,
     threshold: float | None,
+    psi_strategy: str,
+    psi_sketch_size: int,
+    psi_random_state: int,
     ensemble_methods: str,
     vote_mode: str,
     min_votes: int | None,
@@ -265,6 +289,10 @@ def check(
                     method_kwargs['threshold'] = cfg.threshold
                 else:
                     method_kwargs['alpha'] = cfg.threshold
+            if cfg.method == 'psi':
+                method_kwargs['strategy'] = psi_strategy
+                method_kwargs['sketch_size'] = psi_sketch_size
+                method_kwargs['random_state'] = psi_random_state
             unified_detector = UnifiedDriftDetector(method=cfg.method, **method_kwargs)
             effective_threshold = unified_detector.threshold
 

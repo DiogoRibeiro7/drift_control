@@ -81,6 +81,27 @@ def test_cli_threshold_override_changes_drift_flag(tmp_path):
     assert payload['columns']['x']['drift'] is False
 
 
+def test_cli_psi_kll_strategy_output_json(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [float(i) for i in range(200)]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [float(i) + 40.0 for i in range(200)]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        [
+            '--baseline', str(baseline), '--current', str(current),
+            '--method', 'psi', '--psi-strategy', 'kll', '--psi-sketch-size', '80',
+            '--psi-random-state', '7', '--output-json',
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload['method'] == 'psi'
+    assert 'x' in payload['columns']
+    assert isinstance(payload['columns']['x']['score'], float)
+
+
 def test_cli_threshold_override_for_ks_method(tmp_path):
     baseline = tmp_path / 'b.csv'
     current = tmp_path / 'c.csv'
