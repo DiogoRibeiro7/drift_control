@@ -1,3 +1,7 @@
+import os
+
+import pytest
+
 from drift_control.benchmark import SyntheticDriftBenchmark
 
 
@@ -42,3 +46,25 @@ def test_massive_scale_chunked_milestone():
     assert res.within_runtime_budget is True
     assert res.within_memory_budget is True
     assert res.peak_memory_mb > 0
+
+
+@pytest.mark.skipif(
+    os.getenv("DRIFT_CONTROL_RUN_HEAVY") != "1",
+    reason="100M-row benchmark is opt-in; set DRIFT_CONTROL_RUN_HEAVY=1 to run.",
+)
+def test_massive_scale_100m_rows_milestone():
+    """Literal 100M-row P1 target. Slow (~minutes); gated behind an env var."""
+    bench = SyntheticDriftBenchmark(random_seed=17)
+    res = bench.run_massive_scale_benchmark(
+        effective_rows=100_000_000,
+        chunk_rows=1_000_000,
+        small_n=50_000,
+        score_tolerance=0.2,
+        runtime_budget_seconds=900.0,
+        memory_budget_mb=4096.0,
+    )
+    assert res.effective_rows == 100_000_000
+    assert res.n_chunks == 100
+    assert res.within_tolerance is True
+    assert res.within_runtime_budget is True
+    assert res.within_memory_budget is True
