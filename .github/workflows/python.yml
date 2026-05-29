@@ -28,13 +28,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install poetry
           poetry install --without dev
-          pip install ruff mypy nbval
+          pip install ruff mypy nbval ipykernel
       - name: Run tests
         run: |
           poetry run pytest -q
-      - name: Validate tutorial notebooks
+      - name: Validate showcase notebooks
         run: |
-          poetry run pytest --nbval-lax --nbval-current-env -q docs/tutorials
+          poetry run pytest --nbval-lax --nbval-current-env -q notebooks
       - name: Run lint and typecheck
         run: |
           ruff .

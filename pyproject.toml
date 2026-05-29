@@ -69,6 +69,10 @@ embeddings = [
     "torch",
     "torchvision",
 ]
+notebooks = [
+    "nbval",
+    "ipykernel",
+]
 full = [
     "seaborn",
     "matplotlib",
