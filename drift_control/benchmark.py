@@ -47,6 +47,24 @@ class StreamingSmokeResult:
     callback_events: int
     final_baseline_rows: int
     final_columns: list[str]
+    early_phase_drift_rate: float
+    middle_phase_drift_rate: float
+    late_phase_drift_rate: float
+
+
+@dataclass(frozen=True)
+class MassiveScaleBenchmarkResult:
+    method: str
+    effective_rows: int
+    chunk_rows: int
+    n_chunks: int
+    reference_score: float
+    massive_score: float
+    abs_score_delta: float
+    elapsed_seconds: float
+    throughput_rows_per_second: float
+    within_tolerance: bool
+    within_runtime_budget: bool
 
 
 class SyntheticDriftBenchmark:
@@ -294,6 +312,7 @@ class SyntheticDriftBenchmark:
         self,
         n_batches: int = 120,
         batch_size: int = 64,
+        assert_phase_behavior: bool = True,
     ) -> StreamingSmokeResult:
         """Run a deterministic streaming smoke scenario with schema changes and callbacks."""
         if n_batches < 10:
@@ -345,22 +364,45 @@ class SyntheticDriftBenchmark:
                     batch = batch.drop(columns=["y"])
                 yield batch
 
-        async def _run() -> tuple[int, int]:
+        async def _run() -> tuple[int, int, list[bool]]:
             batches_processed = 0
             drift_events = 0
+            drift_flags: list[bool] = []
             async for result in monitor.monitor(_stream()):
                 batches_processed += 1
-                if any(bool(v.get("drift")) for v in result.values()):
+                has_drift = any(bool(v.get("drift")) for v in result.values())
+                drift_flags.append(has_drift)
+                if has_drift:
                     drift_events += 1
-            return batches_processed, drift_events
+            return batches_processed, drift_events, drift_flags
 
-        processed, drift_events = asyncio.run(_run())
+        processed, drift_events, drift_flags = asyncio.run(_run())
         if monitor.baseline is None:
             raise AssertionError("Streaming smoke failed: baseline was unexpectedly cleared.")
         if processed <= 0:
             raise AssertionError("Streaming smoke failed: no batches processed.")
         if callback_events <= 0:
             raise AssertionError("Streaming smoke failed: no drift callbacks fired.")
+        if len(drift_flags) < 6:
+            raise AssertionError("Streaming smoke failed: insufficient batches for phase checks.")
+
+        third = max(len(drift_flags) // 3, 1)
+        early = drift_flags[:third]
+        middle = drift_flags[third : 2 * third]
+        late = drift_flags[2 * third :]
+        early_rate = float(np.mean(early)) if early else 0.0
+        middle_rate = float(np.mean(middle)) if middle else 0.0
+        late_rate = float(np.mean(late)) if late else 0.0
+
+        if assert_phase_behavior:
+            if middle_rate < early_rate:
+                raise AssertionError(
+                    "Streaming smoke failed: middle-phase drift rate should be >= early-phase rate."
+                )
+            if late_rate > middle_rate:
+                raise AssertionError(
+                    "Streaming smoke failed: late-phase drift rate should be <= middle-phase rate."
+                )
 
         return StreamingSmokeResult(
             batches_processed=processed,
@@ -368,4 +410,89 @@ class SyntheticDriftBenchmark:
             callback_events=callback_events,
             final_baseline_rows=int(len(monitor.baseline)),
             final_columns=list(monitor.baseline.columns),
+            early_phase_drift_rate=early_rate,
+            middle_phase_drift_rate=middle_rate,
+            late_phase_drift_rate=late_rate,
+        )
+
+    def run_massive_scale_benchmark(
+        self,
+        effective_rows: int = 100_000_000,
+        chunk_rows: int = 1_000_000,
+        small_n: int = 50_000,
+        score_tolerance: float = 0.2,
+        runtime_budget_seconds: float = 240.0,
+        random_seed_offset: int = 0,
+    ) -> MassiveScaleBenchmarkResult:
+        """Run a chunked large-row benchmark with parity and runtime assertions.
+
+        This uses chunk synthesis so the benchmark can represent 100M effective
+        rows without materializing all rows in memory at once.
+        """
+        if effective_rows <= 0:
+            raise ValueError("effective_rows must be > 0")
+        if chunk_rows <= 0:
+            raise ValueError("chunk_rows must be > 0")
+        if small_n < 1000:
+            raise ValueError("small_n must be >= 1000")
+        if score_tolerance <= 0:
+            raise ValueError("score_tolerance must be > 0")
+        if runtime_budget_seconds <= 0:
+            raise ValueError("runtime_budget_seconds must be > 0")
+
+        # PSI is currently the most practical large-scale detector in this codebase.
+        method = "psi"
+        rng = np.random.default_rng(self.random_seed + random_seed_offset)
+        detector = self._detector_for_method(method)
+
+        ref_small = rng.normal(0.0, 1.0, size=small_n)
+        cur_small = rng.normal(0.35, 1.0, size=small_n)
+        ref_res = detector.detect_drift(ref_small, cur_small)
+
+        n_chunks = int(np.ceil(effective_rows / chunk_rows))
+        # Fixed edges from reference-scale sample to keep chunked accumulation stable.
+        edges = detector.detector._bin_edges(  # type: ignore[attr-defined]
+            np.asarray(ref_small, dtype=float),
+            np.asarray(cur_small, dtype=float),
+        )
+        ref_counts = np.zeros(max(len(edges) - 1, 1), dtype=float)
+        cur_counts = np.zeros(max(len(edges) - 1, 1), dtype=float)
+        started = time.perf_counter()
+        for i in range(n_chunks):
+            n_this = min(chunk_rows, effective_rows - i * chunk_rows)
+            if n_this <= 0:
+                break
+            ref_chunk = rng.normal(0.0, 1.0, size=n_this)
+            cur_chunk = rng.normal(0.35, 1.0, size=n_this)
+            rc, _ = np.histogram(ref_chunk, bins=edges)
+            cc, _ = np.histogram(cur_chunk, bins=edges)
+            ref_counts += rc
+            cur_counts += cc
+        elapsed = time.perf_counter() - started
+
+        ref_perc = ref_counts / max(ref_counts.sum(), 1.0)
+        cur_perc = cur_counts / max(cur_counts.sum(), 1.0)
+        epsilon = 1e-6
+        ref_perc = np.where(ref_perc == 0, epsilon, ref_perc)
+        cur_perc = np.where(cur_perc == 0, epsilon, cur_perc)
+        massive_score = float(np.sum((cur_perc - ref_perc) * np.log(cur_perc / ref_perc)))
+        massive_res_drift = bool(massive_score > detector.threshold)
+
+        delta = float(abs(float(ref_res.score) - massive_score))
+        throughput = float(effective_rows / max(elapsed, 1e-9))
+        within_tol = bool(delta <= score_tolerance)
+        within_runtime = bool(elapsed <= runtime_budget_seconds)
+
+        return MassiveScaleBenchmarkResult(
+            method=method,
+            effective_rows=effective_rows,
+            chunk_rows=chunk_rows,
+            n_chunks=n_chunks,
+            reference_score=float(ref_res.score),
+            massive_score=massive_score,
+            abs_score_delta=delta,
+            elapsed_seconds=float(elapsed),
+            throughput_rows_per_second=throughput,
+            within_tolerance=within_tol and (bool(ref_res.drift) == massive_res_drift),
+            within_runtime_budget=within_runtime,
         )

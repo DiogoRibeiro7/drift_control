@@ -22,3 +22,20 @@ def test_streaming_smoke_milestone():
     assert res.callback_events > 0
     assert res.final_baseline_rows > 0
     assert "x" in res.final_columns
+    assert res.middle_phase_drift_rate >= res.early_phase_drift_rate
+    assert res.late_phase_drift_rate <= res.middle_phase_drift_rate
+
+
+def test_massive_scale_chunked_milestone():
+    bench = SyntheticDriftBenchmark(random_seed=13)
+    res = bench.run_massive_scale_benchmark(
+        effective_rows=1_000_000,
+        chunk_rows=100_000,
+        small_n=20_000,
+        score_tolerance=0.25,
+        runtime_budget_seconds=30.0,
+    )
+    assert res.effective_rows == 1_000_000
+    assert res.n_chunks == 10
+    assert res.within_tolerance is True
+    assert res.within_runtime_budget is True
