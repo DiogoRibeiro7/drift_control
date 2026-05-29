@@ -7,6 +7,7 @@ This folder contains the publish-ready reference docs for `drift-control`.
 - `api/reference.md`: public Python API reference
 - `api/detector-selection-guide.md`: quick "use X when..." guide across detectors
 - `cli/schema.md`: JSON output schema, versioning, and examples
+- `tutorials/README.md`: scenario-driven tutorials and notebooks
 - `integrations/pipeline-integrations.md`: MLflow, DVC, and feature-store integration patterns
 - `integrations/evidently-nannyml-compat.md`: migration mapping from Evidently/NannyML workflows
 - `operations/production-playbook.md`: baseline sizing, thresholding, alerts, and response strategy
