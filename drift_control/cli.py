@@ -4,6 +4,7 @@ import json
 import time
 from typing import Any
 from contextlib import nullcontext
+from concurrent.futures import ThreadPoolExecutor
 
 import click
 import pandas as pd
@@ -115,6 +116,13 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
     help='Comma-separated subset of columns to score.',
 )
 @click.option(
+    '--jobs',
+    type=int,
+    default=1,
+    show_default=True,
+    help='Parallel workers for per-column scoring on univariate/categorical methods.',
+)
+@click.option(
     '--fail-on-drift',
     is_flag=True,
     help='Exit with non-zero status if drift is detected.',
@@ -157,6 +165,7 @@ def check(
     use_mlflow: bool,
     config_path: str | None,
     columns: str | None,
+    jobs: int,
     fail_on_drift: bool,
     html_report: str | None,
     markdown_report: str | None,
@@ -232,6 +241,8 @@ def check(
             if unknown:
                 _raise_click(f"Unknown column(s) in --columns: {unknown}", "columns")
             base_cols = set(selected)
+        if jobs < 1:
+            _raise_click("--jobs must be >= 1.", "jobs")
 
         ensemble_detector: EnsembleDriftDetector | None = None
         unified_detector: UnifiedDriftDetector | None = None
@@ -260,7 +271,9 @@ def check(
         results: dict[str, dict[str, object]] = {}
         if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat'}:
             assert unified_detector is not None
-            for col in sorted(base_cols):
+            ordered_cols = sorted(base_cols)
+
+            def _score_col(col: str) -> tuple[str, dict[str, object]]:
                 try:
                     if cfg.method in {'chi2cat', 'tvdcat'}:
                         base_col, cur_col = coerce_categorical_series(
@@ -274,11 +287,21 @@ def check(
                     _raise_click(str(exc), "column_validation")
 
                 outcome = unified_detector.detect_drift(base_col, cur_col)
-                results[col] = {'score': float(outcome.score), 'drift': bool(outcome.drift)}
+                payload: dict[str, object] = {'score': float(outcome.score), 'drift': bool(outcome.drift)}
                 if outcome.p_value is not None:
-                    results[col]['p_value'] = float(outcome.p_value)
+                    payload['p_value'] = float(outcome.p_value)
+                return col, payload
+
+            if jobs == 1:
+                scored = [_score_col(c) for c in ordered_cols]
+            else:
+                with ThreadPoolExecutor(max_workers=jobs) as ex:
+                    scored = list(ex.map(_score_col, ordered_cols))
+
+            for col, payload in scored:
+                results[col] = payload
                 if not output_json:
-                    click.echo(f"{col}: {outcome.score:.4f} (drift={outcome.drift})")
+                    click.echo(f"{col}: {float(payload['score']):.4f} (drift={bool(payload['drift'])})")
             if cfg.correction != 'none':
                 pvalue_items: list[tuple[str, float]] = []
                 for c, col_payload in results.items():

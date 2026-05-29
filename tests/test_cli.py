@@ -709,3 +709,50 @@ def test_cli_invokes_telemetry_span(tmp_path, monkeypatch):
     )
     assert result.exit_code == 0
     assert calls['n'] == 1
+
+
+def test_cli_jobs_invalid_fails(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame({'x': [0, 1, 2]}).to_csv(baseline, index=False)
+    pd.DataFrame({'x': [3, 4, 5]}).to_csv(current, index=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--jobs', '0'],
+    )
+    assert result.exit_code != 0
+    assert '--jobs must be >=' in result.output
+
+
+def test_cli_jobs_parallel_matches_single(tmp_path):
+    baseline = tmp_path / 'b.csv'
+    current = tmp_path / 'c.csv'
+    pd.DataFrame(
+        {
+            'x': [0, 1, 2, 3, 4, 5],
+            'y': [10, 11, 12, 13, 14, 15],
+            'z': [20, 21, 22, 23, 24, 25],
+        }
+    ).to_csv(baseline, index=False)
+    pd.DataFrame(
+        {
+            'x': [5, 6, 7, 8, 9, 10],
+            'y': [10, 11, 12, 13, 14, 15],
+            'z': [19, 20, 21, 22, 23, 24],
+        }
+    ).to_csv(current, index=False)
+    runner = CliRunner()
+    single = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--method', 'psi', '--jobs', '1', '--output-json'],
+    )
+    parallel = runner.invoke(
+        check,
+        ['--baseline', str(baseline), '--current', str(current), '--method', 'psi', '--jobs', '3', '--output-json'],
+    )
+    assert single.exit_code == 0
+    assert parallel.exit_code == 0
+    p1 = json.loads(single.output)
+    p2 = json.loads(parallel.output)
+    assert p1['columns'] == p2['columns']
