@@ -1,11 +1,19 @@
 import numpy as np
 from .result_schema import DriftResult
+from .quantile_sketch import KLLSketch
 
 
 class PSIDriftDetector:
     """Detect drift using the Population Stability Index (PSI)."""
 
-    def __init__(self, threshold: float = 0.2, bins: int = 10, strategy: str = "quantile") -> None:
+    def __init__(
+        self,
+        threshold: float = 0.2,
+        bins: int = 10,
+        strategy: str = "quantile",
+        sketch_size: int = 200,
+        random_state: int = 42,
+    ) -> None:
         """Create detector with a PSI threshold, bins and binning strategy.
 
         :param threshold: PSI value above which drift is flagged.
@@ -14,12 +22,15 @@ class PSIDriftDetector:
             equal-width bins.
         """
 
-        if strategy not in {"quantile", "uniform"}:
-            raise ValueError("strategy must be 'quantile' or 'uniform'")
+        if strategy not in {"quantile", "uniform", "kll"}:
+            raise ValueError("strategy must be 'quantile', 'uniform' or 'kll'")
 
         self.threshold = threshold
         self.bins = bins
         self.strategy = strategy
+        self.sketch_size = sketch_size
+        self.random_state = random_state
+        self._reference_sketch: KLLSketch | None = None
 
     def _bin_edges(self, ref: np.ndarray, cur: np.ndarray) -> np.ndarray:
         """Return bin edges fitted on the reference distribution only.
@@ -29,6 +40,12 @@ class PSIDriftDetector:
         """
         if self.strategy == "quantile":
             edges = np.quantile(ref, np.linspace(0, 1, self.bins + 1))
+        elif self.strategy == "kll":
+            sketch = self._reference_sketch
+            if sketch is None:
+                sketch = KLLSketch(k=self.sketch_size, random_state=self.random_state)
+                sketch.update(ref)
+            edges = sketch.quantiles(np.linspace(0, 1, self.bins + 1))
         else:
             edges = np.linspace(ref.min(), ref.max(), self.bins + 1)
         edges = np.unique(edges)
@@ -37,6 +54,26 @@ class PSIDriftDetector:
         edges[0] = min(edges[0], cur.min())
         edges[-1] = max(edges[-1], cur.max())
         return edges
+
+    def fit_reference(self, reference) -> "PSIDriftDetector":
+        """Fit a reusable reference sketch for online PSI binning."""
+        ref = np.asarray(reference, dtype=float).ravel()
+        if ref.size == 0:
+            raise ValueError("reference must be non-empty")
+        sketch = KLLSketch(k=self.sketch_size, random_state=self.random_state)
+        sketch.update(ref)
+        self._reference_sketch = sketch
+        return self
+
+    def update_reference(self, reference_chunk) -> "PSIDriftDetector":
+        """Incrementally update the reference sketch using a new chunk."""
+        ref = np.asarray(reference_chunk, dtype=float).ravel()
+        if ref.size == 0:
+            return self
+        if self._reference_sketch is None:
+            self._reference_sketch = KLLSketch(k=self.sketch_size, random_state=self.random_state)
+        self._reference_sketch.update(ref)
+        return self
 
     def calculate_psi(self, reference, current) -> float:
         """Compute PSI between reference and current arrays."""

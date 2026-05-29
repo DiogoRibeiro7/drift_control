@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 from drift_control.psi_drift_detector import PSIDriftDetector
 
 class TestPSIDriftDetector(unittest.TestCase):
@@ -29,6 +30,32 @@ class TestPSIDriftDetector(unittest.TestCase):
     def test_invalid_strategy(self):
         with self.assertRaises(ValueError):
             PSIDriftDetector(strategy="unknown")
+
+    def test_kll_strategy_detects_drift(self):
+        reference = np.linspace(0, 1, 200)
+        current = np.linspace(1, 2, 200)
+        detector = PSIDriftDetector(threshold=0.1, bins=10, strategy="kll", sketch_size=80)
+        drift, psi = detector.detect_drift(reference, current)
+        self.assertTrue(drift)
+        self.assertGreater(psi, 0.1)
+
+    def test_kll_fit_and_update_reference(self):
+        detector = PSIDriftDetector(strategy="kll", bins=8, sketch_size=64, random_state=7)
+        detector.fit_reference(np.linspace(0, 1, 100))
+        detector.update_reference(np.linspace(0.5, 1.5, 100))
+        drift, psi = detector.detect_drift(np.linspace(0, 1, 100), np.linspace(0.6, 1.6, 100))
+        self.assertIsInstance(drift, bool)
+        self.assertIsInstance(psi, float)
+
+    def test_kll_psi_is_close_to_quantile(self):
+        rng = np.random.default_rng(0)
+        reference = rng.normal(0.0, 1.0, size=4000)
+        current = rng.normal(0.3, 1.0, size=4000)
+        q_detector = PSIDriftDetector(strategy="quantile", bins=12)
+        k_detector = PSIDriftDetector(strategy="kll", bins=12, sketch_size=128, random_state=0)
+        psi_q = q_detector.calculate_psi(reference, current)
+        psi_k = k_detector.calculate_psi(reference, current)
+        self.assertLess(abs(psi_q - psi_k), 0.1)
 
 if __name__ == '__main__':
     unittest.main()
