@@ -1,4 +1,5 @@
 import os
+import importlib.util
 
 import pytest
 
@@ -46,6 +47,25 @@ def test_massive_scale_chunked_milestone():
     assert res.within_runtime_budget is True
     assert res.within_memory_budget is True
     assert res.peak_memory_mb > 0
+    assert res.execution_backend in {"numpy", "pyarrow"}
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("pyarrow") is None,
+    reason="pyarrow not installed",
+)
+def test_massive_scale_chunked_milestone_pyarrow_backend():
+    bench = SyntheticDriftBenchmark(random_seed=19)
+    res = bench.run_massive_scale_benchmark(
+        effective_rows=300_000,
+        chunk_rows=100_000,
+        small_n=10_000,
+        score_tolerance=0.3,
+        runtime_budget_seconds=30.0,
+        memory_budget_mb=1024.0,
+        backend_preference="pyarrow_auto",
+    )
+    assert res.execution_backend == "pyarrow"
 
 
 @pytest.mark.skipif(

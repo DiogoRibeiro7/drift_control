@@ -65,6 +65,7 @@ class MassiveScaleBenchmarkResult:
     elapsed_seconds: float
     throughput_rows_per_second: float
     peak_memory_mb: float
+    execution_backend: str
     within_tolerance: bool
     within_runtime_budget: bool
     within_memory_budget: bool
@@ -426,6 +427,7 @@ class SyntheticDriftBenchmark:
         score_tolerance: float = 0.2,
         runtime_budget_seconds: float = 240.0,
         memory_budget_mb: float = 2048.0,
+        backend_preference: str = "numpy",
         random_seed_offset: int = 0,
     ) -> MassiveScaleBenchmarkResult:
         """Run a chunked large-row benchmark with parity and runtime assertions.
@@ -445,6 +447,8 @@ class SyntheticDriftBenchmark:
             raise ValueError("runtime_budget_seconds must be > 0")
         if memory_budget_mb <= 0:
             raise ValueError("memory_budget_mb must be > 0")
+        if backend_preference not in {"numpy", "pyarrow_auto"}:
+            raise ValueError("backend_preference must be one of: numpy, pyarrow_auto")
 
         # PSI is currently the most practical large-scale detector in this codebase.
         method = "psi"
@@ -463,6 +467,34 @@ class SyntheticDriftBenchmark:
         )
         ref_counts = np.zeros(max(len(edges) - 1, 1), dtype=float)
         cur_counts = np.zeros(max(len(edges) - 1, 1), dtype=float)
+        execution_backend = "numpy"
+        pa = None
+        pc = None
+        if backend_preference == "pyarrow_auto":
+            try:
+                import pyarrow as pa  # type: ignore
+                import pyarrow.compute as pc  # type: ignore
+                execution_backend = "pyarrow"
+            except Exception:
+                execution_backend = "numpy"
+
+        def _arrow_chunk_hist(arr, bins):
+            assert pa is not None and pc is not None
+            out = np.zeros(max(len(bins) - 1, 1), dtype=float)
+            arr_pa = pa.array(arr, type=pa.float64())
+            for j in range(len(bins) - 1):
+                left = float(bins[j])
+                right = float(bins[j + 1])
+                ge_left = pc.greater_equal(arr_pa, pa.scalar(left))
+                if j == len(bins) - 2:
+                    lt_right = pc.less_equal(arr_pa, pa.scalar(right))
+                else:
+                    lt_right = pc.less(arr_pa, pa.scalar(right))
+                in_bin = pc.and_(ge_left, lt_right)
+                c = pc.sum(in_bin).as_py()
+                out[j] = float(c if c is not None else 0.0)
+            return out
+
         tracemalloc.start()
         started = time.perf_counter()
         for i in range(n_chunks):
@@ -471,8 +503,12 @@ class SyntheticDriftBenchmark:
                 break
             ref_chunk = rng.normal(0.0, 1.0, size=n_this)
             cur_chunk = rng.normal(0.35, 1.0, size=n_this)
-            rc, _ = np.histogram(ref_chunk, bins=edges)
-            cc, _ = np.histogram(cur_chunk, bins=edges)
+            if execution_backend == "pyarrow":
+                rc = _arrow_chunk_hist(ref_chunk, edges)
+                cc = _arrow_chunk_hist(cur_chunk, edges)
+            else:
+                rc, _ = np.histogram(ref_chunk, bins=edges)
+                cc, _ = np.histogram(cur_chunk, bins=edges)
             ref_counts += rc
             cur_counts += cc
         elapsed = time.perf_counter() - started
@@ -505,6 +541,7 @@ class SyntheticDriftBenchmark:
             elapsed_seconds=float(elapsed),
             throughput_rows_per_second=throughput,
             peak_memory_mb=peak_memory_mb,
+            execution_backend=execution_backend,
             within_tolerance=within_tol and (bool(ref_res.drift) == massive_res_drift),
             within_runtime_budget=within_runtime,
             within_memory_budget=within_memory,
