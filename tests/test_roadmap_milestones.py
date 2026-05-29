@@ -34,8 +34,11 @@ def test_massive_scale_chunked_milestone():
         small_n=20_000,
         score_tolerance=0.25,
         runtime_budget_seconds=30.0,
+        memory_budget_mb=1024.0,
     )
     assert res.effective_rows == 1_000_000
     assert res.n_chunks == 10
     assert res.within_tolerance is True
     assert res.within_runtime_budget is True
+    assert res.within_memory_budget is True
+    assert res.peak_memory_mb > 0

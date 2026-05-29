@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import tracemalloc
 from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Callable
@@ -63,8 +64,10 @@ class MassiveScaleBenchmarkResult:
     abs_score_delta: float
     elapsed_seconds: float
     throughput_rows_per_second: float
+    peak_memory_mb: float
     within_tolerance: bool
     within_runtime_budget: bool
+    within_memory_budget: bool
 
 
 class SyntheticDriftBenchmark:
@@ -422,6 +425,7 @@ class SyntheticDriftBenchmark:
         small_n: int = 50_000,
         score_tolerance: float = 0.2,
         runtime_budget_seconds: float = 240.0,
+        memory_budget_mb: float = 2048.0,
         random_seed_offset: int = 0,
     ) -> MassiveScaleBenchmarkResult:
         """Run a chunked large-row benchmark with parity and runtime assertions.
@@ -439,6 +443,8 @@ class SyntheticDriftBenchmark:
             raise ValueError("score_tolerance must be > 0")
         if runtime_budget_seconds <= 0:
             raise ValueError("runtime_budget_seconds must be > 0")
+        if memory_budget_mb <= 0:
+            raise ValueError("memory_budget_mb must be > 0")
 
         # PSI is currently the most practical large-scale detector in this codebase.
         method = "psi"
@@ -457,6 +463,7 @@ class SyntheticDriftBenchmark:
         )
         ref_counts = np.zeros(max(len(edges) - 1, 1), dtype=float)
         cur_counts = np.zeros(max(len(edges) - 1, 1), dtype=float)
+        tracemalloc.start()
         started = time.perf_counter()
         for i in range(n_chunks):
             n_this = min(chunk_rows, effective_rows - i * chunk_rows)
@@ -469,6 +476,9 @@ class SyntheticDriftBenchmark:
             ref_counts += rc
             cur_counts += cc
         elapsed = time.perf_counter() - started
+        _, peak_bytes = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        peak_memory_mb = float(peak_bytes / (1024.0 * 1024.0))
 
         ref_perc = ref_counts / max(ref_counts.sum(), 1.0)
         cur_perc = cur_counts / max(cur_counts.sum(), 1.0)
@@ -482,6 +492,7 @@ class SyntheticDriftBenchmark:
         throughput = float(effective_rows / max(elapsed, 1e-9))
         within_tol = bool(delta <= score_tolerance)
         within_runtime = bool(elapsed <= runtime_budget_seconds)
+        within_memory = bool(peak_memory_mb <= memory_budget_mb)
 
         return MassiveScaleBenchmarkResult(
             method=method,
@@ -493,6 +504,8 @@ class SyntheticDriftBenchmark:
             abs_score_delta=delta,
             elapsed_seconds=float(elapsed),
             throughput_rows_per_second=throughput,
+            peak_memory_mb=peak_memory_mb,
             within_tolerance=within_tol and (bool(ref_res.drift) == massive_res_drift),
             within_runtime_budget=within_runtime,
+            within_memory_budget=within_memory,
         )

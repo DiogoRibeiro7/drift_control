@@ -31,6 +31,7 @@ def main() -> int:
         small_n=50_000,
         score_tolerance=0.2,
         runtime_budget_seconds=120.0,
+        memory_budget_mb=2048.0,
     )
     streaming = bench.run_streaming_smoke(
         n_batches=240,
@@ -48,6 +49,8 @@ def main() -> int:
         raise SystemExit("massive-scale parity failed tolerance check")
     if not massive.within_runtime_budget:
         raise SystemExit("massive-scale runtime exceeded budget")
+    if not massive.within_memory_budget:
+        raise SystemExit("massive-scale memory envelope exceeded budget")
 
     return 0
 
