@@ -56,3 +56,27 @@ def test_calculate_drift_skips_constant_columns_safely():
     assert "num" in result["numerical"]
     assert result["numerical"]["num"]["jensen_shannon_distance"] != \
         result["numerical"]["num"]["jensen_shannon_distance"]  # NaN check
+
+
+def test_calculate_drift_parallel_matches_serial():
+    df_prior = pd.DataFrame({
+        "num_a": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        "num_b": [2.0, 2.5, 3.5, 4.5, 5.5, 6.5],
+        "cat_a": ["x", "x", "y", "y", "z", "z"],
+    })
+    df_post = pd.DataFrame({
+        "num_a": [10.0, 11.0, 12.0, 13.0, 14.0, 15.0],
+        "num_b": [2.2, 2.7, 3.8, 4.8, 5.8, 6.8],
+        "cat_a": ["x", "y", "y", "z", "z", "z"],
+    })
+    detector = DataDriftDetector(df_prior, df_post)
+    serial = detector.calculate_drift(max_workers=1)
+    parallel = detector.calculate_drift(max_workers=4)
+    assert parallel == serial
+
+
+def test_calculate_drift_rejects_invalid_max_workers():
+    df_prior, df_post = _make_frames()
+    detector = DataDriftDetector(df_prior, df_post)
+    with pytest.raises(ValueError, match="max_workers must be >= 1"):
+        detector.calculate_drift(max_workers=0)

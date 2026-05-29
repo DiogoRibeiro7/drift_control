@@ -85,11 +85,15 @@ class DataDriftDetector:
 
         self._ml: Optional[MLEfficacyEvaluator] = None
 
-    def calculate_drift(self, steps: int = 100) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    def calculate_drift(
+        self,
+        steps: int = 100,
+        max_workers: int = 1,
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Return per-column drift metrics. See :func:`drift_metrics.calculate_drift`."""
         return drift_metrics.calculate_drift(
             self.df_prior, self.df_post,
-            self.categorical_columns, self.numeric_columns, steps=steps,
+            self.categorical_columns, self.numeric_columns, steps=steps, max_workers=max_workers,
         )
 
     def plot_categorical_to_numeric(self, **kwargs: Any) -> Any:

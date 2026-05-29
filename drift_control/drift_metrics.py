@@ -9,6 +9,7 @@ under the minimal install.
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Iterable
 
 import numpy as np
@@ -102,6 +103,7 @@ def calculate_drift(
     categorical_columns: Iterable[str],
     numeric_columns: Iterable[str],
     steps: int = 100,
+    max_workers: int = 1,
 ) -> Dict[str, Dict[str, Dict[str, Any]]]:
     """Compute drift metrics for every requested column.
 
@@ -109,19 +111,50 @@ def calculate_drift(
     KL/JSD/Wasserstein on category probabilities. Numeric columns use KS and
     Wasserstein on the raw samples with a KDE-grid JSD summary.
     """
+    if max_workers < 1:
+        raise ValueError("max_workers must be >= 1")
+
+    cat_cols = list(categorical_columns)
+    num_cols = list(numeric_columns)
+
     cat_res: Dict[str, Dict[str, float]] = {}
-    for col in categorical_columns:
-        cat_res[col] = calculate_categorical_drift(df_prior[col], df_post[col])
+    if max_workers == 1 or len(cat_cols) <= 1:
+        for col in cat_cols:
+            cat_res[col] = calculate_categorical_drift(df_prior[col], df_post[col])
+    else:
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futures = {
+                col: ex.submit(calculate_categorical_drift, df_prior[col], df_post[col])
+                for col in cat_cols
+            }
+            for col in cat_cols:
+                cat_res[col] = futures[col].result()
 
     num_res: Dict[str, Dict[str, float]] = {}
-    for col in numeric_columns:
-        result = calculate_numeric_drift(df_prior[col], df_post[col], steps=steps)
-        if result is None:
-            logger.warning(
-                "Skipping numeric column %r: needs >= 2 non-null values in both "
-                "datasets", col,
-            )
-            continue
-        num_res[col] = result
+    if max_workers == 1 or len(num_cols) <= 1:
+        for col in num_cols:
+            result = calculate_numeric_drift(df_prior[col], df_post[col], steps=steps)
+            if result is None:
+                logger.warning(
+                    "Skipping numeric column %r: needs >= 2 non-null values in both "
+                    "datasets", col,
+                )
+                continue
+            num_res[col] = result
+    else:
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futures = {
+                col: ex.submit(calculate_numeric_drift, df_prior[col], df_post[col], steps)
+                for col in num_cols
+            }
+            for col in num_cols:
+                result = futures[col].result()
+                if result is None:
+                    logger.warning(
+                        "Skipping numeric column %r: needs >= 2 non-null values in both "
+                        "datasets", col,
+                    )
+                    continue
+                num_res[col] = result
 
     return {"categorical": cat_res, "numerical": num_res}
