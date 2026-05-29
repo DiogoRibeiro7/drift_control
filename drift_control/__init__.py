@@ -77,6 +77,8 @@ _LAZY: dict[str, str] = {
     "create_prefect_drift_task": "drift_control.integrations.prefect",
     "compute_text_embeddings": "drift_control.text_embedding_drift",
     "detect_text_embedding_drift": "drift_control.text_embedding_drift",
+    "compute_image_embeddings": "drift_control.image_embedding_drift",
+    "detect_image_embedding_drift": "drift_control.image_embedding_drift",
 }
 
 __all__ = list(_LAZY.keys())

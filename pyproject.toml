@@ -63,6 +63,8 @@ ml = [
 ]
 embeddings = [
     "sentence-transformers",
+    "torch",
+    "torchvision",
 ]
 full = [
     "seaborn",
@@ -76,6 +78,8 @@ full = [
     "prefect",
     "category_encoders",
     "sentence-transformers",
+    "torch",
+    "torchvision",
 ]
 
 [project.scripts]
