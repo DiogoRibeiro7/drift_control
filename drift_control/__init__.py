@@ -80,6 +80,8 @@ _LAZY: dict[str, str] = {
     "detect_text_embedding_drift": "drift_control.text_embedding_drift",
     "compute_image_embeddings": "drift_control.image_embedding_drift",
     "detect_image_embedding_drift": "drift_control.image_embedding_drift",
+    "compute_tabular_embeddings": "drift_control.tabular_embedding_drift",
+    "detect_tabular_embedding_drift": "drift_control.tabular_embedding_drift",
 }
 
 __all__ = list(_LAZY.keys())
