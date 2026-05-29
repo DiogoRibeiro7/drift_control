@@ -61,6 +61,9 @@ prefect = [
 ml = [
     "category_encoders",
 ]
+embeddings = [
+    "sentence-transformers",
+]
 full = [
     "seaborn",
     "matplotlib",
@@ -72,6 +75,7 @@ full = [
     "apache-airflow",
     "prefect",
     "category_encoders",
+    "sentence-transformers",
 ]
 
 [project.scripts]

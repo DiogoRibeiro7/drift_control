@@ -75,6 +75,8 @@ _LAZY: dict[str, str] = {
     "PagerDutyAlertSink": "drift_control.alert_sinks",
     "create_airflow_drift_task": "drift_control.integrations.airflow",
     "create_prefect_drift_task": "drift_control.integrations.prefect",
+    "compute_text_embeddings": "drift_control.text_embedding_drift",
+    "detect_text_embedding_drift": "drift_control.text_embedding_drift",
 }
 
 __all__ = list(_LAZY.keys())
