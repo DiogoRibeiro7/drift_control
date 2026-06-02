@@ -28,7 +28,6 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "click",
-    "hypothesis",
     "tomli; python_version < '3.11'",
 ]
 
@@ -79,6 +78,15 @@ full = [
 [project.scripts]
 drift-control = "drift_control.cli:check"
 drift-control-benchmark = "drift_control.cli:benchmark_report"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+hypothesis = "*"
+pyarrow = "*"
+ruff = "*"
+mypy = "*"
+nbval = "*"
+ipykernel = "*"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
