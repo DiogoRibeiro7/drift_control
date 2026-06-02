@@ -153,6 +153,10 @@ def test_validation_error_is_also_value_error():
 # --- Top-level lazy exports -------------------------------------------------
 
 def test_core_symbols_exposed_at_package_root():
-    assert drift_control.BaseDetector is BaseDetector
-    assert drift_control.RetrainingPolicy is RetrainingPolicy
-    assert drift_control.ValidationError is ValidationError
+    # Resolve both sides at call time so the assertion survives the package
+    # reload performed by test_optional_imports (module-level refs would not).
+    from drift_control import core
+
+    assert drift_control.BaseDetector is core.BaseDetector
+    assert drift_control.RetrainingPolicy is core.RetrainingPolicy
+    assert drift_control.ValidationError is core.ValidationError

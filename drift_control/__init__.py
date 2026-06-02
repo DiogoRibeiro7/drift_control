@@ -79,6 +79,13 @@ _LAZY: dict[str, str] = {
     "ValidationError": "drift_control.core",
     "NotFittedError": "drift_control.core",
     "NotEnoughDataError": "drift_control.core",
+    # Preprocessing: validation + streaming windows (ROADMAP.md Phase 1).
+    "validate_reference_current": "drift_control.preprocessing",
+    "ValidatedPair": "drift_control.preprocessing",
+    "coerce_observations": "drift_control.preprocessing",
+    "SlidingWindow": "drift_control.preprocessing",
+    "ExpandingWindow": "drift_control.preprocessing",
+    "TumblingWindow": "drift_control.preprocessing",
 }
 
 __all__ = list(_LAZY.keys())

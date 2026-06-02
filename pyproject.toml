@@ -117,6 +117,8 @@ files = [
   "drift_control/core/exceptions.py",
   "drift_control/core/result.py",
   "drift_control/core/types.py",
+  "drift_control/preprocessing/validation.py",
+  "drift_control/preprocessing/windows.py",
   "drift_control/cli.py",
   "drift_control/config.py",
   "drift_control/energy_drift_detector.py",
