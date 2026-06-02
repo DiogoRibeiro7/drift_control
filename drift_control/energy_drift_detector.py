@@ -98,12 +98,16 @@ class EnergyDriftDetector:
             EnergyResult,
             self.detect_drift(reference_data, current_data, return_details=True),
         )
+        # Decision is ``energy_distance > calibrated_threshold`` (permutation null).
         return DriftResult(
             method="energy",
             drift=bool(details.drift_detected),
             score=float(details.energy_distance),
             p_value=float(details.p_value),
-            threshold=float(self.alpha),
-            comparator="<",
-            metadata={"calibrated_threshold": float(details.threshold)},
+            threshold=float(details.threshold),
+            comparator=">",
+            metadata={
+                "alpha": float(self.alpha),
+                "calibrated_threshold": float(details.threshold),
+            },
         )

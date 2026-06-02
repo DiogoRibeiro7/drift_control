@@ -118,12 +118,17 @@ class WassersteinDriftDetector:
 
     def detect_drift_result(self, reference, current) -> DriftResult:
         details = self.detect_drift(reference, current, return_details=True)
+        # Decision is ``distance > calibrated_threshold``; report that triplet
+        # rather than comparing the raw distance against alpha.
         return DriftResult(
             method="wasserstein",
             drift=bool(details.drift_detected),
             score=float(details.distance),
             p_value=float(details.p_value),
-            threshold=float(self.alpha),
-            comparator="<",
-            metadata={"calibrated_threshold": float(details.threshold)},
+            threshold=float(details.threshold),
+            comparator=">",
+            metadata={
+                "alpha": float(self.alpha),
+                "calibrated_threshold": float(details.threshold),
+            },
         )

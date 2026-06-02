@@ -69,19 +69,20 @@ class UnifiedDriftDetector:
         elif method == "wasserstein":
             self.detector = WassersteinDriftDetector(**kwargs)
             self.threshold = float(self.detector.alpha)
-            self.comparator = "<"
+            # Permutation-calibrated: drift is statistic > calibrated_threshold.
+            self.comparator = ">"
         elif method == "mmd":
             self.detector = MMDDriftDetector(**kwargs)
             self.threshold = float(self.detector.alpha)
-            self.comparator = "<"
+            self.comparator = ">"
         elif method == "c2st":
             self.detector = C2STDriftDetector(**kwargs)
             self.threshold = float(self.detector.alpha)
-            self.comparator = "<"
+            self.comparator = ">"
         elif method == "energy":
             self.detector = EnergyDriftDetector(**kwargs)
             self.threshold = float(self.detector.alpha)
-            self.comparator = "<"
+            self.comparator = ">"
         elif method == "chi2cat":
             self.detector = ChiSquareDriftDetector(**kwargs)
             self.threshold = float(self.detector.alpha)
@@ -195,7 +196,10 @@ class UnifiedDriftDetector:
                     details = cast(_DetailedDetector, self.detector).detect_drift(
                         reference_data, current_data, return_details=True
                     )
-                    metadata_ws: dict[str, Any] = {"calibrated_threshold": float(details.threshold)}
+                    metadata_ws: dict[str, Any] = {
+                        "alpha": self.threshold,
+                        "calibrated_threshold": float(details.threshold),
+                    }
                     ci_ws = self._bootstrap_ci(reference_data, current_data)
                     if ci_ws is not None:
                         metadata_ws["score_ci"] = {"lo": ci_ws[0], "hi": ci_ws[1], "level": self.ci_level}
@@ -204,7 +208,7 @@ class UnifiedDriftDetector:
                         drift=bool(details.drift_detected),
                         score=float(details.distance),
                         p_value=float(details.p_value),
-                        threshold=self.threshold,
+                        threshold=float(details.threshold),
                         comparator=self.comparator,
                         metadata=metadata_ws,
                     )
@@ -217,9 +221,12 @@ class UnifiedDriftDetector:
                         drift=bool(details.drift_detected),
                         score=float(details.mmd2),
                         p_value=float(details.p_value),
-                        threshold=self.threshold,
+                        threshold=float(details.threshold),
                         comparator=self.comparator,
-                        metadata={"calibrated_threshold": float(details.threshold)},
+                        metadata={
+                            "alpha": self.threshold,
+                            "calibrated_threshold": float(details.threshold),
+                        },
                     )
                 elif self.method in {"c2st", "energy"}:
                     details = cast(_DetailedDetector, self.detector).detect_drift(
@@ -231,9 +238,12 @@ class UnifiedDriftDetector:
                         drift=bool(details.drift_detected),
                         score=score,
                         p_value=float(details.p_value),
-                        threshold=self.threshold,
+                        threshold=float(details.threshold),
                         comparator=self.comparator,
-                        metadata={"calibrated_threshold": float(details.threshold)},
+                        metadata={
+                            "alpha": self.threshold,
+                            "calibrated_threshold": float(details.threshold),
+                        },
                     )
                 else:
                     drift, score = cast(_SimpleDetector, self.detector).detect_drift(

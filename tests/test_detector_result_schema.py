@@ -19,6 +19,23 @@ def _assert_common(result: DriftResult) -> None:
     assert isinstance(result.score, float)
     assert isinstance(result.threshold, float)
     assert result.comparator in {"<", ">"}
+    _assert_reconciles(result)
+
+
+def _assert_reconciles(result: DriftResult) -> None:
+    """The (score, comparator, threshold) triplet must reproduce ``drift``.
+
+    Without this, a detector can report a decision that contradicts the
+    machine-readable fields downstream consumers rely on.
+    """
+    if result.comparator == ">":
+        expected = result.score > result.threshold
+    else:
+        expected = result.score < result.threshold
+    assert expected == result.drift, (
+        f"{result.method}: score={result.score} {result.comparator} "
+        f"threshold={result.threshold} does not match drift={result.drift}"
+    )
 
 
 def test_univariate_detectors_expose_common_result_schema():

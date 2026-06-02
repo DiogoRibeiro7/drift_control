@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Literal
 
@@ -105,6 +106,43 @@ class MMDDriftDetector:
         sq_dists = cp.maximum(a_norm + b_norm - 2 * A_cp @ B_cp.T, 0.0)
         return cp.asnumpy(cp.exp(-gamma * sq_dists))
 
+    def _gram_matrix(self, Z: np.ndarray, gamma: float) -> np.ndarray:
+        """Full RBF Gram matrix of the pooled sample, computed once per call.
+
+        A permutation test only reshuffles the row labels of ``Z``; the kernel
+        values themselves never change. Materialising the matrix once and then
+        indexing into it per permutation avoids recomputing O(n^2) kernels for
+        every one of ``n_permutations`` draws (the dominant cost of the test).
+        """
+        if self.use_gpu:
+            try:
+                return self._rbf_kernel_gpu(Z, Z, gamma)
+            except Exception as exc:  # pragma: no cover - depends on GPU runtime
+                warnings.warn(
+                    f"use_gpu=True but the GPU kernel failed ({exc}); "
+                    "falling back to the NumPy kernel.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+        return self._rbf_kernel(Z, Z, gamma)
+
+    @staticmethod
+    def _mmd2_from_gram(K: np.ndarray, idx_a: np.ndarray, idx_b: np.ndarray) -> float:
+        """Unbiased MMD^2 from a precomputed Gram matrix and two index sets.
+
+        Numerically equivalent to :meth:`_mmd2_unbiased`; the RBF diagonal is
+        exactly 1.0, so each within-sample sum subtracts its sample size.
+        """
+        m = int(idx_a.size)
+        n = int(idx_b.size)
+        sum_xx = float(K[np.ix_(idx_a, idx_a)].sum()) - m
+        sum_yy = float(K[np.ix_(idx_b, idx_b)].sum()) - n
+        sum_xy = float(K[np.ix_(idx_a, idx_b)].sum())
+        term_x = sum_xx / (m * (m - 1))
+        term_y = sum_yy / (n * (n - 1))
+        term_xy = sum_xy * (2.0 / (m * n))
+        return float(term_x + term_y - term_xy)
+
     def _rbf_kernel_sum(
         self,
         A: np.ndarray,
@@ -113,11 +151,6 @@ class MMDDriftDetector:
         chunk_size: int | None,
     ) -> float:
         if chunk_size is None:
-            if self.use_gpu:
-                try:
-                    return float(np.sum(self._rbf_kernel_gpu(A, B, gamma)))
-                except Exception:
-                    pass
             return float(np.sum(self._rbf_kernel(A, B, gamma)))
 
         total = 0.0
@@ -183,24 +216,36 @@ class MMDDriftDetector:
             )
 
         gamma = self._resolve_gamma(X, Y)
-        if self.estimator == "linear":
-            observed_mmd2 = self._mmd2_linear(X, Y, gamma)
-        else:
-            observed_mmd2 = self._mmd2_unbiased(X, Y, gamma)
-
         rng = np.random.default_rng(self.random_state)
         Z = np.vstack([X, Y])
+        n_total = Z.shape[0]
         n_ref = X.shape[0]
         null_mmd2 = np.empty(self.n_permutations, dtype=float)
 
-        for i in range(self.n_permutations):
-            perm = rng.permutation(Z.shape[0])
-            Xp = Z[perm[:n_ref]]
-            Yp = Z[perm[n_ref:]]
+        if self.estimator == "exact" and self.chunk_size is None:
+            # Dense exact path: compute the kernel matrix once, then each
+            # permutation is a pure index reshuffle over the same Gram matrix.
+            K = self._gram_matrix(Z, gamma)
+            observed_mmd2 = self._mmd2_from_gram(
+                K, np.arange(n_ref), np.arange(n_ref, n_total)
+            )
+            for i in range(self.n_permutations):
+                perm = rng.permutation(n_total)
+                null_mmd2[i] = self._mmd2_from_gram(K, perm[:n_ref], perm[n_ref:])
+        else:
+            # Linear estimator or memory-bounded chunked exact: recompute per draw.
             if self.estimator == "linear":
-                null_mmd2[i] = self._mmd2_linear(Xp, Yp, gamma)
+                observed_mmd2 = self._mmd2_linear(X, Y, gamma)
             else:
-                null_mmd2[i] = self._mmd2_unbiased(Xp, Yp, gamma)
+                observed_mmd2 = self._mmd2_unbiased(X, Y, gamma)
+            for i in range(self.n_permutations):
+                perm = rng.permutation(n_total)
+                Xp = Z[perm[:n_ref]]
+                Yp = Z[perm[n_ref:]]
+                if self.estimator == "linear":
+                    null_mmd2[i] = self._mmd2_linear(Xp, Yp, gamma)
+                else:
+                    null_mmd2[i] = self._mmd2_unbiased(Xp, Yp, gamma)
 
         threshold = float(np.quantile(null_mmd2, 1.0 - self.alpha))
         p_value = float((1.0 + np.sum(null_mmd2 >= observed_mmd2)) / (1.0 + self.n_permutations))
@@ -221,14 +266,18 @@ class MMDDriftDetector:
         current_data: np.ndarray | list | tuple,
     ) -> DriftResult:
         details = self.detect_drift(reference_data, current_data, return_details=True)
+        # The decision is ``mmd2 > calibrated_threshold`` (permutation null),
+        # so the schema reports that comparison directly; ``alpha`` and the
+        # p-value remain available for significance-based consumers.
         return DriftResult(
             method="mmd",
             drift=bool(details.drift_detected),
             score=float(details.mmd2),
             p_value=float(details.p_value),
-            threshold=float(self.alpha),
-            comparator="<",
+            threshold=float(details.threshold),
+            comparator=">",
             metadata={
+                "alpha": float(self.alpha),
                 "calibrated_threshold": float(details.threshold),
                 "estimator": self.estimator,
                 "chunk_size": self.chunk_size,

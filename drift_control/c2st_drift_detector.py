@@ -98,12 +98,16 @@ class C2STDriftDetector:
 
     def detect_drift_result(self, reference_data, current_data) -> DriftResult:
         details = self.detect_drift(reference_data, current_data, return_details=True)
+        # Decision is ``roc_auc > calibrated_threshold`` (permutation null).
         return DriftResult(
             method="c2st",
             drift=bool(details.drift_detected),
             score=float(details.roc_auc),
             p_value=float(details.p_value),
-            threshold=float(self.alpha),
-            comparator="<",
-            metadata={"calibrated_threshold": float(details.threshold)},
+            threshold=float(details.threshold),
+            comparator=">",
+            metadata={
+                "alpha": float(self.alpha),
+                "calibrated_threshold": float(details.threshold),
+            },
         )
