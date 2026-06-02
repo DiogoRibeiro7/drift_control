@@ -70,6 +70,15 @@ _LAZY: dict[str, str] = {
     "RetryingWebhookAlertSink": "drift_control.alert_sinks",
     "SlackWebhookAlertSink": "drift_control.alert_sinks",
     "create_airflow_drift_task": "drift_control.integrations.airflow",
+    # Core interfaces (see drift_control.core / ROADMAP.md).
+    "BaseDetector": "drift_control.core",
+    "OnlineDetector": "drift_control.core",
+    "RetrainingPolicy": "drift_control.core",
+    "DetectorConfig": "drift_control.core",
+    "DriftControlError": "drift_control.core",
+    "ValidationError": "drift_control.core",
+    "NotFittedError": "drift_control.core",
+    "NotEnoughDataError": "drift_control.core",
 }
 
 __all__ = list(_LAZY.keys())
