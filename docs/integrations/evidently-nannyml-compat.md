@@ -14,7 +14,7 @@ Goal: make migration incremental rather than all-or-nothing.
 | Ensemble signal | Combined report verdicts | `EnsembleDriftDetector(methods=[...], vote_mode=...)` |
 | Segment drift | Group/slice reporting | `SliceDriftDetector(...)` |
 | Streaming + alerting | Monitoring jobs/notification integrations | `StreamMonitor(on_drift=..., alert_sinks=[...])` |
-| Versioned reference data | Stored references | `BaselineManager` + `BaselineStore` (`local/s3/gcs/azure`) |
+| Versioned reference data | Stored references | `BaselineManager` + `BaselineStore` (`local/s3`) |
 
 ## Univariate migration pattern
 
@@ -54,12 +54,11 @@ manager.save_baseline(reference_df, name="my_dataset", version="3")
 loaded_ref = manager.load_baseline("my_dataset", "3")
 ```
 
-For remote storage, pass `LocalBaselineStore`, `S3BaselineStore`, `GCSBaselineStore`, or `AzureBlobBaselineStore`.
+For remote storage, pass `LocalBaselineStore` or `S3BaselineStore`.
 
 ## Alerting and observability replacement
 
-- Alerting: `SlackWebhookAlertSink`, `PagerDutyAlertSink`, `CompositeAlertSink`, `ColumnFilterAlertSink`
-- Metrics: `PrometheusAlertSink`
+- Alerting: `SlackWebhookAlertSink`, `WebhookAlertSink`, `CompositeAlertSink`, `ColumnFilterAlertSink`
 - Tracing/telemetry: `DriftTelemetry` with OpenTelemetry metrics and spans
 
 ## Practical migration strategy

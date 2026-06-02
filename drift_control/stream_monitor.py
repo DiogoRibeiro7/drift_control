@@ -1,9 +1,9 @@
 """Async streaming drift monitors.
 
 ``StreamMonitor`` is the core engine: hand it a baseline DataFrame and a
-detector, then feed an async iterable of batches. The Kafka and RabbitMQ
-classes are thin adapters that decode broker messages into DataFrames and
-delegate to the same engine.
+detector, then feed an async iterable of batches. ``KafkaStreamMonitor`` is
+a thin adapter that decodes broker messages into DataFrames and delegates to
+the same engine.
 """
 
 from io import StringIO
@@ -275,75 +275,3 @@ class KafkaStreamMonitor:
         finally:
             await self._consumer.stop()
 
-
-class RabbitMQStreamMonitor:
-    """Consume messages from a RabbitMQ queue and score each as a batch.
-
-    Each message body must be a JSON-serialised DataFrame matching the
-    baseline schema. The queue must already exist (passive declare).
-    """
-
-    def __init__(
-        self,
-        queue: str,
-        url: str = "amqp://localhost/",
-        detector: Any | None = None,
-        on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
-        alert_sinks: list[AlertSink] | None = None,
-        on_schema_change: str = "strict",
-        window_size: int = 1,
-        baseline_strategy: str = "fixed",
-        sliding_window_batches: int = 3,
-        ewma_alpha: float = 0.2,
-        random_state: int = 42,
-        adaptive_threshold: bool = False,
-        threshold_quantile: float = 0.95,
-        threshold_history: int = 100,
-        min_threshold_samples: int = 20,
-    ) -> None:
-        try:
-            import aio_pika
-        except Exception as exc:  # pragma: no cover - optional dependency
-            raise ImportError("aio_pika is required for RabbitMQStreamMonitor") from exc
-        self._aio_pika = aio_pika
-        self._monitor = StreamMonitor(
-            detector,
-            on_drift=on_drift,
-            alert_sinks=alert_sinks,
-            on_schema_change=on_schema_change,
-            window_size=window_size,
-            baseline_strategy=baseline_strategy,
-            sliding_window_batches=sliding_window_batches,
-            ewma_alpha=ewma_alpha,
-            random_state=random_state,
-            adaptive_threshold=adaptive_threshold,
-            threshold_quantile=threshold_quantile,
-            threshold_history=threshold_history,
-            min_threshold_samples=min_threshold_samples,
-        )
-        self.queue_name = queue
-        self.url = url
-
-    def set_baseline(self, data: pd.DataFrame) -> None:
-        """Store the baseline used for drift comparison."""
-        self._monitor.set_baseline(data)
-
-    async def monitor(self) -> AsyncIterable[Dict[str, Dict[str, Any]]]:
-        """Yield drift results for each RabbitMQ message."""
-        connection = await self._aio_pika.connect_robust(self.url)
-        async with connection:
-            channel = await connection.channel()
-            queue = await channel.declare_queue(self.queue_name, passive=True)
-            window: list[pd.DataFrame] = []
-            async with queue.iterator() as queue_iter:
-                async for message in queue_iter:
-                    async with message.process():
-                        batch = _read_json_frame(message.body.decode())
-                        window.append(batch)
-                        if len(window) >= self._monitor.window_size:
-                            merged = pd.concat(window, ignore_index=True)
-                            window.clear()
-                            yield await self._monitor._process_batch(merged)
-                if window:
-                    merged = pd.concat(window, ignore_index=True)
-                    yield await self._monitor._process_batch(merged)

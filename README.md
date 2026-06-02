@@ -10,10 +10,10 @@ Maintained by [Diogo Ribeiro](https://orcid.org/0009-0001-2022-7072).
 - Multivariate drift: covariate shift classifier and kernel MMD (permutation-calibrated)
 - Concept drift (streaming): DDM, EDDM, ADWIN, Page-Hinkley
 - Batch + streaming workflows (`StreamMonitor`, sklearn-compatible `DriftMonitor`)
-- Baseline management helpers with pluggable stores (local, S3, GCS, Azure Blob) and optional DVC integration
-- Alert sinks for Slack, PagerDuty, webhooks, and Prometheus metrics
+- Baseline management helpers with pluggable stores (local, S3)
+- Alert sinks for Slack, webhooks, and composable routing (composite/column-filter/retrying)
 - Optional OpenTelemetry metrics and spans for detector/CLI/benchmark observability
-- Optional Airflow/Prefect workflow wrappers for orchestration
+- Optional Airflow workflow wrapper for orchestration
 - CLI with JSON output for automation pipelines
 
 ## Installation
@@ -29,7 +29,7 @@ pip install "drift-control[viz]"
 pip install "drift-control[concept]"
 pip install "drift-control[mlflow]"
 pip install "drift-control[stream]"
-pip install "drift-control[ml]"`npip install "drift-control[embeddings]"
+pip install "drift-control[ml]"
 pip install "drift-control[full]"
 ```
 
@@ -65,9 +65,8 @@ drift-control --baseline-version mydata@1 --baseline-store s3 --baseline-bucket 
 - `ks`: drift if p-value < threshold
 - `mmd`: drift if p-value < threshold
 - `--baseline-version name@version`: load baseline from configured store backend
-- `--baseline-store`: choose `local` (default), `s3`, `gcs`, or `azure`
-- `--baseline-bucket`: required for `s3` and `gcs`
-- `--baseline-container`: required for `azure`
+- `--baseline-store`: choose `local` (default) or `s3`
+- `--baseline-bucket`: required for `s3`
 
 ## Notebooks
 
@@ -99,11 +98,8 @@ pip install "drift-control[notebooks]"
 - CLI schema and versioning: [docs/cli/schema.md](docs/cli/schema.md)
 - Tutorials: [docs/tutorials/README.md](docs/tutorials/README.md)
 - Pipeline integrations: [docs/integrations/pipeline-integrations.md](docs/integrations/pipeline-integrations.md)
-- Production drift playbook: [docs/operations/production-playbook.md](docs/operations/production-playbook.md)
 - Migration guide: [docs/operations/migration-guide.md](docs/operations/migration-guide.md)
 - Pre-PyPI release checklist: [docs/operations/release-checklist.md](docs/operations/release-checklist.md)
-- Drift incident template: [docs/operations/drift-incident-template.md](docs/operations/drift-incident-template.md)
-- Drift postmortem checklist: [docs/operations/drift-postmortem-checklist.md](docs/operations/drift-postmortem-checklist.md)
 
 ## License
 

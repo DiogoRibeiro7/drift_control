@@ -6,7 +6,7 @@ This document tracks the concrete work needed to evolve `drift-control` from a s
 
 - Inconsistent interfaces across detectors (`score` semantics differ by method).
 - Limited calibration controls exposed in CLI for advanced tests (e.g., MMD permutation count).
-- No standardized alerting sink contract (Slack/webhook/PagerDuty adapters).
+- No standardized alerting sink contract (Slack/webhook adapters).
 - No benchmark suite for detector latency/throughput/false-positive rate across synthetic drifts.
 - Missing API docs automation and published docs site.
 

@@ -32,8 +32,6 @@ drift-control \
 
 Remote stores:
 - S3: `--baseline-store s3 --baseline-bucket ...`
-- GCS: `--baseline-store gcs --baseline-bucket ...`
-- Azure Blob: `--baseline-store azure --baseline-container ...`
 
 ## B) Single detector to ensemble
 
@@ -79,14 +77,13 @@ Before:
 
 After:
 - `CompositeAlertSink` + `ColumnFilterAlertSink`
-- Slack for visibility, PagerDuty for high-risk columns
+- Slack for visibility, a dedicated channel for high-risk columns
 
 ## E) Basic monitoring to observability-enabled monitoring
 
 Enable progressively:
-1. Prometheus metrics sink for drift counters/scores.
-2. OpenTelemetry spans for detector/CLI/benchmark paths.
-3. Workflow wrappers for Airflow/Prefect orchestration.
+1. OpenTelemetry spans for detector/CLI/benchmark paths.
+2. Workflow wrappers for Airflow orchestration.
 
 ## Rollout checklist per migration
 

@@ -11,7 +11,7 @@ import pandas as pd
 
 from .config import DriftCheckConfig
 from .baseline_manager import BaselineManager
-from .baseline_store import AzureBlobBaselineStore, GCSBaselineStore, LocalBaselineStore, S3BaselineStore
+from .baseline_store import BaselineStore, LocalBaselineStore, S3BaselineStore
 from .benchmark import BenchmarkResult, SyntheticDriftBenchmark
 from .ensemble_drift_detector import EnsembleDriftDetector
 from .multiple_testing import adjust_pvalues
@@ -43,7 +43,7 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
 )
 @click.option(
     '--baseline-store',
-    type=click.Choice(['local', 's3', 'gcs', 'azure']),
+    type=click.Choice(['local', 's3']),
     default='local',
     show_default=True,
     help='Baseline backend for --baseline-version.',
@@ -51,18 +51,13 @@ CLI_JSON_SCHEMA_VERSION = "1.0"
 @click.option(
     '--baseline-bucket',
     default=None,
-    help='Bucket name for --baseline-store s3/gcs.',
-)
-@click.option(
-    '--baseline-container',
-    default=None,
-    help='Container name for --baseline-store azure.',
+    help='Bucket name for --baseline-store s3.',
 )
 @click.option(
     '--baseline-prefix',
     default='baselines',
     show_default=True,
-    help='Object/blob prefix for remote baseline stores.',
+    help='Object prefix for the s3 baseline store.',
 )
 @click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
 @click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'energy', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'datetime', 'ensemble']), default='psi', help='Drift detection method')
@@ -172,7 +167,6 @@ def check(
     baseline_dir: str,
     baseline_store: str,
     baseline_bucket: str | None,
-    baseline_container: str | None,
     baseline_prefix: str,
     current: str,
     method: str,
@@ -233,20 +227,13 @@ def check(
                 _raise_click("--baseline-version must be in the form name@version.", "baseline")
             name, version = baseline_version.split("@", 1)
             try:
+                store: BaselineStore
                 if baseline_store == "local":
                     store = LocalBaselineStore(directory=baseline_dir)
-                elif baseline_store == "s3":
+                else:
                     if not baseline_bucket:
                         _raise_click("--baseline-bucket is required for --baseline-store s3.", "baseline")
                     store = S3BaselineStore(bucket=baseline_bucket, prefix=baseline_prefix)
-                elif baseline_store == "gcs":
-                    if not baseline_bucket:
-                        _raise_click("--baseline-bucket is required for --baseline-store gcs.", "baseline")
-                    store = GCSBaselineStore(bucket=baseline_bucket, prefix=baseline_prefix)
-                else:
-                    if not baseline_container:
-                        _raise_click("--baseline-container is required for --baseline-store azure.", "baseline")
-                    store = AzureBlobBaselineStore(container=baseline_container, prefix=baseline_prefix)
                 base_df = BaselineManager(directory=baseline_dir, store=store).load_baseline(name, version)
             except Exception as exc:
                 _raise_click(f"Failed to load baseline version '{baseline_version}': {exc}", "baseline")

@@ -3,8 +3,6 @@ import json
 from drift_control.alert_sinks import (
     ColumnFilterAlertSink,
     CompositeAlertSink,
-    PagerDutyAlertSink,
-    PrometheusAlertSink,
     RetryingWebhookAlertSink,
     SlackWebhookAlertSink,
     WebhookAlertSink,
@@ -53,33 +51,6 @@ def test_slack_webhook_alert_sink_formats_text(monkeypatch):
     payload = json.loads(captured["body"].decode("utf-8"))
     assert "Drift detected in 1 column(s): x" == payload["text"]
     assert payload["drift_result"]["x"]["drift"] is True
-
-
-def test_pagerduty_alert_sink_formats_event_v2_payload(monkeypatch):
-    captured = {}
-
-    def _fake_urlopen(req, timeout):
-        captured["body"] = req.data
-        return _FakeResponse()
-
-    monkeypatch.setattr("drift_control.alert_sinks.request.urlopen", _fake_urlopen)
-    sink = PagerDutyAlertSink(
-        routing_key="rk",
-        source="unit-tests",
-        component="stream",
-        severity="error",
-        dedup_key="drift-key",
-    )
-    sink.send({"x": {"drift": True, "score": 0.9}})
-
-    payload = json.loads(captured["body"].decode("utf-8"))
-    assert payload["routing_key"] == "rk"
-    assert payload["event_action"] == "trigger"
-    assert payload["dedup_key"] == "drift-key"
-    assert payload["payload"]["source"] == "unit-tests"
-    assert payload["payload"]["severity"] == "error"
-    assert payload["payload"]["component"] == "stream"
-    assert "Drift detected in 1 column(s): x" == payload["payload"]["summary"]
 
 
 def test_composite_alert_sink_fans_out_to_all_sinks():
@@ -183,46 +154,3 @@ def test_retrying_webhook_alert_sink_validates_parameters():
         assert False, "expected ValueError"
     except ValueError as exc:
         assert "backoff_seconds" in str(exc)
-
-
-def test_prometheus_alert_sink_updates_metrics_with_injected_collectors():
-    class _MetricChild:
-        def __init__(self):
-            self.value = None
-            self.increments = 0
-
-        def set(self, value):
-            self.value = value
-
-        def inc(self):
-            self.increments += 1
-
-    class _Metric:
-        def __init__(self):
-            self.children = {}
-
-        def labels(self, column):
-            if column not in self.children:
-                self.children[column] = _MetricChild()
-            return self.children[column]
-
-    events = _Metric()
-    score = _Metric()
-    flag = _Metric()
-    sink = PrometheusAlertSink(
-        drift_events_total=events,
-        drift_score=score,
-        drift_flag=flag,
-    )
-    sink.send(
-        {
-            "x": {"drift": True, "score": 0.7},
-            "y": {"drift": False, "score": 0.1},
-        }
-    )
-    assert score.children["x"].value == 0.7
-    assert score.children["y"].value == 0.1
-    assert flag.children["x"].value == 1.0
-    assert flag.children["y"].value == 0.0
-    assert events.children["x"].increments == 1
-    assert "y" not in events.children

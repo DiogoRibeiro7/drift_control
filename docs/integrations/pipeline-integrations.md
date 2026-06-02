@@ -124,31 +124,7 @@ drift-control \
   --output-json
 ```
 
-```bash
-# GCS store
-drift-control \
-  --baseline-version my_features@v3 \
-  --baseline-store gcs \
-  --baseline-bucket my-drift-bucket \
-  --baseline-prefix baselines \
-  --current data/current.csv \
-  --method ks \
-  --output-json
-```
-
-```bash
-# Azure Blob store
-drift-control \
-  --baseline-version my_features@v3 \
-  --baseline-store azure \
-  --baseline-container drift-baselines \
-  --baseline-prefix baselines \
-  --current data/current.csv \
-  --method ks \
-  --output-json
-```
-
-## Alert sinks (Slack / PagerDuty / custom)
+## Alert sinks (Slack / custom)
 
 Use `StreamMonitor(alert_sinks=[...])` to fan out drift events to one or more destinations:
 
@@ -156,7 +132,6 @@ Use `StreamMonitor(alert_sinks=[...])` to fan out drift events to one or more de
 from drift_control.alert_sinks import (
     ColumnFilterAlertSink,
     CompositeAlertSink,
-    PagerDutyAlertSink,
     SlackWebhookAlertSink,
 )
 from drift_control.stream_monitor import StreamMonitor
@@ -165,7 +140,7 @@ sink = CompositeAlertSink(
     [
         SlackWebhookAlertSink(url="https://hooks.slack.com/services/..."),
         ColumnFilterAlertSink(
-            PagerDutyAlertSink(routing_key="PD_ROUTING_KEY", severity="critical"),
+            SlackWebhookAlertSink(url="https://hooks.slack.com/services/critical/..."),
             columns=["payment_amount", "fraud_score"],
         ),
     ]
@@ -177,29 +152,7 @@ monitor.set_baseline(baseline_df)
 
 Pattern:
 - Send all drift notifications to Slack for visibility.
-- Escalate only selected high-risk columns to PagerDuty to reduce alert fatigue.
-
-## Prometheus metrics export
-
-Use `PrometheusAlertSink` to emit per-column drift metrics from `StreamMonitor`.
-
-```python
-from prometheus_client import CollectorRegistry, start_http_server
-from drift_control.alert_sinks import PrometheusAlertSink
-from drift_control.stream_monitor import StreamMonitor
-
-registry = CollectorRegistry()
-start_http_server(9108, registry=registry)
-
-sink = PrometheusAlertSink(namespace="fraud_model")
-monitor = StreamMonitor(alert_sinks=[sink])
-monitor.set_baseline(baseline_df)
-```
-
-This exposes:
-- `fraud_model_drift_events_total{column="..."}`
-- `fraud_model_drift_score{column="..."}`
-- `fraud_model_drift_flag{column="..."}`
+- Route only selected high-risk columns to a dedicated channel to reduce alert fatigue.
 
 ## OpenTelemetry tracing
 
@@ -249,30 +202,5 @@ drift_task = create_airflow_drift_task(
         "--output-json",
         "--fail-on-drift",
     ],
-)
-```
-
-## Prefect wrapper
-
-Install with the prefect extra:
-
-```bash
-pip install "drift-control[prefect]"
-```
-
-Create a task with the built-in wrapper:
-
-```python
-from drift_control.integrations.prefect import create_prefect_drift_task
-
-drift_task = create_prefect_drift_task(
-    args=[
-        "--baseline", "data/baseline.csv",
-        "--current", "data/current.csv",
-        "--method", "ks",
-        "--output-json",
-        "--fail-on-drift",
-    ],
-    name="drift-check",
 )
 ```

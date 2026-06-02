@@ -2,7 +2,7 @@
 
 Public names are imported lazily so that ``import drift_control`` only pays
 the cost of the symbols actually used. Heavy optional dependencies
-(matplotlib, seaborn, plotly, river, aiokafka, aio_pika, mlflow) are only
+(matplotlib, seaborn, plotly, river, aiokafka, mlflow) are only
 imported when the relevant attribute is first accessed.
 """
 
@@ -51,7 +51,6 @@ _LAZY: dict[str, str] = {
     "DriftMonitor": "drift_control.sklearn_adapter",
     "StreamMonitor": "drift_control.stream_monitor",
     "KafkaStreamMonitor": "drift_control.stream_monitor",
-    "RabbitMQStreamMonitor": "drift_control.stream_monitor",
     "plot_psi": "drift_control.visualization",
     "plot_ks": "drift_control.visualization",
     "DDMDetector": "drift_control.concept_drift",
@@ -63,25 +62,14 @@ _LAZY: dict[str, str] = {
     "BaselineStore": "drift_control.baseline_store",
     "LocalBaselineStore": "drift_control.baseline_store",
     "S3BaselineStore": "drift_control.baseline_store",
-    "GCSBaselineStore": "drift_control.baseline_store",
-    "AzureBlobBaselineStore": "drift_control.baseline_store",
     "AlertSink": "drift_control.alert_sinks",
     "CompositeAlertSink": "drift_control.alert_sinks",
     "ColumnFilterAlertSink": "drift_control.alert_sinks",
     "LogAlertSink": "drift_control.alert_sinks",
     "WebhookAlertSink": "drift_control.alert_sinks",
     "RetryingWebhookAlertSink": "drift_control.alert_sinks",
-    "PrometheusAlertSink": "drift_control.alert_sinks",
     "SlackWebhookAlertSink": "drift_control.alert_sinks",
-    "PagerDutyAlertSink": "drift_control.alert_sinks",
     "create_airflow_drift_task": "drift_control.integrations.airflow",
-    "create_prefect_drift_task": "drift_control.integrations.prefect",
-    "compute_text_embeddings": "drift_control.text_embedding_drift",
-    "detect_text_embedding_drift": "drift_control.text_embedding_drift",
-    "compute_image_embeddings": "drift_control.image_embedding_drift",
-    "detect_image_embedding_drift": "drift_control.image_embedding_drift",
-    "compute_tabular_embeddings": "drift_control.tabular_embedding_drift",
-    "detect_tabular_embedding_drift": "drift_control.tabular_embedding_drift",
 }
 
 __all__ = list(_LAZY.keys())

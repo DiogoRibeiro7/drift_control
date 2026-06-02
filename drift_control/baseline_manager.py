@@ -1,5 +1,3 @@
-import shutil
-import subprocess
 import pandas as pd
 from typing import Literal
 
@@ -53,11 +51,3 @@ class BaselineManager:
     def delete_baseline(self, name: str, version: str) -> None:
         """Delete a baseline data file and metadata sidecar if present."""
         self.store.delete(name=name, version=version)
-
-    def save_with_dvc(self, data: pd.DataFrame, name: str, version: str) -> str:
-        """Save the baseline dataset and track it with DVC."""
-        path = self.save_baseline(data, name, version)
-        if not shutil.which("dvc"):
-            raise RuntimeError("dvc executable not found")
-        subprocess.run(["dvc", "add", path], check=True)
-        return path

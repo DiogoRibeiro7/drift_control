@@ -50,24 +50,15 @@ mlflow = [
 ]
 stream = [
     "aiokafka",
-    "aio-pika",
 ]
 airflow = [
     "apache-airflow",
-]
-prefect = [
-    "prefect",
 ]
 ml = [
     "category_encoders",
 ]
 polars = [
     "polars",
-]
-embeddings = [
-    "sentence-transformers",
-    "torch",
-    "torchvision",
 ]
 notebooks = [
     "nbval",
@@ -80,14 +71,9 @@ full = [
     "river",
     "mlflow",
     "aiokafka",
-    "aio-pika",
     "apache-airflow",
-    "prefect",
     "category_encoders",
     "polars",
-    "sentence-transformers",
-    "torch",
-    "torchvision",
 ]
 
 [project.scripts]
