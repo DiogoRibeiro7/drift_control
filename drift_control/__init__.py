@@ -86,6 +86,18 @@ _LAZY: dict[str, str] = {
     "SlidingWindow": "drift_control.preprocessing",
     "ExpandingWindow": "drift_control.preprocessing",
     "TumblingWindow": "drift_control.preprocessing",
+    # Distance primitives (ROADMAP.md Phase 2).
+    "population_stability_index": "drift_control.distances",
+    "kl_divergence": "drift_control.distances",
+    "js_divergence": "drift_control.distances",
+    "js_distance": "drift_control.distances",
+    "ks_statistic": "drift_control.distances",
+    "chi2_statistic": "drift_control.distances",
+    "wasserstein_distance": "drift_control.distances",
+    "energy_distance": "drift_control.distances",
+    "mmd_squared": "drift_control.distances",
+    "mmd_permutation_test": "drift_control.distances",
+    "to_histograms": "drift_control.distances",
 }
 
 __all__ = list(_LAZY.keys())
