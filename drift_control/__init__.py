@@ -100,6 +100,11 @@ _LAZY: dict[str, str] = {
     "to_histograms": "drift_control.distances",
     # Batch detectors on the core contract (ROADMAP.md Phase 3).
     "UnivariateDriftDetector": "drift_control.detectors",
+    # Online concept-drift detectors (ROADMAP.md Phase 4).
+    "DDM": "drift_control.detectors",
+    "EDDM": "drift_control.detectors",
+    "PageHinkley": "drift_control.detectors",
+    "CUSUM": "drift_control.detectors",
 }
 
 __all__ = list(_LAZY.keys())
