@@ -131,6 +131,7 @@ files = [
   "drift_control/distances/mmd.py",
   "drift_control/detectors/data_drift.py",
   "drift_control/detectors/concept_drift.py",
+  "drift_control/detectors/change_point.py",
   "drift_control/cli.py",
   "drift_control/config.py",
   "drift_control/energy_drift_detector.py",

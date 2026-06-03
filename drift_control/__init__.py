@@ -105,6 +105,12 @@ _LAZY: dict[str, str] = {
     "EDDM": "drift_control.detectors",
     "PageHinkley": "drift_control.detectors",
     "CUSUM": "drift_control.detectors",
+    # Change-point detection (ROADMAP.md Phase 5).
+    "ShewhartChart": "drift_control.detectors",
+    "EWMAChart": "drift_control.detectors",
+    "SegmentationResult": "drift_control.detectors",
+    "binary_segmentation": "drift_control.detectors",
+    "window_based_change_detection": "drift_control.detectors",
 }
 
 __all__ = list(_LAZY.keys())

@@ -6,6 +6,13 @@ the existing flat ``*_drift_detector`` modules remain until they are migrated.
 
 from __future__ import annotations
 
+from .change_point import (
+    EWMAChart,
+    SegmentationResult,
+    ShewhartChart,
+    binary_segmentation,
+    window_based_change_detection,
+)
 from .concept_drift import CUSUM, DDM, EDDM, PageHinkley
 from .data_drift import UnivariateDriftDetector
 
@@ -15,4 +22,9 @@ __all__ = [
     "EDDM",
     "PageHinkley",
     "CUSUM",
+    "ShewhartChart",
+    "EWMAChart",
+    "SegmentationResult",
+    "binary_segmentation",
+    "window_based_change_detection",
 ]
