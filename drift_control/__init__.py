@@ -111,6 +111,11 @@ _LAZY: dict[str, str] = {
     "SegmentationResult": "drift_control.detectors",
     "binary_segmentation": "drift_control.detectors",
     "window_based_change_detection": "drift_control.detectors",
+    # Prediction / performance monitoring (ROADMAP.md Phase 6).
+    "PredictionDriftMonitor": "drift_control.monitoring",
+    "PerformanceDriftMonitor": "drift_control.monitoring",
+    "brier_score": "drift_control.monitoring",
+    "expected_calibration_error": "drift_control.monitoring",
 }
 
 __all__ = list(_LAZY.keys())
