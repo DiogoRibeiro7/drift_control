@@ -98,6 +98,8 @@ _LAZY: dict[str, str] = {
     "mmd_squared": "drift_control.distances",
     "mmd_permutation_test": "drift_control.distances",
     "to_histograms": "drift_control.distances",
+    # Batch detectors on the core contract (ROADMAP.md Phase 3).
+    "UnivariateDriftDetector": "drift_control.detectors",
 }
 
 __all__ = list(_LAZY.keys())

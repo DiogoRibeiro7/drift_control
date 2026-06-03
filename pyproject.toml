@@ -129,6 +129,7 @@ files = [
   "drift_control/distances/wasserstein.py",
   "drift_control/distances/energy.py",
   "drift_control/distances/mmd.py",
+  "drift_control/detectors/data_drift.py",
   "drift_control/cli.py",
   "drift_control/config.py",
   "drift_control/energy_drift_detector.py",

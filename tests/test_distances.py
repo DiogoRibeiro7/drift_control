@@ -182,7 +182,7 @@ _probs = hnp.arrays(
 )
 
 
-@settings(max_examples=75, deadline=None)
+@settings(max_examples=75, deadline=None, derandomize=True)
 @given(p=_probs, q=_probs)
 def test_js_divergence_symmetric_and_nonnegative(p, q):
     if p.shape != q.shape:
@@ -192,7 +192,7 @@ def test_js_divergence_symmetric_and_nonnegative(p, q):
     assert d_pq == pytest.approx(js_divergence(q, p), abs=1e-9)
 
 
-@settings(max_examples=75, deadline=None)
+@settings(max_examples=75, deadline=None, derandomize=True)
 @given(p=_probs, q=_probs)
 def test_kl_nonnegative(p, q):
     if p.shape != q.shape:
@@ -207,13 +207,13 @@ _samples = hnp.arrays(
 )
 
 
-@settings(max_examples=75, deadline=None)
+@settings(max_examples=75, deadline=None, derandomize=True)
 @given(a=_samples, b=_samples)
 def test_ks_in_unit_interval(a, b):
     assert 0.0 <= ks_statistic(a, b) <= 1.0
 
 
-@settings(max_examples=75, deadline=None)
+@settings(max_examples=75, deadline=None, derandomize=True)
 @given(a=_samples, b=_samples)
 def test_wasserstein_nonnegative_and_symmetric(a, b):
     d = wasserstein_distance(a, b)
