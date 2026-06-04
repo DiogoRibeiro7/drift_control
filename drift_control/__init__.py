@@ -116,6 +116,14 @@ _LAZY: dict[str, str] = {
     "PerformanceDriftMonitor": "drift_control.monitoring",
     "brier_score": "drift_control.monitoring",
     "expected_calibration_error": "drift_control.monitoring",
+    # Adaptation policies (ROADMAP.md Phase 7).
+    "PeriodicRetrainingPolicy": "drift_control.adaptation",
+    "TriggerRetrainingPolicy": "drift_control.adaptation",
+    "select_sliding": "drift_control.adaptation",
+    "select_expanding": "drift_control.adaptation",
+    "recency_weights": "drift_control.adaptation",
+    "ChampionChallengerEvaluator": "drift_control.adaptation",
+    "ChampionChallengerResult": "drift_control.adaptation",
 }
 
 __all__ = list(_LAZY.keys())
