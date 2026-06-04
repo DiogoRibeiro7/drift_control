@@ -135,6 +135,7 @@ files = [
   "drift_control/monitoring/calibration.py",
   "drift_control/monitoring/prediction_drift.py",
   "drift_control/monitoring/performance_drift.py",
+  "drift_control/monitoring/reports.py",
   "drift_control/adaptation/retraining.py",
   "drift_control/adaptation/training_set.py",
   "drift_control/adaptation/champion_challenger.py",
