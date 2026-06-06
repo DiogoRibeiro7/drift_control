@@ -111,6 +111,8 @@ _LAZY: dict[str, str] = {
     "SegmentationResult": "drift_control.detectors",
     "binary_segmentation": "drift_control.detectors",
     "window_based_change_detection": "drift_control.detectors",
+    # Advanced detectors (ROADMAP.md Phase 10).
+    "PCAReconstructionDriftDetector": "drift_control.detectors",
     # Prediction / performance monitoring (ROADMAP.md Phase 6).
     "PredictionDriftMonitor": "drift_control.monitoring",
     "PerformanceDriftMonitor": "drift_control.monitoring",

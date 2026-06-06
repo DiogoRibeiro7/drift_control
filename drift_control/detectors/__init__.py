@@ -15,6 +15,7 @@ from .change_point import (
 )
 from .concept_drift import CUSUM, DDM, EDDM, PageHinkley
 from .data_drift import UnivariateDriftDetector
+from .reconstruction import PCAReconstructionDriftDetector
 
 __all__ = [
     "UnivariateDriftDetector",
@@ -27,4 +28,5 @@ __all__ = [
     "SegmentationResult",
     "binary_segmentation",
     "window_based_change_detection",
+    "PCAReconstructionDriftDetector",
 ]
