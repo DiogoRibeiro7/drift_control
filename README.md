@@ -70,12 +70,13 @@ drift-control --baseline-version mydata@1 --baseline-store s3 --baseline-bucket 
 
 ## Notebooks
 
-Four runnable showcase notebooks live under [`notebooks/`](notebooks/):
+Five runnable showcase notebooks live under [`notebooks/`](notebooks/):
 
 1. [`01_quick_start.ipynb`](notebooks/01_quick_start.ipynb) — minimal end-to-end check.
 2. [`02_detector_selection.ipynb`](notebooks/02_detector_selection.ipynb) — which detector catches which kind of shift.
 3. [`03_streaming.ipynb`](notebooks/03_streaming.ipynb) — `StreamMonitor` with sliding-window baseline, schema evolution, and drift callbacks.
 4. [`04_ensemble_and_multiple_testing.ipynb`](notebooks/04_ensemble_and_multiple_testing.ipynb) — `EnsembleDriftDetector` and Benjamini–Hochberg correction across many columns.
+5. [`05_new_architecture_end_to_end.ipynb`](notebooks/05_new_architecture_end_to_end.ipynb) — the staged API (validate → detect → report → adapt): `UnivariateDriftDetector`, `DriftReport`, `DDM`, `binary_segmentation`, `PerformanceDriftMonitor`, `TriggerRetrainingPolicy`.
 
 CI executes them top-to-bottom on every push via `pytest --nbval-lax --nbval-current-env notebooks/`,
 so they cannot silently rot. Install the optional extra to run them locally:
