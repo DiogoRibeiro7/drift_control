@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
-from scipy.spatial.distance import cdist
-from typing import cast
+
+from .distances.energy import energy_distance
 from .result_schema import DriftResult
 
 
@@ -44,12 +45,8 @@ class EnergyDriftDetector:
 
     @staticmethod
     def _energy_statistic(x: np.ndarray, y: np.ndarray) -> float:
-        nx = x.shape[0]
-        ny = y.shape[0]
-        dxy = cdist(x, y, metric="euclidean").mean()
-        dxx = cdist(x, x, metric="euclidean").mean()
-        dyy = cdist(y, y, metric="euclidean").mean()
-        return float((2.0 * dxy) - dxx - dyy)
+        # Single source of truth for the statistic lives in distances/.
+        return energy_distance(x, y)
 
     def detect_drift(
         self,

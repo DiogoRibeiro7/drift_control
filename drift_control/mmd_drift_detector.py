@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+
+from .distances.mmd import _mmd2_from_gram as _dist_mmd2_from_gram
+from .distances.mmd import rbf_kernel as _dist_rbf_kernel
 from .result_schema import DriftResult
 
 
@@ -91,10 +94,8 @@ class MMDDriftDetector:
 
     @staticmethod
     def _rbf_kernel(A: np.ndarray, B: np.ndarray, gamma: float) -> np.ndarray:
-        a_norm = np.sum(A * A, axis=1, keepdims=True)
-        b_norm = np.sum(B * B, axis=1, keepdims=True).T
-        sq_dists = np.maximum(a_norm + b_norm - 2 * A @ B.T, 0.0)
-        return np.exp(-gamma * sq_dists)
+        # Single source of truth for the kernel lives in distances/mmd.
+        return _dist_rbf_kernel(A, B, gamma)
 
     def _rbf_kernel_gpu(self, A: np.ndarray, B: np.ndarray, gamma: float) -> np.ndarray:
         import cupy as cp  # type: ignore[import-not-found]
@@ -128,20 +129,8 @@ class MMDDriftDetector:
 
     @staticmethod
     def _mmd2_from_gram(K: np.ndarray, idx_a: np.ndarray, idx_b: np.ndarray) -> float:
-        """Unbiased MMD^2 from a precomputed Gram matrix and two index sets.
-
-        Numerically equivalent to :meth:`_mmd2_unbiased`; the RBF diagonal is
-        exactly 1.0, so each within-sample sum subtracts its sample size.
-        """
-        m = int(idx_a.size)
-        n = int(idx_b.size)
-        sum_xx = float(K[np.ix_(idx_a, idx_a)].sum()) - m
-        sum_yy = float(K[np.ix_(idx_b, idx_b)].sum()) - n
-        sum_xy = float(K[np.ix_(idx_a, idx_b)].sum())
-        term_x = sum_xx / (m * (m - 1))
-        term_y = sum_yy / (n * (n - 1))
-        term_xy = sum_xy * (2.0 / (m * n))
-        return float(term_x + term_y - term_xy)
+        # Single source of truth lives in distances/mmd.
+        return _dist_mmd2_from_gram(K, idx_a, idx_b)
 
     def _rbf_kernel_sum(
         self,
