@@ -1,6 +1,8 @@
 import numpy as np
-from .result_schema import DriftResult
+
+from .distances.psi import population_stability_index
 from .quantile_sketch import KLLSketch
+from .result_schema import DriftResult
 
 
 class PSIDriftDetector:
@@ -212,6 +214,12 @@ class PSIDriftDetector:
         cur = np.asarray(current, dtype=float).ravel()
         if ref.size == 0 or cur.size == 0:
             raise ValueError("reference and current must be non-empty")
+        if self.strategy in ("quantile", "uniform"):
+            # Quantile/uniform binning + PSI is the shared distances primitive.
+            return population_stability_index(
+                ref, cur, bins=self.bins, strategy=self.strategy, epsilon=1e-6
+            )
+        # KLL-sketch strategy keeps its sketch-derived bin edges.
         edges = self._bin_edges(ref, cur)
         ref_counts, _ = np.histogram(ref, bins=edges)
         cur_counts, _ = np.histogram(cur, bins=edges)

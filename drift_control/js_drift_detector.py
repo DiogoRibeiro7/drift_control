@@ -1,4 +1,6 @@
 import numpy as np
+
+from .distances.binning import to_histograms
 from .result_schema import DriftResult
 
 
@@ -17,25 +19,12 @@ class JensenShannonDriftDetector:
         self.strategy = strategy
         self.last_backend = "numpy"
 
-    def _bin_edges(self, ref: np.ndarray, cur: np.ndarray) -> np.ndarray:
-        if self.strategy == "quantile":
-            edges = np.quantile(ref, np.linspace(0, 1, self.bins + 1))
-        else:
-            edges = np.linspace(ref.min(), ref.max(), self.bins + 1)
-        edges = np.unique(edges)
-        if edges.size < 2:
-            edges = np.array([ref.min(), ref.min() + 1.0])
-        edges[0] = min(edges[0], cur.min())
-        edges[-1] = max(edges[-1], cur.max())
-        return edges
-
     @staticmethod
     def _is_pyarrow_like(values) -> bool:
         mod = getattr(getattr(values, "__class__", None), "__module__", "")
         return isinstance(mod, str) and mod.startswith("pyarrow.")
 
     def _arrow_edges_uniform(self, ref_arr, cur_arr):
-        import pyarrow as pa  # type: ignore
         import pyarrow.compute as pc  # type: ignore
 
         ref_mm = pc.min_max(ref_arr).as_py()
@@ -126,13 +115,8 @@ class JensenShannonDriftDetector:
         if ref.size == 0 or cur.size == 0:
             raise ValueError("reference and current must be non-empty")
 
-        edges = self._bin_edges(ref, cur)
-        ref_counts, _ = np.histogram(ref, bins=edges)
-        cur_counts, _ = np.histogram(cur, bins=edges)
-
-        ref_p = ref_counts / max(ref_counts.sum(), 1)
-        cur_p = cur_counts / max(cur_counts.sum(), 1)
-
+        # Shared binning primitive (same edges/widening/normalization).
+        ref_p, cur_p = to_histograms(ref, cur, bins=self.bins, strategy=self.strategy)
         eps = 1e-12
         ref_p = np.where(ref_p == 0, eps, ref_p)
         cur_p = np.where(cur_p == 0, eps, cur_p)
