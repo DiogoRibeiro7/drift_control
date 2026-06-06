@@ -70,7 +70,7 @@ class PSIDriftDetector:
             import pyarrow.compute as pc  # type: ignore
         except Exception:
             # Optional dependency unavailable; caller should fallback.
-            raise RuntimeError("pyarrow unavailable")
+            raise RuntimeError("pyarrow unavailable") from None
 
         ref_arr = pa.array(reference, type=pa.float64())
         cur_arr = pa.array(current, type=pa.float64())
@@ -127,7 +127,7 @@ class PSIDriftDetector:
             import pyarrow as pa  # type: ignore
             import pyarrow.compute as pc  # type: ignore
         except Exception:
-            raise RuntimeError("pyarrow unavailable")
+            raise RuntimeError("pyarrow unavailable") from None
 
         ref_arr = pa.array(reference, type=pa.float64())
         cur_arr = pa.array(current, type=pa.float64())

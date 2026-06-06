@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.stats import ks_2samp
+
 from .result_schema import DriftResult
+
 
 class KSDriftDetector:
     """Detect drift using the Kolmogorov-Smirnov test."""

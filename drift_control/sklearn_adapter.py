@@ -1,6 +1,7 @@
 """Scikit-learn compatible drift monitoring transformer."""
 
-from typing import Dict, Any
+from typing import Any
+
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -19,7 +20,7 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
     def __init__(self, detector: Any | None = None) -> None:
         self.detector = detector or PSIDriftDetector()
         self.baseline_: pd.DataFrame | None = None
-        self.drift_results_: Dict[str, Dict[str, Any]] | None = None
+        self.drift_results_: dict[str, dict[str, Any]] | None = None
         self.feature_names_in_: pd.Index | None = None
         self.n_features_in_: int | None = None
 
@@ -49,10 +50,10 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
             )
         return X_df
 
-    def score_drift(self, X: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
+    def score_drift(self, X: pd.DataFrame) -> dict[str, dict[str, Any]]:
         """Score drift against the baseline without mutating instance state."""
         X_df = self._check_input(X)
-        results: Dict[str, Dict[str, Any]] = {}
+        results: dict[str, dict[str, Any]] = {}
         assert self.baseline_ is not None
         for col in self.baseline_.columns:
             drift, score = self.detector.detect_drift(self.baseline_[col], X_df[col])

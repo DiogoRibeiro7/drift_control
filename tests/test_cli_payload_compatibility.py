@@ -1,10 +1,9 @@
 import json
 
-from click.testing import CliRunner
 import pandas as pd
+from click.testing import CliRunner
 
 from drift_control.cli import benchmark_report, check
-
 
 SUPPORTED_SCHEMAS = {"1.0"}
 

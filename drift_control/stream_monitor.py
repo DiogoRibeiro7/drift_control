@@ -6,10 +6,12 @@ a thin adapter that decodes broker messages into DataFrames and delegates to
 the same engine.
 """
 
-from io import StringIO
-from collections import deque
 import inspect
-from typing import AsyncIterable, Dict, Any, Callable
+from collections import deque
+from collections.abc import AsyncIterable, Callable
+from io import StringIO
+from typing import Any
+
 import pandas as pd
 
 from .alert_sinks import AlertSink
@@ -31,7 +33,7 @@ class StreamMonitor:
     def __init__(
         self,
         detector: Any | None = None,
-        on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
+        on_drift: Callable[[dict[str, dict[str, Any]]], Any] | None = None,
         alert_sinks: list[AlertSink] | None = None,
         on_schema_change: str = "strict",
         window_size: int = 1,
@@ -82,12 +84,12 @@ class StreamMonitor:
         """Store the baseline used for drift comparison."""
         self.baseline = data.copy()
 
-    async def compare(self, batch: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
+    async def compare(self, batch: pd.DataFrame) -> dict[str, dict[str, Any]]:
         """Score a single batch against the baseline."""
         if self.baseline is None:
             raise ValueError("Baseline not set")
         batch = self._normalize_batch(batch)
-        results: Dict[str, Dict[str, Any]] = {}
+        results: dict[str, dict[str, Any]] = {}
         for col in batch.columns:
             drift, score = self.detector.detect_drift(
                 self.baseline[col], batch[col]
@@ -143,7 +145,7 @@ class StreamMonitor:
         new_part = batch.sample(n=n_new, replace=(n_new > len(batch)), random_state=rs + 1)
         self.baseline = pd.concat([old_part, new_part], ignore_index=True)
 
-    def _update_adaptive_thresholds(self, result: Dict[str, Dict[str, Any]]) -> None:
+    def _update_adaptive_thresholds(self, result: dict[str, dict[str, Any]]) -> None:
         if not self.adaptive_threshold:
             return
         detector_threshold = getattr(self.detector, "threshold", None)
@@ -162,9 +164,9 @@ class StreamMonitor:
             history.append(float(score))
             if len(history) >= self.min_threshold_samples:
                 new_threshold = float(pd.Series(history, dtype=float).quantile(self.threshold_quantile))
-                setattr(self.detector, "threshold", new_threshold)
+                self.detector.threshold = new_threshold
 
-    async def _process_batch(self, batch: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
+    async def _process_batch(self, batch: pd.DataFrame) -> dict[str, dict[str, Any]]:
         norm_batch = self._normalize_batch(batch)
         result = await self.compare(norm_batch)
         self._update_adaptive_thresholds(result)
@@ -186,7 +188,7 @@ class StreamMonitor:
 
     async def monitor(
         self, stream: AsyncIterable[pd.DataFrame]
-    ) -> AsyncIterable[Dict[str, Dict[str, Any]]]:
+    ) -> AsyncIterable[dict[str, dict[str, Any]]]:
         """Yield drift results as new batches arrive."""
         if self.baseline is None:
             raise ValueError("Baseline not set")
@@ -214,7 +216,7 @@ class KafkaStreamMonitor:
         topic: str,
         bootstrap_servers: str = "localhost:9092",
         detector: Any | None = None,
-        on_drift: Callable[[Dict[str, Dict[str, Any]]], Any] | None = None,
+        on_drift: Callable[[dict[str, dict[str, Any]]], Any] | None = None,
         alert_sinks: list[AlertSink] | None = None,
         on_schema_change: str = "strict",
         window_size: int = 1,
@@ -255,7 +257,7 @@ class KafkaStreamMonitor:
         """Store the baseline used for drift comparison."""
         self._monitor.set_baseline(data)
 
-    async def monitor(self) -> AsyncIterable[Dict[str, Dict[str, Any]]]:
+    async def monitor(self) -> AsyncIterable[dict[str, dict[str, Any]]]:
         """Yield drift results for each Kafka message."""
         if self._consumer is None:
             self._consumer = self._consumer_factory()

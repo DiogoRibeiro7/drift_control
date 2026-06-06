@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass, field
 from html import escape
-import json
 from typing import Any
 
 
@@ -34,7 +34,7 @@ class DriftResult:
         method: str = "",
         comparator: str = ">",
         metadata: dict[str, Any] | None = None,
-    ) -> "DriftResult":
+    ) -> DriftResult:
         """Build a result from the core API field names.
 
         Convenience for detectors that think in terms of ``drift_detected`` and

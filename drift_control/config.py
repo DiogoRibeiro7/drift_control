@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
 
 SUPPORTED_METHODS = {
     "psi",
@@ -70,7 +69,7 @@ class DriftCheckConfig:
         vote_mode: str,
         min_votes: int | None,
         stack_threshold: float = 0.5,
-    ) -> "DriftCheckConfig":
+    ) -> DriftCheckConfig:
         methods = [m.strip() for m in ensemble_methods.split(",") if m.strip()]
         if not methods:
             methods = ["psi", "ks", "cvm", "js"]
@@ -88,7 +87,7 @@ class DriftCheckConfig:
         )
 
     @staticmethod
-    def from_file(path: str | Path) -> "DriftCheckConfig":
+    def from_file(path: str | Path) -> DriftCheckConfig:
         """Load drift configuration from JSON, TOML, or YAML file."""
         file_path = Path(path)
         suffix = file_path.suffix.lower()
@@ -119,7 +118,7 @@ class DriftCheckConfig:
         return DriftCheckConfig._from_mapping(raw)
 
     @staticmethod
-    def from_env(prefix: str = "DRIFT_CONTROL_") -> "DriftCheckConfig":
+    def from_env(prefix: str = "DRIFT_CONTROL_") -> DriftCheckConfig:
         """Load drift configuration from environment variables."""
         method = os.getenv(f"{prefix}METHOD", "psi")
         threshold_raw = os.getenv(f"{prefix}THRESHOLD")
@@ -144,7 +143,7 @@ class DriftCheckConfig:
         )
 
     @staticmethod
-    def _from_mapping(raw: dict[str, Any]) -> "DriftCheckConfig":
+    def _from_mapping(raw: dict[str, Any]) -> DriftCheckConfig:
         method = str(raw.get("method", "psi"))
         threshold_val = raw.get("threshold")
         threshold = float(threshold_val) if threshold_val is not None else None

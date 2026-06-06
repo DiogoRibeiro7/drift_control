@@ -114,9 +114,7 @@ def test_unified_raises_below_two_samples():
     detector = UnifiedDriftDetector(method="ks", alpha=0.05)
     with pytest.raises(ValueError, match="at least 2 samples"):
         detector.detect_drift([1], [1, 2, 3])
-import numpy as np
 
-from drift_control.unified_drift_detector import UnifiedDriftDetector
 
 
 def test_unified_c2st_multivariate():

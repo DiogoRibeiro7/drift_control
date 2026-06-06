@@ -1,4 +1,3 @@
-import pytest
 from drift_control.concept_drift import (
     ADWINDetector,
     DDMDetector,
@@ -11,9 +10,9 @@ from drift_control.concept_drift import (
 def test_ddm_detects_drift():
     detector = DDMDetector()
     drift = False
-    for i in range(100):
+    for _i in range(100):
         drift = detector.update(0.1)
-    for i in range(100):
+    for _i in range(100):
         drift = detector.update(1.0)
         if drift:
             break
@@ -23,9 +22,9 @@ def test_ddm_detects_drift():
 def test_eddm_detects_drift():
     detector = EDDMDetector()
     drift = False
-    for i in range(150):
+    for _i in range(150):
         drift = detector.update(0.1)
-    for i in range(150):
+    for _i in range(150):
         drift = detector.update(1.0)
         if drift:
             break

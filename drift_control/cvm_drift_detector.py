@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import cramervonmises_2samp
+
 from .result_schema import DriftResult
 
 

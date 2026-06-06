@@ -13,7 +13,7 @@ submodules that need them.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -33,8 +33,8 @@ class DataDriftDetector:
         self,
         df_prior: pd.DataFrame,
         df_post: pd.DataFrame,
-        categorical_columns: Optional[List[str]] = None,
-        numeric_columns: Optional[List[str]] = None,
+        categorical_columns: list[str] | None = None,
+        numeric_columns: list[str] | None = None,
     ) -> None:
         if not isinstance(df_prior, pd.DataFrame):
             raise TypeError("df_prior should be a pandas dataframe")
@@ -83,13 +83,13 @@ class DataDriftDetector:
         self.df_prior = df_prior_
         self.df_post = df_post_[df_prior_.columns]
 
-        self._ml: Optional[MLEfficacyEvaluator] = None
+        self._ml: MLEfficacyEvaluator | None = None
 
     def calculate_drift(
         self,
         steps: int = 100,
         max_workers: int = 1,
-    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    ) -> dict[str, dict[str, dict[str, Any]]]:
         """Return per-column drift metrics. See :func:`drift_metrics.calculate_drift`."""
         return drift_metrics.calculate_drift(
             self.df_prior, self.df_post,

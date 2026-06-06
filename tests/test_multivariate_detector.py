@@ -1,10 +1,12 @@
-import pandas as pd
 import matplotlib
+import pandas as pd
+
 matplotlib.use("Agg")
 import pytest
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import OneHotEncoder
+
 from drift_control.multivariate_drift_detector import CovariateShiftDetector
 
 

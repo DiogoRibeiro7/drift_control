@@ -1,6 +1,9 @@
 import unittest
+
 import numpy as np
+
 from drift_control.psi_drift_detector import PSIDriftDetector
+
 
 class TestPSIDriftDetector(unittest.TestCase):
     def test_no_drift(self):

@@ -94,9 +94,18 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# Notebooks are validated by nbval, not linted as source.
+extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Transitional: the flat legacy modules and tests tolerate over-length lines
+# while they are migrated; the structured subpackages (drift_control/<pkg>/...)
+# still enforce the 100-char limit.
+"drift_control/*.py" = ["E501"]
+"tests/*.py" = ["E501"]
 
 
 [build-system]

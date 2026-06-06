@@ -7,7 +7,8 @@ free to import even without the ``viz`` extra.
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import pandas as pd
 
@@ -17,9 +18,9 @@ logger = logging.getLogger(__name__)
 def _default_categorical_targets(
     df_prior: pd.DataFrame,
     categorical_columns: Sequence[str],
-    plot_categorical_columns: Optional[List[str]],
+    plot_categorical_columns: list[str] | None,
     max_cardinality: int = 20,
-) -> List[str]:
+) -> list[str]:
     if plot_categorical_columns is not None:
         return list(plot_categorical_columns)
     col_nunique = df_prior.nunique()
@@ -34,11 +35,11 @@ def plot_categorical_to_numeric(
     df_post: pd.DataFrame,
     categorical_columns: Sequence[str],
     numeric_columns: Sequence[str],
-    plot_categorical_columns: Optional[List[str]] = None,
-    plot_numeric_columns: Optional[List[str]] = None,
+    plot_categorical_columns: list[str] | None = None,
+    plot_numeric_columns: list[str] | None = None,
     categorical_on_y_axis: bool = True,
-    grid_kws: Optional[dict] = None,
-    plot_kws: Optional[dict] = None,
+    grid_kws: dict | None = None,
+    plot_kws: dict | None = None,
 ) -> Any:
     """Pair-grid violin plot of categorical vs. numeric columns."""
     import seaborn as sns
@@ -94,10 +95,10 @@ def plot_numeric_to_numeric(
     numeric_columns: Sequence[str],
     kind: str = "scatter",
     diag_kind: str = "kde",
-    plot_kws: Optional[dict] = None,
-    grid_kws: Optional[dict] = None,
-    diag_kws: Optional[dict] = None,
-    plot_numeric_columns: Optional[List[str]] = None,
+    plot_kws: dict | None = None,
+    grid_kws: dict | None = None,
+    diag_kws: dict | None = None,
+    plot_numeric_columns: list[str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Pair plot of numeric columns coloured by source dataset."""
@@ -134,7 +135,7 @@ def plot_categorical(
     df_prior: pd.DataFrame,
     df_post: pd.DataFrame,
     categorical_columns: Sequence[str],
-    plot_categorical_columns: Optional[List[str]] = None,
+    plot_categorical_columns: list[str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Per-category proportion histograms comparing prior vs. post."""

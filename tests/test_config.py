@@ -30,7 +30,6 @@ def test_drift_check_config_from_cli_defaults_methods():
 def test_drift_check_config_rejects_unknown_method():
     with pytest.raises(ValueError, match='unsupported method'):
         DriftCheckConfig(method='bad')
-import json
 
 
 def test_drift_check_config_from_file_json(tmp_path):

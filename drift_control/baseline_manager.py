@@ -1,5 +1,6 @@
-import pandas as pd
 from typing import Literal
+
+import pandas as pd
 
 from drift_control.baseline_store import BaselineStore, LocalBaselineStore
 

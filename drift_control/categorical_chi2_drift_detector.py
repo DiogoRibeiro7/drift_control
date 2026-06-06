@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.stats import chisquare
+
 from .result_schema import DriftResult
 
 
@@ -58,8 +59,8 @@ class ChiSquareDriftDetector:
         cur_vals, cur_counts = np.unique(cur, return_counts=True)
         categories = np.union1d(ref_vals, cur_vals)
 
-        ref_map = {k: v for k, v in zip(ref_vals, ref_counts)}
-        cur_map = {k: v for k, v in zip(cur_vals, cur_counts)}
+        ref_map = {k: v for k, v in zip(ref_vals, ref_counts, strict=False)}
+        cur_map = {k: v for k, v in zip(cur_vals, cur_counts, strict=False)}
         ref_aligned = np.array([ref_map.get(c, 0) for c in categories], dtype=float)
         cur_aligned = np.array([cur_map.get(c, 0) for c in categories], dtype=float)
 

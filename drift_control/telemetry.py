@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Mapping
-
 
 Attributes = Mapping[str, str | int | float | bool]
 
@@ -20,8 +19,7 @@ class DriftTelemetry:
         self._error_counter = None
         self._tracer = None
         try:
-            from opentelemetry import metrics
-            from opentelemetry import trace
+            from opentelemetry import metrics, trace
 
             meter = metrics.get_meter(self.namespace)
             self._tracer = trace.get_tracer(self.namespace)

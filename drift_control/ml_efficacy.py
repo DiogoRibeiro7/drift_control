@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
@@ -65,14 +65,14 @@ class MLEfficacyEvaluator:
         self.df_post = df_post
         self.categorical_columns = list(categorical_columns)
         self.numeric_columns = list(numeric_columns)
-        self.ml_report: Optional[pd.DataFrame] = None
+        self.ml_report: pd.DataFrame | None = None
 
     def evaluate(
         self,
         target_column: str,
-        test_data: Optional[pd.DataFrame] = None,
-        OHE_columns: Optional[list] = None,
-        high_cardinality_columns: Optional[list] = None,
+        test_data: pd.DataFrame | None = None,
+        OHE_columns: list | None = None,
+        high_cardinality_columns: list | None = None,
         OHE_columns_cutoff: int = 5,
         train_size: float = 0.7,
         model_prior=None,
@@ -224,8 +224,10 @@ class MLEfficacyEvaluator:
 
     def _eval_regressor(self) -> None:
         from sklearn.metrics import (
-            r2_score, mean_absolute_error,
-            mean_absolute_percentage_error, explained_variance_score,
+            explained_variance_score,
+            mean_absolute_error,
+            mean_absolute_percentage_error,
+            r2_score,
         )
 
         y_pred_prior = self.model_prior.predict(self.X_test_prior)
@@ -259,8 +261,12 @@ class MLEfficacyEvaluator:
 
     def _eval_classifier(self) -> None:
         from sklearn.metrics import (
-            precision_score, recall_score, accuracy_score, f1_score,
-            roc_auc_score, confusion_matrix,
+            accuracy_score,
+            confusion_matrix,
+            f1_score,
+            precision_score,
+            recall_score,
+            roc_auc_score,
         )
 
         y_pred_prior_arr = self.model_prior.predict(self.X_test_prior)

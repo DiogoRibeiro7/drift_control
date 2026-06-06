@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from html import escape
-from typing import Any, Callable, Protocol, cast
+from typing import Any, Protocol, cast
 
 import pandas as pd
 
@@ -11,14 +12,14 @@ from .categorical_tvd_drift_detector import TotalVariationDriftDetector
 from .cvm_drift_detector import CVMDriftDetector
 from .js_drift_detector import JensenShannonDriftDetector
 from .ks_drift_detector import KSDriftDetector
-from .psi_drift_detector import PSIDriftDetector
-from .wasserstein_drift_detector import WassersteinDriftDetector
 from .multiple_testing import adjust_pvalues
+from .psi_drift_detector import PSIDriftDetector
 from .validation import (
     coerce_categorical_series,
     coerce_numeric_series,
     validate_matching_columns,
 )
+from .wasserstein_drift_detector import WassersteinDriftDetector
 
 
 @dataclass(frozen=True)
@@ -209,7 +210,7 @@ class EnsembleDriftDetector:
                 cols = [c for c, _ in items]
                 pvals = [p for _, p in items]
                 adj = adjust_pvalues(pvals, method=self.correction)
-                for col, adj_p in zip(cols, adj):
+                for col, adj_p in zip(cols, adj, strict=False):
                     mr = results[col].method_results[method]
                     mr["p_value"] = float(adj_p)
                     mr["drift"] = bool(adj_p < 0.05)

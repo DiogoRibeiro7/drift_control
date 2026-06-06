@@ -1,4 +1,3 @@
-from typing import Dict, List, Tuple
 import logging
 
 import pandas as pd
@@ -8,7 +7,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-
 
 logger = logging.getLogger(__name__)
 
@@ -65,12 +63,12 @@ class CovariateShiftDetector:
             )
         return self._df_combined
 
-    def _prepare_data(self) -> Tuple[pd.DataFrame, pd.Series]:
+    def _prepare_data(self) -> tuple[pd.DataFrame, pd.Series]:
         X = self.df_combined.drop(columns=["origin"])
         y = self.df_combined["origin"]
         return X, y
 
-    def _train_test_split(self, test_size: float = 0.3, random_state: int = 42) -> Tuple:
+    def _train_test_split(self, test_size: float = 0.3, random_state: int = 42) -> tuple:
         X, y = self._prepare_data()
         return train_test_split(X, y, test_size=test_size, random_state=random_state)
 
@@ -88,7 +86,7 @@ class CovariateShiftDetector:
 
     def _evaluate_classifier(
         self, clf, X_test: pd.DataFrame, y_test: pd.Series
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         y_pred = clf.predict(X_test)
         y_pred_proba = clf.predict_proba(X_test)[:, 1]
         accuracy = accuracy_score(y_test, y_pred)
@@ -103,8 +101,8 @@ class CovariateShiftDetector:
         y_test: pd.Series,
         n_permutations: int,
         random_state: int,
-    ) -> List[float]:
-        null_scores: List[float] = []
+    ) -> list[float]:
+        null_scores: list[float] = []
         for i in range(n_permutations):
             shuffled = y_train.sample(frac=1, random_state=random_state + i).reset_index(
                 drop=True
@@ -121,7 +119,7 @@ class CovariateShiftDetector:
         n_permutations: int = 100,
         alpha: float = 0.05,
         visualize: bool = False,
-    ) -> Dict[str, float | bool]:
+    ) -> dict[str, float | bool]:
         """
         Monitor covariate shift with a permutation-calibrated ROC-AUC threshold.
 
@@ -152,7 +150,7 @@ class CovariateShiftDetector:
         threshold = float(pd.Series(null_scores).quantile(1 - alpha))
         drift_detected = bool(roc_auc > threshold)
 
-        result: Dict[str, float | bool] = {
+        result: dict[str, float | bool] = {
             "accuracy": float(accuracy),
             "roc_auc": float(roc_auc),
             "null_roc_auc_threshold": threshold,
@@ -175,7 +173,7 @@ class CovariateShiftDetector:
 
         return result
 
-    def visualize_shift(self, save_dir: str | None = None, show: bool = False) -> List[object]:
+    def visualize_shift(self, save_dir: str | None = None, show: bool = False) -> list[object]:
         """
         Build per-feature distribution plots and return figure objects.
 
@@ -184,7 +182,7 @@ class CovariateShiftDetector:
         import matplotlib.pyplot as plt
         import seaborn as sns
 
-        figures: List[plt.Figure] = []
+        figures: list[plt.Figure] = []
         combined = self.df_combined.copy()
         combined["origin"] = combined["origin"].map({0: "Training", 1: "Production"})
 

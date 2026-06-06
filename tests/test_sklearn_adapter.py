@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
-from drift_control.sklearn_adapter import DriftMonitor
 from drift_control.psi_drift_detector import PSIDriftDetector
+from drift_control.sklearn_adapter import DriftMonitor
 
 
 def test_drift_monitor_detects_drift():

@@ -7,7 +7,8 @@ imported when the relevant attribute is first accessed.
 """
 
 from importlib import import_module
-from importlib.metadata import PackageNotFoundError, version as _version
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _version
 from typing import Any
 
 __author__ = "Diogo Ribeiro"

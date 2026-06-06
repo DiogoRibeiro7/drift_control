@@ -7,7 +7,6 @@ from drift_control.ks_drift_detector import KSDriftDetector
 from drift_control.psi_drift_detector import PSIDriftDetector
 from drift_control.wasserstein_drift_detector import WassersteinDriftDetector
 
-
 _float_list = st.lists(
     st.integers(min_value=-1000, max_value=1000).map(float),
     min_size=30,

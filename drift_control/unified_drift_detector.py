@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from typing import Any, Protocol, Union, cast
-import numpy as np
 import time
 import warnings
 from contextlib import nullcontext
+from typing import Any, Protocol, cast
+
+import numpy as np
 
 from .c2st_drift_detector import C2STDriftDetector
 from .categorical_chi2_drift_detector import ChiSquareDriftDetector
 from .categorical_tvd_drift_detector import TotalVariationDriftDetector
 from .cvm_drift_detector import CVMDriftDetector
-from .energy_drift_detector import EnergyDriftDetector
 from .datetime_drift_detector import DateTimeDriftDetector
+from .energy_drift_detector import EnergyDriftDetector
 from .js_drift_detector import JensenShannonDriftDetector
 from .ks_drift_detector import KSDriftDetector
 from .mmd_drift_detector import MMDDriftDetector
@@ -46,7 +47,7 @@ class UnifiedDriftDetector:
         if not (0 < self.ci_level < 1):
             raise ValueError("ci_level must be between 0 and 1")
         self.kwargs = kwargs
-        self.detector: Union[_SimpleDetector, _DetailedDetector]
+        self.detector: _SimpleDetector | _DetailedDetector
         self.threshold: float
         self.comparator: str
 

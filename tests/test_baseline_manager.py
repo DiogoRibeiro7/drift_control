@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+
 from drift_control.baseline_manager import BaselineManager
 
 
@@ -39,7 +40,7 @@ def test_baseline_integrity_check_fails_on_tamper(tmp_path):
 def test_delete_baseline_removes_files(tmp_path):
     data = pd.DataFrame({'a': [1, 2, 3]})
     manager = BaselineManager(directory=tmp_path)
-    path = manager.save_baseline(data, name="data", version="1")
+    manager.save_baseline(data, name="data", version="1")
     manager.delete_baseline("data", "1")
     with pytest.raises(FileNotFoundError):
         manager.load_baseline("data", "1")

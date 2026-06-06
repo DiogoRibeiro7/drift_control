@@ -1,5 +1,7 @@
 import asyncio
+
 import pandas as pd
+
 from drift_control import StreamMonitor
 
 baseline = pd.DataFrame({'x': range(5)})

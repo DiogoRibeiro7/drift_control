@@ -137,7 +137,7 @@ def test_retrying_webhook_alert_sink_raises_after_exhausted_retries(monkeypatch)
     )
     try:
         sink.send({"x": {"drift": True, "score": 0.9}})
-        assert False, "expected RuntimeError"
+        raise AssertionError("expected RuntimeError")
     except RuntimeError as exc:
         assert str(exc) == "always fails"
     assert calls["n"] == 3
@@ -146,11 +146,11 @@ def test_retrying_webhook_alert_sink_raises_after_exhausted_retries(monkeypatch)
 def test_retrying_webhook_alert_sink_validates_parameters():
     try:
         RetryingWebhookAlertSink(url="https://example.test/webhook", max_retries=-1)
-        assert False, "expected ValueError"
+        raise AssertionError("expected ValueError")
     except ValueError as exc:
         assert "max_retries" in str(exc)
     try:
         RetryingWebhookAlertSink(url="https://example.test/webhook", backoff_seconds=-0.1)
-        assert False, "expected ValueError"
+        raise AssertionError("expected ValueError")
     except ValueError as exc:
         assert "backoff_seconds" in str(exc)

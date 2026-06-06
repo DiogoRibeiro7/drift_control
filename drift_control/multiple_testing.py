@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 
 def adjust_pvalues(pvalues: Sequence[float], method: str) -> list[float]:

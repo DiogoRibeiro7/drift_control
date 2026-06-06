@@ -2,21 +2,21 @@
 
 import json
 import time
-from typing import Any
-from contextlib import nullcontext
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
+from typing import Any
 
 import click
 import pandas as pd
 
-from .config import DriftCheckConfig
 from .baseline_manager import BaselineManager
 from .baseline_store import BaselineStore, LocalBaselineStore, S3BaselineStore
-from .benchmark import BenchmarkResult, SyntheticDriftBenchmark
+from .benchmark import SyntheticDriftBenchmark
+from .config import DriftCheckConfig
+from .drift_report import DriftReport
 from .ensemble_drift_detector import EnsembleDriftDetector
 from .multiple_testing import adjust_pvalues
 from .telemetry import DriftTelemetry
-from .drift_report import DriftReport
 from .unified_drift_detector import UnifiedDriftDetector
 from .validation import (
     coerce_categorical_series,
@@ -334,7 +334,7 @@ def check(
                 pvalue_cols = [c for c, _ in pvalue_items]
                 raw = [p for _, p in pvalue_items]
                 adj = adjust_pvalues(raw, method=cfg.correction)
-                for c, p_adj in zip(pvalue_cols, adj):
+                for c, p_adj in zip(pvalue_cols, adj, strict=False):
                     results[c]['p_value'] = float(p_adj)
                     threshold_used = (
                         float(effective_threshold) if effective_threshold is not None else 0.05
@@ -413,7 +413,7 @@ def check(
         if use_mlflow:
             try:
                 import mlflow
-            except ImportError as exc:
+            except ImportError:
                 _raise_click('MLflow logging requested but mlflow is not installed.', "mlflow")
             active_run = mlflow.active_run()
             run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()

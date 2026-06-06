@@ -1,5 +1,7 @@
 import unittest
+
 from drift_control.ks_drift_detector import KSDriftDetector
+
 
 class TestKSDriftDetector(unittest.TestCase):
     def test_no_drift(self):

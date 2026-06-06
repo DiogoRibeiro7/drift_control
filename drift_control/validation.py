@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import pandas as pd
 from dataclasses import dataclass
-from pandas.api.types import is_numeric_dtype
 from typing import cast
 
+import pandas as pd
+from pandas.api.types import is_numeric_dtype
 
 SchemaPolicy = str
 NullPolicy = str
@@ -112,8 +112,8 @@ def validate_dataset_pair(
     prior = df_prior.copy(deep=True)
     post = df_post.copy(deep=True)
 
-    prior_cols = set(prior.columns)
-    post_cols = set(post.columns)
+    set(prior.columns)
+    set(post.columns)
     if cfg.schema_policy == "strict":
         validate_matching_columns(prior, post)
         ordered = list(prior.columns)

@@ -9,14 +9,15 @@ under the minimal install.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Iterable
+from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.special import rel_entr
 from scipy.spatial.distance import jensenshannon
-from scipy.stats import gaussian_kde, ks_2samp, chisquare, wasserstein_distance
+from scipy.special import rel_entr
+from scipy.stats import chisquare, gaussian_kde, ks_2samp, wasserstein_distance
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 def calculate_categorical_drift(
     prior: pd.Series,
     post: pd.Series,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Return chi-square, KL, JSD and Wasserstein for one categorical column."""
     prior_counts = prior.value_counts()
     post_counts = post.value_counts()
@@ -61,7 +62,7 @@ def calculate_numeric_drift(
     prior: pd.Series,
     post: pd.Series,
     steps: int = 100,
-) -> Dict[str, float] | None:
+) -> dict[str, float] | None:
     """Return KS, Wasserstein and KDE-grid JSD for one numeric column.
 
     Returns ``None`` when either side has fewer than 2 non-null samples; the
@@ -104,7 +105,7 @@ def calculate_drift(
     numeric_columns: Iterable[str],
     steps: int = 100,
     max_workers: int = 1,
-) -> Dict[str, Dict[str, Dict[str, Any]]]:
+) -> dict[str, dict[str, dict[str, Any]]]:
     """Compute drift metrics for every requested column.
 
     Categorical columns use chi-square goodness-of-fit + Laplace-smoothed
@@ -117,7 +118,7 @@ def calculate_drift(
     cat_cols = list(categorical_columns)
     num_cols = list(numeric_columns)
 
-    cat_res: Dict[str, Dict[str, float]] = {}
+    cat_res: dict[str, dict[str, float]] = {}
     if max_workers == 1 or len(cat_cols) <= 1:
         for col in cat_cols:
             cat_res[col] = calculate_categorical_drift(df_prior[col], df_post[col])
@@ -130,7 +131,7 @@ def calculate_drift(
             for col in cat_cols:
                 cat_res[col] = futures[col].result()
 
-    num_res: Dict[str, Dict[str, float]] = {}
+    num_res: dict[str, dict[str, float]] = {}
     if max_workers == 1 or len(num_cols) <= 1:
         for col in num_cols:
             result = calculate_numeric_drift(df_prior[col], df_post[col], steps=steps)

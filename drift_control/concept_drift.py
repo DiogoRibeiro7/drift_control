@@ -1,4 +1,4 @@
-from typing import Iterable
+from collections.abc import Iterable
 
 try:
     from river.drift import ADWIN, KSWIN, PageHinkley

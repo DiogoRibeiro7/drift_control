@@ -3,17 +3,16 @@ from __future__ import annotations
 import asyncio
 import time
 import tracemalloc
+from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 
+from .psi_drift_detector import PSIDriftDetector
+from .stream_monitor import StreamMonitor
 from .telemetry import DriftTelemetry
 from .unified_drift_detector import UnifiedDriftDetector
-from .stream_monitor import StreamMonitor
-from .psi_drift_detector import PSIDriftDetector
-
 
 ScenarioFn = Callable[[np.random.Generator, int], tuple[np.ndarray, np.ndarray, bool]]
 

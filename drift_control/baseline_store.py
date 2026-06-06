@@ -2,8 +2,8 @@ import hashlib
 import json
 import os
 import re
-from io import BytesIO
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from typing import Literal, Protocol
 
@@ -158,7 +158,7 @@ class LocalBaselineStore:
         meta_path = meta_path_parquet if os.path.exists(meta_path_parquet) else meta_path_csv
         if not os.path.exists(meta_path):
             raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
-        with open(meta_path, "r", encoding="utf-8") as f:
+        with open(meta_path, encoding="utf-8") as f:
             return json.load(f)
 
     def delete(self, name: str, version: str) -> None:

@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
-from typing import Any
 
 
 @dataclass
@@ -145,7 +144,7 @@ class DriftReport:
 
         head_cells = "".join(f"<th>{escape(lbl)}</th>" for lbl in time_labels)
         body_rows: list[str] = []
-        for feature, row in zip(features, matrix):
+        for feature, row in zip(features, matrix, strict=False):
             tds = "".join(
                 f'<td style="background:{self._heat_color(val, max_score)}">{val:.4f}</td>'
                 for val in row

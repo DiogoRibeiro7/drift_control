@@ -1,9 +1,10 @@
 import json
 
-from click.testing import CliRunner
 import pandas as pd
-from drift_control.baseline_manager import BaselineManager
+from click.testing import CliRunner
+
 import drift_control.cli as cli_mod
+from drift_control.baseline_manager import BaselineManager
 from drift_control.cli import check
 
 
