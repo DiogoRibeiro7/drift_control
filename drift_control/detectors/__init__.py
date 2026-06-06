@@ -6,6 +6,7 @@ the existing flat ``*_drift_detector`` modules remain until they are migrated.
 
 from __future__ import annotations
 
+from .adapter import LegacyDetectorAdapter, as_base_detector
 from .change_point import (
     EWMAChart,
     SegmentationResult,
@@ -29,4 +30,6 @@ __all__ = [
     "binary_segmentation",
     "window_based_change_detection",
     "PCAReconstructionDriftDetector",
+    "LegacyDetectorAdapter",
+    "as_base_detector",
 ]

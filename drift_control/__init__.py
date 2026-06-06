@@ -113,6 +113,9 @@ _LAZY: dict[str, str] = {
     "window_based_change_detection": "drift_control.detectors",
     # Advanced detectors (ROADMAP.md Phase 10).
     "PCAReconstructionDriftDetector": "drift_control.detectors",
+    # Bridge legacy detectors onto the core contract.
+    "LegacyDetectorAdapter": "drift_control.detectors",
+    "as_base_detector": "drift_control.detectors",
     # Prediction / performance monitoring (ROADMAP.md Phase 6).
     "PredictionDriftMonitor": "drift_control.monitoring",
     "PerformanceDriftMonitor": "drift_control.monitoring",

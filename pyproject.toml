@@ -133,6 +133,7 @@ files = [
   "drift_control/detectors/concept_drift.py",
   "drift_control/detectors/change_point.py",
   "drift_control/detectors/reconstruction.py",
+  "drift_control/detectors/adapter.py",
   "drift_control/monitoring/calibration.py",
   "drift_control/monitoring/prediction_drift.py",
   "drift_control/monitoring/performance_drift.py",
