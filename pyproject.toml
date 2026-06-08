@@ -121,6 +121,7 @@ check_untyped_defs = true
 no_implicit_optional = true
 strict_equality = true
 files = [
+  "drift_control/_interop.py",
   "drift_control/core/base.py",
   "drift_control/core/config.py",
   "drift_control/core/exceptions.py",

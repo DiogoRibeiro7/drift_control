@@ -5,6 +5,7 @@ from typing import Any
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from ._interop import score_pair
 from .psi_drift_detector import PSIDriftDetector
 
 
@@ -56,7 +57,7 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
         results: dict[str, dict[str, Any]] = {}
         assert self.baseline_ is not None
         for col in self.baseline_.columns:
-            drift, score = self.detector.detect_drift(self.baseline_[col], X_df[col])
+            drift, score = score_pair(self.detector, self.baseline_[col], X_df[col])
             results[col] = {"drift": drift, "score": score}
         return results
 

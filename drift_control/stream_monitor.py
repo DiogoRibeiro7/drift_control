@@ -14,6 +14,7 @@ from typing import Any
 
 import pandas as pd
 
+from ._interop import score_pair
 from .alert_sinks import AlertSink
 from .psi_drift_detector import PSIDriftDetector
 
@@ -91,9 +92,7 @@ class StreamMonitor:
         batch = self._normalize_batch(batch)
         results: dict[str, dict[str, Any]] = {}
         for col in batch.columns:
-            drift, score = self.detector.detect_drift(
-                self.baseline[col], batch[col]
-            )
+            drift, score = score_pair(self.detector, self.baseline[col], batch[col])
             results[col] = {"drift": drift, "score": score}
         return results
 
