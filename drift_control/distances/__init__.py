@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from .binning import bin_edges, to_histograms
 from .chi2 import chi2_statistic
-from .energy import energy_distance
+from .energy import energy_distance, energy_permutation_test
 from .js import js_distance, js_divergence
 from .kl import kl_divergence
 from .ks import ks_statistic
@@ -33,6 +33,7 @@ __all__ = [
     "chi2_statistic",
     "wasserstein_distance",
     "energy_distance",
+    "energy_permutation_test",
     "mmd_squared",
     "mmd_permutation_test",
     "rbf_kernel",

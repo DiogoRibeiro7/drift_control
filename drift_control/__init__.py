@@ -98,6 +98,7 @@ _LAZY: dict[str, str] = {
     "energy_distance": "drift_control.distances",
     "mmd_squared": "drift_control.distances",
     "mmd_permutation_test": "drift_control.distances",
+    "energy_permutation_test": "drift_control.distances",
     "to_histograms": "drift_control.distances",
     # Batch detectors on the core contract (ROADMAP.md Phase 3).
     "UnivariateDriftDetector": "drift_control.detectors",
@@ -112,7 +113,8 @@ _LAZY: dict[str, str] = {
     "SegmentationResult": "drift_control.detectors",
     "binary_segmentation": "drift_control.detectors",
     "window_based_change_detection": "drift_control.detectors",
-    # Advanced detectors (ROADMAP.md Phase 10).
+    # Multivariate + advanced detectors.
+    "MultivariateDriftDetector": "drift_control.detectors",
     "PCAReconstructionDriftDetector": "drift_control.detectors",
     # Bridge legacy detectors onto the core contract.
     "LegacyDetectorAdapter": "drift_control.detectors",

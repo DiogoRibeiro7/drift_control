@@ -61,12 +61,20 @@ returns a `DriftResult`; the flat classes return `(bool, float)` (plus
 `detect_drift_result()` for a `DriftResult`) and several keep pyarrow / sketch
 fast paths.
 
-## Multivariate / advanced
+## Multivariate
 
-These have no overlapping structured replacement yet — keep using the flat
-classes: `MMDDriftDetector`, `EnergyDriftDetector`, `C2STDriftDetector`,
-`CovariateShiftDetector`. The structured side offers
-`PCAReconstructionDriftDetector` (reconstruction-error drift), a different method.
+| Flat | Structured | Recommended |
+| --- | --- | --- |
+| `MMDDriftDetector` | `MultivariateDriftDetector(method="mmd")` | structured |
+| `EnergyDriftDetector` | `MultivariateDriftDetector(method="energy")` | structured |
+| `C2STDriftDetector` | *(no structured equivalent)* | flat |
+| `CovariateShiftDetector` | *(no structured equivalent)* | flat |
+
+`MultivariateDriftDetector` is permutation-calibrated and returns a `DriftResult`
+on the core contract. The structured side also offers
+`PCAReconstructionDriftDetector` (reconstruction-error drift), a different method
+with no flat equivalent. The flat `MMDDriftDetector` keeps extra options
+(linear-time estimator, chunking, optional GPU) the structured detector doesn't.
 
 ## Statistics (no detector wrapper)
 

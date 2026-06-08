@@ -19,14 +19,15 @@ _RECOMMENDED = [
     ("JensenShannonDriftDetector", "UnivariateDriftDetector"),
     ("WassersteinDriftDetector", "UnivariateDriftDetector"),
     ("ChiSquareDriftDetector", "UnivariateDriftDetector"),
+    ("MMDDriftDetector", "MultivariateDriftDetector"),
+    ("EnergyDriftDetector", "MultivariateDriftDetector"),
 ]
 
 # Flat names the doc says to keep (no structured equivalent).
 _FLAT_ONLY = [
     "ADWINDetector", "KSWINDetector", "CVMDriftDetector",
     "TotalVariationDriftDetector", "DateTimeDriftDetector",
-    "MMDDriftDetector", "EnergyDriftDetector", "C2STDriftDetector",
-    "CovariateShiftDetector",
+    "C2STDriftDetector", "CovariateShiftDetector",
 ]
 
 
