@@ -95,6 +95,7 @@ pip install "drift-control[notebooks]"
 
 - Docs index: [docs/README.md](docs/README.md)
 - Architecture (structured subpackages + core contracts): [docs/architecture.md](docs/architecture.md)
+- Flat vs structured API (which detector to use): [docs/flat-vs-structured-api.md](docs/flat-vs-structured-api.md)
 - API reference: [docs/api/reference.md](docs/api/reference.md)
 - Detector selection guide: [docs/api/detector-selection-guide.md](docs/api/detector-selection-guide.md)
 - CLI schema and versioning: [docs/cli/schema.md](docs/cli/schema.md)
