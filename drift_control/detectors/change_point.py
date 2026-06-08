@@ -240,6 +240,63 @@ def binary_segmentation(
     )
 
 
+def pelt(
+    series: ArrayLike,
+    *,
+    penalty: float,
+    min_size: int = 1,
+) -> SegmentationResult:
+    """Exact optimal segmentation (PELT) under an L2 mean-shift cost.
+
+    Minimises ``sum_segments SSE + penalty * n_change_points`` exactly via dynamic
+    programming with the standard pruning, so unlike greedy
+    :func:`binary_segmentation` it finds the global optimum for the penalty.
+    """
+    if penalty < 0:
+        raise ValidationError("penalty must be >= 0")
+    if min_size < 1:
+        raise ValidationError("min_size must be >= 1")
+    x = _as_series(series)
+    n = int(x.size)
+    cs = np.concatenate([[0.0], np.cumsum(x)])
+    cs2 = np.concatenate([[0.0], np.cumsum(x * x)])
+
+    def cost(a: int, b: int) -> float:
+        m = b - a
+        s = float(cs[b] - cs[a])
+        s2 = float(cs2[b] - cs2[a])
+        return s2 - s * s / m
+
+    f = [math.inf] * (n + 1)
+    f[0] = -float(penalty)
+    last = [0] * (n + 1)
+    candidates = [0]
+    for t in range(min_size, n + 1):
+        best_cost = math.inf
+        best_tau = 0
+        for tau in candidates:
+            if t - tau < min_size:
+                continue
+            c = f[tau] + cost(tau, t) + penalty
+            if c < best_cost:
+                best_cost = c
+                best_tau = tau
+        f[t] = best_cost
+        last[t] = best_tau
+        candidates = [tau for tau in candidates if f[tau] + cost(tau, t) <= f[t]]
+        candidates.append(t)
+
+    points: list[int] = []
+    t = n
+    while t > 0:
+        tau = last[t]
+        if tau > 0:
+            points.append(tau)
+        t = tau
+    points.reverse()
+    return SegmentationResult(change_points=points, n_segments=len(points) + 1)
+
+
 def window_based_change_detection(
     series: ArrayLike,
     *,

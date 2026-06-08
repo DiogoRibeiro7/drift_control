@@ -12,6 +12,7 @@ from .change_point import (
     SegmentationResult,
     ShewhartChart,
     binary_segmentation,
+    pelt,
     window_based_change_detection,
 )
 from .concept_drift import CUSUM, DDM, EDDM, PageHinkley
@@ -19,6 +20,7 @@ from .data_drift import UnivariateDriftDetector
 from .ensemble import DetectorEnsemble
 from .mixed_type import MixedTypeDriftDetector
 from .multivariate import MultivariateDriftDetector
+from .online import run_online
 from .reconstruction import PCAReconstructionDriftDetector
 
 __all__ = [
@@ -31,7 +33,9 @@ __all__ = [
     "EWMAChart",
     "SegmentationResult",
     "binary_segmentation",
+    "pelt",
     "window_based_change_detection",
+    "run_online",
     "PCAReconstructionDriftDetector",
     "MultivariateDriftDetector",
     "MixedTypeDriftDetector",

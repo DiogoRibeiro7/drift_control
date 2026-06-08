@@ -113,7 +113,9 @@ _LAZY: dict[str, str] = {
     "EWMAChart": "drift_control.detectors",
     "SegmentationResult": "drift_control.detectors",
     "binary_segmentation": "drift_control.detectors",
+    "pelt": "drift_control.detectors",
     "window_based_change_detection": "drift_control.detectors",
+    "run_online": "drift_control.detectors",
     # Multivariate + advanced detectors.
     "MultivariateDriftDetector": "drift_control.detectors",
     "DetectorEnsemble": "drift_control.detectors",
