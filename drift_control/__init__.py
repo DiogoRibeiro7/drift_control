@@ -115,6 +115,7 @@ _LAZY: dict[str, str] = {
     "window_based_change_detection": "drift_control.detectors",
     # Multivariate + advanced detectors.
     "MultivariateDriftDetector": "drift_control.detectors",
+    "DetectorEnsemble": "drift_control.detectors",
     "PCAReconstructionDriftDetector": "drift_control.detectors",
     # Bridge legacy detectors onto the core contract.
     "LegacyDetectorAdapter": "drift_control.detectors",
