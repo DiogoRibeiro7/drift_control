@@ -68,6 +68,17 @@ drift-control --baseline-version mydata@1 --baseline-store s3 --baseline-bucket 
 - `--baseline-store`: choose `local` (default) or `s3`
 - `--baseline-bucket`: required for `s3`
 
+Feature-wise report over a mixed-type table (structured detectors → `DriftReport`):
+
+```bash
+drift-control-report --baseline baseline.csv --current current.csv --format markdown
+drift-control-report --baseline baseline.csv --current current.csv --numeric-method psi --fail-on-drift
+```
+
+Routes each column to the right test (numeric → `ks`/`psi`/`js`, categorical →
+chi-square) with multiple-testing correction; `--fail-on-drift` exits non-zero
+when any column drifts (handy in CI).
+
 ## Notebooks
 
 Five runnable showcase notebooks live under [`notebooks/`](notebooks/):

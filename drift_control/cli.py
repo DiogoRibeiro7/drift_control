@@ -526,3 +526,81 @@ def benchmark_report(
             f.write(content)
 
     click.echo(content)
+
+
+@click.command()
+@click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
+@click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
+@click.option(
+    '--numeric-method',
+    type=click.Choice(['ks', 'psi', 'js']),
+    default='ks',
+    show_default=True,
+    help='Test for numeric columns (categorical columns always use chi-square).',
+)
+@click.option('--alpha', type=float, default=0.05, show_default=True,
+              help='Significance level for p-value methods.')
+@click.option('--threshold', type=float, default=None,
+              help='Threshold for psi/js numeric methods (else the method default).')
+@click.option('--bins', type=int, default=10, show_default=True, help='Bins for psi/js.')
+@click.option(
+    '--correction',
+    type=click.Choice(['none', 'bonferroni', 'bh']),
+    default='bh',
+    show_default=True,
+    help='Multiple-testing correction across the p-value columns.',
+)
+@click.option(
+    '--format', 'output_format',
+    type=click.Choice(['json', 'markdown']),
+    default='json',
+    show_default=True,
+    help='Report format.',
+)
+@click.option('--output', 'output_path', type=click.Path(), default=None,
+              help='Write the report to this file (otherwise stdout).')
+@click.option('--fail-on-drift', is_flag=True, help='Exit non-zero if any column drifts.')
+def report_command(
+    baseline: str,
+    current: str,
+    numeric_method: str,
+    alpha: float,
+    threshold: float | None,
+    bins: int,
+    correction: str,
+    output_format: str,
+    output_path: str | None,
+    fail_on_drift: bool,
+) -> None:
+    """Feature-wise drift report over two CSVs using the structured detectors.
+
+    Routes each column to the appropriate test (numeric -> numeric-method,
+    categorical -> chi-square) and emits a DriftReport.
+    """
+    from .detectors import MixedTypeDriftDetector
+
+    base_df = pd.read_csv(baseline)
+    cur_df = pd.read_csv(current)
+    try:
+        report = (
+            MixedTypeDriftDetector(
+                numeric_method=numeric_method,
+                alpha=alpha,
+                threshold=threshold,
+                bins=bins,
+                correction=correction,
+            )
+            .fit(base_df)
+            .report(cur_df)
+        )
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    content = report.to_json() if output_format == "json" else report.to_markdown()
+    if output_path is not None:
+        with open(output_path, "w", encoding="utf-8", newline="") as f:
+            f.write(content)
+    click.echo(content)
+
+    if fail_on_drift and report.any_drift:
+        raise SystemExit(1)
