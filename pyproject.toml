@@ -144,6 +144,7 @@ files = [
   "drift_control/detectors/change_point.py",
   "drift_control/detectors/reconstruction.py",
   "drift_control/detectors/multivariate.py",
+  "drift_control/detectors/mixed_type.py",
   "drift_control/detectors/ensemble.py",
   "drift_control/detectors/adapter.py",
   "drift_control/monitoring/calibration.py",

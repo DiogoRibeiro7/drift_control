@@ -17,6 +17,7 @@ from .change_point import (
 from .concept_drift import CUSUM, DDM, EDDM, PageHinkley
 from .data_drift import UnivariateDriftDetector
 from .ensemble import DetectorEnsemble
+from .mixed_type import MixedTypeDriftDetector
 from .multivariate import MultivariateDriftDetector
 from .reconstruction import PCAReconstructionDriftDetector
 
@@ -33,6 +34,7 @@ __all__ = [
     "window_based_change_detection",
     "PCAReconstructionDriftDetector",
     "MultivariateDriftDetector",
+    "MixedTypeDriftDetector",
     "DetectorEnsemble",
     "LegacyDetectorAdapter",
     "as_base_detector",
