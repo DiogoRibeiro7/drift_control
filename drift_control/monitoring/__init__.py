@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from .calibration import brier_score, expected_calibration_error
+from .calibration import (
+    CalibrationDriftMonitor,
+    brier_score,
+    expected_calibration_error,
+)
 from .performance_drift import PerformanceDriftMonitor
 from .prediction_drift import PredictionDriftMonitor
 from .reports import DriftReport, DriftReportItem
@@ -12,6 +16,7 @@ __all__ = [
     "PerformanceDriftMonitor",
     "brier_score",
     "expected_calibration_error",
+    "CalibrationDriftMonitor",
     "DriftReport",
     "DriftReportItem",
 ]
