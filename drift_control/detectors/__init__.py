@@ -15,7 +15,7 @@ from .change_point import (
     pelt,
     window_based_change_detection,
 )
-from .concept_drift import CUSUM, DDM, EDDM, PageHinkley
+from .concept_drift import CUSUM, DDM, EDDM, KSWIN, PageHinkley
 from .data_drift import UnivariateDriftDetector
 from .datetime_drift import DateTimeDriftDetector
 from .ensemble import DetectorEnsemble
@@ -31,6 +31,7 @@ __all__ = [
     "EDDM",
     "PageHinkley",
     "CUSUM",
+    "KSWIN",
     "ShewhartChart",
     "EWMAChart",
     "SegmentationResult",

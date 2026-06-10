@@ -109,6 +109,7 @@ _LAZY: dict[str, str] = {
     "EDDM": "drift_control.detectors",
     "PageHinkley": "drift_control.detectors",
     "CUSUM": "drift_control.detectors",
+    "KSWIN": "drift_control.detectors",
     # Change-point detection (ROADMAP.md Phase 5).
     "ShewhartChart": "drift_control.detectors",
     "EWMAChart": "drift_control.detectors",

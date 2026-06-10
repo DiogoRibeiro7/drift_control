@@ -16,6 +16,10 @@ The ``score``/``threshold``/``comparator`` triplet reconciles with
 from __future__ import annotations
 
 import math
+from collections import deque
+
+import numpy as np
+from scipy.stats import ks_2samp
 
 from ..core.base import OnlineDetector
 from ..core.exceptions import ValidationError
@@ -292,4 +296,68 @@ class CUSUM(OnlineDetector):
         return result
 
 
-__all__ = ["DDM", "EDDM", "PageHinkley", "CUSUM"]
+class KSWIN(OnlineDetector):
+    """Kolmogorov-Smirnov Windowing (Raab et al., 2020), pure-Python.
+
+    Keeps a sliding window of the most recent values and runs a KS two-sample
+    test between the latest ``stat_size`` points and ``stat_size`` points sampled
+    from the older part of the window. Drift fires when the p-value drops below
+    ``alpha``; on drift the older part is discarded. ``value`` is any scalar.
+    """
+
+    def __init__(
+        self,
+        *,
+        alpha: float = 0.005,
+        window_size: int = 100,
+        stat_size: int = 30,
+        random_state: int = 42,
+    ) -> None:
+        if not 0.0 < alpha < 1.0:
+            raise ValidationError("alpha must be in (0, 1)")
+        if stat_size < 1:
+            raise ValidationError("stat_size must be >= 1")
+        if window_size <= stat_size:
+            raise ValidationError("window_size must be greater than stat_size")
+        self.alpha = float(alpha)
+        self.window_size = int(window_size)
+        self.stat_size = int(stat_size)
+        self.random_state = int(random_state)
+        self.reset()
+
+    def reset(self) -> None:
+        self.n = 0
+        self._window: deque[float] = deque(maxlen=self.window_size)
+        self._rng = np.random.default_rng(self.random_state)
+
+    def update(self, value: float) -> DriftResult:
+        self.n += 1
+        self._window.append(float(value))
+
+        drift = False
+        p_value = 1.0
+        if len(self._window) >= self.window_size:
+            values = list(self._window)
+            recent = values[-self.stat_size :]
+            older = values[: -self.stat_size]
+            sample = self._rng.choice(older, size=self.stat_size, replace=True)
+            p_value = float(ks_2samp(sample, recent).pvalue)
+            drift = p_value < self.alpha
+
+        result = DriftResult.new(
+            drift_detected=drift,
+            score=p_value,
+            threshold=self.alpha,
+            p_value=p_value,
+            method="kswin",
+            comparator="<",
+            metadata={"n": self.n, "window": len(self._window)},
+        )
+        if drift:
+            recent_vals = list(self._window)[-self.stat_size :]
+            self._window.clear()
+            self._window.extend(recent_vals)
+        return result
+
+
+__all__ = ["DDM", "EDDM", "PageHinkley", "CUSUM", "KSWIN"]
