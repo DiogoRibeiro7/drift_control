@@ -48,6 +48,9 @@ def test_invalid_datetimes_raise():
 
 
 def test_exposed_via_detectors():
-    from drift_control import detectors
+    # resolve both sides at call time (survives the package reload in
+    # test_optional_imports)
+    import importlib
 
-    assert detectors.DateTimeDriftDetector is DateTimeDriftDetector
+    detectors = importlib.import_module("drift_control.detectors")
+    assert detectors.DateTimeDriftDetector.__name__ == "DateTimeDriftDetector"

@@ -21,7 +21,7 @@ from .mmd import (
 )
 from .psi import population_stability_index
 from .tvd import total_variation_distance
-from .wasserstein import wasserstein_distance
+from .wasserstein import wasserstein_distance, wasserstein_permutation_test
 
 __all__ = [
     "bin_edges",
@@ -34,6 +34,7 @@ __all__ = [
     "chi2_statistic",
     "total_variation_distance",
     "wasserstein_distance",
+    "wasserstein_permutation_test",
     "energy_distance",
     "energy_permutation_test",
     "mmd_squared",

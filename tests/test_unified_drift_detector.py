@@ -286,7 +286,10 @@ def test_unified_accepts_pyarrow_like_table_for_energy():
     assert out.p_value is not None
 
 
-def test_unified_metadata_includes_execution_backend_for_arrow_psi():
+def test_unified_accepts_columnar_like_input():
+    # pyarrow/polars-like inputs are converted via to_numpy(); the structured
+    # stack no longer reports an execution backend (dropped with the legacy
+    # pyarrow fast paths), but the result is still produced.
     class _FakeArrowArray:
         __module__ = "pyarrow.lib"
 
@@ -296,18 +299,11 @@ def test_unified_metadata_includes_execution_backend_for_arrow_psi():
         def to_numpy(self):
             return self._values
 
-    detector = UnifiedDriftDetector(method="psi", strategy="uniform")
-    out = detector.detect_drift(
+    out = UnifiedDriftDetector(method="psi").detect_drift(
         _FakeArrowArray([1, 2, 3, 4, 5, 6]),
         _FakeArrowArray([2, 3, 4, 5, 6, 7]),
     )
-    assert out.metadata.get("execution_backend") in {"numpy", "pyarrow"}
-
-
-def test_unified_metadata_includes_execution_backend_for_numpy_psi():
-    detector = UnifiedDriftDetector(method="psi", strategy="uniform")
-    out = detector.detect_drift([1, 2, 3, 4, 5, 6], [2, 3, 4, 5, 6, 7])
-    assert out.metadata.get("execution_backend") == "numpy"
+    assert out.method == "psi"
 
 
 def test_unified_datetime_method():
