@@ -17,6 +17,7 @@ from .change_point import (
 )
 from .concept_drift import CUSUM, DDM, EDDM, PageHinkley
 from .data_drift import UnivariateDriftDetector
+from .datetime_drift import DateTimeDriftDetector
 from .ensemble import DetectorEnsemble
 from .mixed_type import MixedTypeDriftDetector
 from .multivariate import MultivariateDriftDetector
@@ -25,6 +26,7 @@ from .reconstruction import PCAReconstructionDriftDetector
 
 __all__ = [
     "UnivariateDriftDetector",
+    "DateTimeDriftDetector",
     "DDM",
     "EDDM",
     "PageHinkley",
