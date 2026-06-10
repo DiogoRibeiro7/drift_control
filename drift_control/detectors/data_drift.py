@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from scipy.stats import chi2_contingency, ks_2samp
+from scipy.stats import chi2_contingency, cramervonmises_2samp, ks_2samp
 
 from ..core.base import BaseDetector
 from ..core.exceptions import NotFittedError, ValidationError
@@ -33,20 +33,30 @@ from ..distances import (
     js_divergence,
     population_stability_index,
     to_histograms,
+    total_variation_distance,
     wasserstein_distance,
 )
 from ..multiple_testing import adjust_pvalues
 from ..preprocessing import coerce_observations
 
-_PVALUE_METHODS = {"ks", "chi2"}
-_THRESHOLD_METHODS = {"psi", "js", "wasserstein"}
-_CATEGORICAL_METHODS = {"chi2"}
-_DEFAULT_THRESHOLD: dict[str, float] = {"psi": 0.2, "js": 0.1}
+_PVALUE_METHODS = {"ks", "cvm", "chi2"}
+_THRESHOLD_METHODS = {"psi", "js", "wasserstein", "tvd"}
+_CATEGORICAL_METHODS = {"chi2", "tvd"}
+_DEFAULT_THRESHOLD: dict[str, float] = {"psi": 0.2, "js": 0.1, "tvd": 0.1}
 
 
 def _score_ks(ref: np.ndarray, cur: np.ndarray) -> tuple[float, float | None]:
     res = ks_2samp(ref, cur)
     return float(res.statistic), float(res.pvalue)
+
+
+def _score_cvm(ref: np.ndarray, cur: np.ndarray) -> tuple[float, float | None]:
+    res = cramervonmises_2samp(ref, cur)
+    return float(res.statistic), float(res.pvalue)
+
+
+def _score_tvd(ref: np.ndarray, cur: np.ndarray) -> tuple[float, float | None]:
+    return total_variation_distance(ref, cur), None
 
 
 def _score_chi2(ref: np.ndarray, cur: np.ndarray) -> tuple[float, float | None]:
@@ -141,8 +151,12 @@ class UnivariateDriftDetector(BaseDetector):
     def _score_column(self, ref: np.ndarray, cur: np.ndarray) -> tuple[float, float | None]:
         if self.method == "ks":
             return _score_ks(ref, cur)
+        if self.method == "cvm":
+            return _score_cvm(ref, cur)
         if self.method == "chi2":
             return _score_chi2(ref, cur)
+        if self.method == "tvd":
+            return _score_tvd(ref, cur)
         if self.method == "psi":
             return _score_psi(ref, cur, self.bins)
         if self.method == "js":

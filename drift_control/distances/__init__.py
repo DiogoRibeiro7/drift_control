@@ -20,6 +20,7 @@ from .mmd import (
     rbf_kernel,
 )
 from .psi import population_stability_index
+from .tvd import total_variation_distance
 from .wasserstein import wasserstein_distance
 
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "js_distance",
     "ks_statistic",
     "chi2_statistic",
+    "total_variation_distance",
     "wasserstein_distance",
     "energy_distance",
     "energy_permutation_test",

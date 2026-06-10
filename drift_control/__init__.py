@@ -94,6 +94,7 @@ _LAZY: dict[str, str] = {
     "js_distance": "drift_control.distances",
     "ks_statistic": "drift_control.distances",
     "chi2_statistic": "drift_control.distances",
+    "total_variation_distance": "drift_control.distances",
     "wasserstein_distance": "drift_control.distances",
     "energy_distance": "drift_control.distances",
     "mmd_squared": "drift_control.distances",
