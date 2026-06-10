@@ -6,7 +6,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from ._interop import score_pair
-from .psi_drift_detector import PSIDriftDetector
+from .detectors import UnivariateDriftDetector
 
 
 class DriftMonitor(BaseEstimator, TransformerMixin):
@@ -19,7 +19,7 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
     """
 
     def __init__(self, detector: Any | None = None) -> None:
-        self.detector = detector or PSIDriftDetector()
+        self.detector = detector or UnivariateDriftDetector(method="psi", threshold=0.2)
         self.baseline_: pd.DataFrame | None = None
         self.drift_results_: dict[str, dict[str, Any]] | None = None
         self.feature_names_in_: pd.Index | None = None

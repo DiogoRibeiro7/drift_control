@@ -16,7 +16,7 @@ import pandas as pd
 
 from ._interop import score_pair
 from .alert_sinks import AlertSink
-from .psi_drift_detector import PSIDriftDetector
+from .detectors import UnivariateDriftDetector
 
 
 def _read_json_frame(payload: str) -> pd.DataFrame:
@@ -63,7 +63,7 @@ class StreamMonitor:
             raise ValueError("threshold_history must be >= 5")
         if min_threshold_samples < 5:
             raise ValueError("min_threshold_samples must be >= 5")
-        self.detector = detector or PSIDriftDetector()
+        self.detector = detector or UnivariateDriftDetector(method="psi", threshold=0.2)
         self.baseline: pd.DataFrame | None = None
         self.on_drift = on_drift
         self.alert_sinks = list(alert_sinks) if alert_sinks is not None else []
