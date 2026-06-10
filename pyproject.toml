@@ -172,7 +172,6 @@ exclude = [
 module = [
   "scipy",
   "scipy.*",
-  "sklearn",
   "sklearn.*",
 ]
 ignore_missing_imports = true

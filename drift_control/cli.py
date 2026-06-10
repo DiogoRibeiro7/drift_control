@@ -4,7 +4,7 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Any
+from typing import Any, NoReturn
 
 import click
 import pandas as pd
@@ -197,7 +197,7 @@ def check(
     if callable(start_span):
         span_ctx = start_span("drift_control.cli.check", {"component": "cli", "method": method})
 
-    def _raise_click(message: str, stage: str) -> None:
+    def _raise_click(message: str, stage: str) -> NoReturn:
         telemetry.record_error({"component": "cli", "stage": stage, "method": method})
         raise click.ClickException(message)
 
@@ -270,7 +270,7 @@ def check(
                 _raise_click(str(exc), "ensemble_init")
             effective_threshold = None
         else:
-            method_kwargs: dict[str, float] = {}
+            method_kwargs: dict[str, Any] = {}
             if cfg.threshold is not None:
                 if cfg.method in {'psi', 'js', 'tvdcat'}:
                     method_kwargs['threshold'] = cfg.threshold
@@ -283,12 +283,12 @@ def check(
             unified_detector = UnifiedDriftDetector(method=cfg.method, **method_kwargs)
             effective_threshold = unified_detector.threshold
 
-        results: dict[str, dict[str, object]] = {}
+        results: dict[str, dict[str, Any]] = {}
         if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'datetime'}:
             assert unified_detector is not None
             ordered_cols = sorted(base_cols)
 
-            def _score_col(col: str) -> tuple[str, dict[str, object]]:
+            def _score_col(col: str) -> tuple[str, dict[str, Any]]:
                 try:
                     if cfg.method in {'chi2cat', 'tvdcat'}:
                         base_col, cur_col = coerce_categorical_series(
@@ -386,7 +386,7 @@ def check(
                     )
 
         if output_json:
-            payload: dict[str, Any] = {
+            json_payload: dict[str, Any] = {
                 'schema_version': CLI_JSON_SCHEMA_VERSION,
                 'method': cfg.method,
                 'threshold': None if effective_threshold is None else float(effective_threshold),
@@ -394,7 +394,7 @@ def check(
                 'columns': results,
             }
             if cfg.method == 'ensemble':
-                payload['ensemble'] = {
+                json_payload['ensemble'] = {
                     'methods': ensemble_detector.methods if ensemble_detector is not None else [],
                     'vote_mode': ensemble_detector.vote_mode if ensemble_detector is not None else None,
                     'min_votes': ensemble_detector.min_votes if ensemble_detector is not None else None,
@@ -402,7 +402,7 @@ def check(
                         ensemble_detector.stack_threshold if ensemble_detector is not None else None
                     ),
                 }
-            click.echo(json.dumps(payload))
+            click.echo(json.dumps(json_payload))
 
         report = DriftReport(method=cfg.method, columns=results, correction=cfg.correction)
         if html_report is not None:
