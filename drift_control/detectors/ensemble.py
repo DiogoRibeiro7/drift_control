@@ -3,8 +3,8 @@
 ``DetectorEnsemble`` fits several :class:`BaseDetector` members on the same
 reference and combines their per-detect decisions by vote (``any`` / ``majority``
 / ``all``) to trade sensitivity against false alarms. Members can be any
-structured detector or a legacy one lifted via ``as_base_detector`` -- they just
-need to accept the same data shape. The aggregate is itself a ``DriftResult``
+structured detector -- they just need to accept the same data shape. The
+aggregate is itself a ``DriftResult``
 whose score/threshold/comparator reconcile with ``drift``.
 """
 

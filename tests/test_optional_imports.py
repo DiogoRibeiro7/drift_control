@@ -15,10 +15,10 @@ def test_visualization_import_is_lazy_for_plotly():
 
 
 def test_multivariate_import_is_lazy_for_viz_deps():
-    sys.modules.pop("drift_control.multivariate_drift_detector", None)
+    sys.modules.pop("drift_control.detectors.multivariate", None)
     before_mpl = _loaded("matplotlib")
     before_sns = _loaded("seaborn")
-    importlib.import_module("drift_control.multivariate_drift_detector")
+    importlib.import_module("drift_control.detectors.multivariate")
     after_mpl = _loaded("matplotlib")
     after_sns = _loaded("seaborn")
     assert before_mpl == after_mpl

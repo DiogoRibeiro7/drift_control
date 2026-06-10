@@ -46,6 +46,9 @@ def test_reset():
 
 
 def test_exposed_at_root():
-    from drift_control import detectors
+    # resolve at call time so this survives the package reload performed by
+    # test_optional_imports (which can desync cached lazy attrs by identity).
+    import importlib
 
-    assert drift_control.KSWIN is detectors.KSWIN
+    detectors = importlib.import_module("drift_control.detectors")
+    assert drift_control.KSWIN.__name__ == detectors.KSWIN.__name__ == "KSWIN"

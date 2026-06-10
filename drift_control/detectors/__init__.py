@@ -1,12 +1,12 @@
 """Detectors built on the core contracts and distance primitives.
 
-See ``ROADMAP.md``. New detectors live here and compose ``drift_control.distances``;
-the existing flat ``*_drift_detector`` modules remain until they are migrated.
+See ``ROADMAP.md``. All detectors live here and compose
+``drift_control.distances``; the legacy flat ``*_drift_detector`` modules have
+been removed.
 """
 
 from __future__ import annotations
 
-from .adapter import LegacyDetectorAdapter, as_base_detector
 from .change_point import (
     EWMAChart,
     SegmentationResult,
@@ -43,6 +43,4 @@ __all__ = [
     "MultivariateDriftDetector",
     "MixedTypeDriftDetector",
     "DetectorEnsemble",
-    "LegacyDetectorAdapter",
-    "as_base_detector",
 ]

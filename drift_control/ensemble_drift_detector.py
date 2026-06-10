@@ -1,25 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from html import escape
-from typing import Any, Protocol, cast
+from typing import Any
 
 import pandas as pd
 
-from .categorical_chi2_drift_detector import ChiSquareDriftDetector
-from .categorical_tvd_drift_detector import TotalVariationDriftDetector
-from .cvm_drift_detector import CVMDriftDetector
-from .js_drift_detector import JensenShannonDriftDetector
-from .ks_drift_detector import KSDriftDetector
 from .multiple_testing import adjust_pvalues
-from .psi_drift_detector import PSIDriftDetector
+from .unified_drift_detector import UnifiedDriftDetector
 from .validation import (
     coerce_categorical_series,
     coerce_numeric_series,
     validate_matching_columns,
 )
-from .wasserstein_drift_detector import WassersteinDriftDetector
 
 
 @dataclass(frozen=True)
@@ -62,20 +55,11 @@ class EnsembleColumnResult:
         )
 
 
-class _SimpleDetector(Protocol):
-    def detect_drift(self, reference_data: Any, current_data: Any) -> tuple[bool, float]:
-        ...
-
-
-class _DetailedDetector(Protocol):
-    def detect_drift(
-        self, reference_data: Any, current_data: Any, return_details: bool = False
-    ) -> Any:
-        ...
-
-
 class EnsembleDriftDetector:
-    """Run multiple univariate detectors per numeric column and vote on drift."""
+    """Run multiple univariate detectors per numeric column and vote on drift.
+
+    Scoring is delegated to the structured stack via ``UnifiedDriftDetector``.
+    """
 
     def __init__(
         self,
@@ -103,15 +87,11 @@ class EnsembleDriftDetector:
         self.correction = correction
         self.stack_threshold = float(stack_threshold)
 
-        self._builders: dict[str, Callable[[], object]] = {
-            "psi": lambda: PSIDriftDetector(),
-            "ks": lambda: KSDriftDetector(),
-            "cvm": lambda: CVMDriftDetector(),
-            "js": lambda: JensenShannonDriftDetector(),
-            "wasserstein": lambda: WassersteinDriftDetector(n_permutations=100),
-            "chi2cat": lambda: ChiSquareDriftDetector(),
-            "tvdcat": lambda: TotalVariationDriftDetector(),
-        }
+    @staticmethod
+    def _make(method: str) -> UnifiedDriftDetector:
+        if method == "wasserstein":
+            return UnifiedDriftDetector(method="wasserstein", n_permutations=100)
+        return UnifiedDriftDetector(method=method)
 
     def _required_votes(self) -> int:
         if self.vote_mode == "stacking":
@@ -127,17 +107,68 @@ class EnsembleDriftDetector:
         return (len(self.methods) // 2) + 1
 
     @staticmethod
-    def _confidence(method: str, row: dict[str, float | bool], detector: object) -> float:
+    def _confidence(row: dict[str, float | bool], detector: UnifiedDriftDetector) -> float:
         p = row.get("p_value")
         if isinstance(p, (float, int)):
             return max(0.0, min(1.0, 1.0 - float(p)))
         score = float(row["score"])
-        threshold = float(getattr(detector, "threshold", 1.0))
+        threshold = float(detector.threshold)
         if threshold <= 0:
             return 0.0
         return max(0.0, min(1.0, score / threshold))
 
-    def detect_drift(self, df_prior: pd.DataFrame, df_post: pd.DataFrame) -> dict[str, EnsembleColumnResult]:
+    def _score_column(
+        self, col: str, prior: Any, post: Any
+    ) -> tuple[dict[str, dict[str, float | bool]], int, list[float], list[tuple[str, float]]]:
+        method_results: dict[str, dict[str, float | bool]] = {}
+        votes = 0
+        confidences: list[float] = []
+        pvalues: list[tuple[str, float]] = []
+        for method in self.methods:
+            detector = self._make(method)
+            if method in {"chi2cat", "tvdcat"}:
+                p_series, q_series = coerce_categorical_series(
+                    prior, post, column_name=col, method_name="ensemble"
+                )
+            else:
+                p_series, q_series = coerce_numeric_series(
+                    prior, post, column_name=col, method_name="ensemble"
+                )
+            result = detector.detect_drift(p_series.values, q_series.values)
+            row: dict[str, float | bool] = {
+                "drift": bool(result.drift),
+                "score": float(result.score),
+            }
+            if result.p_value is not None:
+                row["p_value"] = float(result.p_value)
+                pvalues.append((method, float(result.p_value)))
+            method_results[method] = row
+            votes += int(result.drift)
+            confidences.append(self._confidence(row, detector))
+        return method_results, votes, confidences, pvalues
+
+    def _decide(
+        self,
+        method_results: dict[str, dict[str, float | bool]],
+        votes: int,
+        confidences: list[float],
+        required_votes: int,
+    ) -> bool:
+        stack_score = float(sum(confidences) / max(len(confidences), 1))
+        if self.vote_mode == "stacking":
+            drift_detected = stack_score >= self.stack_threshold
+        else:
+            drift_detected = votes >= required_votes
+        method_results["_stacking"] = {
+            "score": stack_score,
+            "threshold": self.stack_threshold,
+            "drift": drift_detected,
+        }
+        return drift_detected
+
+    def detect_drift(
+        self, df_prior: pd.DataFrame, df_post: pd.DataFrame
+    ) -> dict[str, EnsembleColumnResult]:
         if not isinstance(df_prior, pd.DataFrame) or not isinstance(df_post, pd.DataFrame):
             raise TypeError("df_prior and df_post must be pandas DataFrames")
         try:
@@ -147,57 +178,17 @@ class EnsembleDriftDetector:
 
         required_votes = self._required_votes()
         results: dict[str, EnsembleColumnResult] = {}
-        raw_pvalues_by_method: dict[str, list[tuple[str, float]]] = {}
+        pvalues_by_method: dict[str, list[tuple[str, float]]] = {}
 
         for col in sorted(df_prior.columns):
-            method_results: dict[str, dict[str, float | bool]] = {}
-            votes = 0
-            confidences: list[float] = []
-            for method in self.methods:
-                detector = self._builders[method]()
-                if method in {"chi2cat", "tvdcat"}:
-                    prior, post = coerce_categorical_series(
-                        df_prior[col], df_post[col], column_name=col, method_name="ensemble"
-                    )
-                else:
-                    prior, post = coerce_numeric_series(
-                        df_prior[col], df_post[col], column_name=col, method_name="ensemble"
-                    )
-                if method == "wasserstein":
-                    details = cast(_DetailedDetector, detector).detect_drift(
-                        prior.values, post.values, return_details=True
-                    )
-                    drift = bool(details.drift_detected)
-                    score = float(details.distance)
-                    method_results[method] = {
-                        "drift": drift,
-                        "score": score,
-                        "p_value": float(details.p_value),
-                    }
-                    raw_pvalues_by_method.setdefault(method, []).append((col, float(details.p_value)))
-                else:
-                    drift, score = cast(_SimpleDetector, detector).detect_drift(
-                        prior.values, post.values
-                    )
-                    row: dict[str, float | bool] = {"drift": bool(drift), "score": float(score)}
-                    if method in {"ks", "cvm", "chi2cat"}:
-                        row["p_value"] = float(score)
-                        raw_pvalues_by_method.setdefault(method, []).append((col, float(score)))
-                    method_results[method] = row
-                votes += int(drift)
-                confidences.append(self._confidence(method, method_results[method], detector))
-
-            stack_score = float(sum(confidences) / max(len(confidences), 1))
-            if self.vote_mode == "stacking":
-                drift_detected = bool(stack_score >= self.stack_threshold)
-            else:
-                drift_detected = bool(votes >= required_votes)
-            method_results["_stacking"] = {
-                "score": stack_score,
-                "threshold": self.stack_threshold,
-                "drift": drift_detected,
-            }
-
+            method_results, votes, confidences, pvalues = self._score_column(
+                col, df_prior[col], df_post[col]
+            )
+            for method, p in pvalues:
+                pvalues_by_method.setdefault(method, []).append((col, p))
+            drift_detected = self._decide(
+                method_results, votes, confidences, required_votes
+            )
             results[col] = EnsembleColumnResult(
                 drift_detected=drift_detected,
                 votes=votes,
@@ -206,39 +197,42 @@ class EnsembleDriftDetector:
             )
 
         if self.correction != "none":
-            for method, items in raw_pvalues_by_method.items():
-                cols = [c for c, _ in items]
-                pvals = [p for _, p in items]
-                adj = adjust_pvalues(pvals, method=self.correction)
-                for col, adj_p in zip(cols, adj, strict=False):
-                    mr = results[col].method_results[method]
-                    mr["p_value"] = float(adj_p)
-                    mr["drift"] = bool(adj_p < 0.05)
-                for col in cols:
-                    votes = sum(
-                        int(bool(v["drift"]))
-                        for k, v in results[col].method_results.items()
-                        if k != "_stacking"
-                    )
-                    confidences = [
-                        self._confidence(m, results[col].method_results[m], self._builders[m]())
-                        for m in self.methods
-                    ]
-                    stack_score = float(sum(confidences) / max(len(confidences), 1))
-                    if self.vote_mode == "stacking":
-                        drift_detected = bool(stack_score >= self.stack_threshold)
-                    else:
-                        drift_detected = bool(votes >= required_votes)
-                    results[col].method_results["_stacking"] = {
-                        "score": stack_score,
-                        "threshold": self.stack_threshold,
-                        "drift": drift_detected,
-                    }
-                    results[col] = EnsembleColumnResult(
-                        drift_detected=drift_detected,
-                        votes=votes,
-                        required_votes=required_votes,
-                        method_results=results[col].method_results,
-                    )
-
+            self._apply_correction(results, pvalues_by_method, required_votes)
         return results
+
+    def _apply_correction(
+        self,
+        results: dict[str, EnsembleColumnResult],
+        pvalues_by_method: dict[str, list[tuple[str, float]]],
+        required_votes: int,
+    ) -> None:
+        for method, items in pvalues_by_method.items():
+            cols = [c for c, _ in items]
+            adj = adjust_pvalues([p for _, p in items], method=self.correction)
+            for col, adj_p in zip(cols, adj, strict=True):
+                mr = results[col].method_results[method]
+                mr["p_value"] = float(adj_p)
+                mr["drift"] = bool(adj_p < 0.05)
+            for col in cols:
+                method_results = results[col].method_results
+                votes = sum(
+                    int(bool(v["drift"]))
+                    for k, v in method_results.items()
+                    if k != "_stacking"
+                )
+                confidences = [
+                    self._confidence(method_results[m], self._make(m))
+                    for m in self.methods
+                ]
+                drift_detected = self._decide(
+                    method_results, votes, confidences, required_votes
+                )
+                results[col] = EnsembleColumnResult(
+                    drift_detected=drift_detected,
+                    votes=votes,
+                    required_votes=required_votes,
+                    method_results=method_results,
+                )
+
+
+__all__ = ["EnsembleColumnResult", "EnsembleDriftDetector"]

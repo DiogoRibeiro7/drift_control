@@ -9,9 +9,7 @@ from drift_control.core.exceptions import ValidationError
 from drift_control.detectors import (
     DetectorEnsemble,
     UnivariateDriftDetector,
-    as_base_detector,
 )
-from drift_control.ks_drift_detector import KSDriftDetector
 
 RNG = np.random.default_rng(0)
 
@@ -80,16 +78,16 @@ def test_metadata_lists_members_with_names():
 
 # --- integration with real detectors ---------------------------------------
 
-def test_real_detectors_and_adapter_members():
+def test_real_detectors_members():
     ref = RNG.normal(0, 1, 400)
     ensemble = DetectorEnsemble(
         [
             UnivariateDriftDetector(method="ks"),
             UnivariateDriftDetector(method="psi", threshold=0.2),
-            as_base_detector(KSDriftDetector(alpha=0.05)),
+            UnivariateDriftDetector(method="js", threshold=0.1),
         ],
         vote="majority",
-        names=["ks", "psi", "legacy_ks"],
+        names=["ks", "psi", "js"],
     ).fit(ref)
     assert ensemble.detect(RNG.normal(0, 1, 400)).drift is False
     assert ensemble.detect(RNG.normal(2.0, 1, 400)).drift is True

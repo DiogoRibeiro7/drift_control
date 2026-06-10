@@ -1,45 +1,45 @@
-"""Guard the flat<->structured mapping in docs/flat-vs-structured-api.md.
+"""Guard the public detector surface documented in docs/detectors.md.
 
-Keeps the documented guidance from rotting: every name on both sides resolves,
-and the structured online detectors really are pure-Python + DriftResult-returning
-(no river dependency), which is the reason they are recommended.
+The legacy flat ``*DriftDetector`` modules were removed in favour of a single
+structured track. This keeps the documented guidance from rotting: every
+canonical name resolves at the package root, the ported niche methods are
+reachable through ``UnifiedDriftDetector``, and the online concept-drift
+detectors really are pure-Python + ``DriftResult``-returning (no river dep).
 """
 
 import numpy as np
 
 import drift_control
 
-# (flat name, structured name) pairs that the doc recommends migrating.
-_RECOMMENDED = [
-    ("DDMDetector", "DDM"),
-    ("EDDMDetector", "EDDM"),
-    ("PageHinkleyDetector", "PageHinkley"),
-    ("KSDriftDetector", "UnivariateDriftDetector"),
-    ("PSIDriftDetector", "UnivariateDriftDetector"),
-    ("JensenShannonDriftDetector", "UnivariateDriftDetector"),
-    ("WassersteinDriftDetector", "UnivariateDriftDetector"),
-    ("ChiSquareDriftDetector", "UnivariateDriftDetector"),
-    ("MMDDriftDetector", "MultivariateDriftDetector"),
-    ("EnergyDriftDetector", "MultivariateDriftDetector"),
+# Canonical structured names the docs point users at.
+_STRUCTURED = [
+    "UnivariateDriftDetector",
+    "MultivariateDriftDetector",
+    "MixedTypeDriftDetector",
+    "DateTimeDriftDetector",
+    "DetectorEnsemble",
+    "PCAReconstructionDriftDetector",
+    "DDM",
+    "EDDM",
+    "PageHinkley",
+    "CUSUM",
+    "KSWIN",
+    "UnifiedDriftDetector",
 ]
 
-# Flat names the doc says to keep (no structured equivalent).
-_FLAT_ONLY = [
-    "ADWINDetector", "KSWINDetector", "CVMDriftDetector",
-    "TotalVariationDriftDetector", "DateTimeDriftDetector",
-    "C2STDriftDetector", "CovariateShiftDetector",
-]
+# Niche methods with no dedicated class, reachable through UnifiedDriftDetector.
+_UNIFIED_METHODS = ["cvm", "tvdcat", "c2st", "datetime"]
 
 
-def test_both_sides_of_the_mapping_resolve():
-    for flat, structured in _RECOMMENDED:
-        assert getattr(drift_control, flat) is not None, flat
-        assert getattr(drift_control, structured) is not None, structured
-
-
-def test_flat_only_names_still_exposed():
-    for name in _FLAT_ONLY:
+def test_structured_names_resolve():
+    for name in _STRUCTURED:
         assert getattr(drift_control, name) is not None, name
+
+
+def test_unified_exposes_ported_niche_methods():
+    for method in _UNIFIED_METHODS:
+        detector = drift_control.UnifiedDriftDetector(method=method)
+        assert detector.method == method
 
 
 def test_structured_online_detectors_are_pure_python_driftresult():
@@ -52,9 +52,12 @@ def test_structured_online_detectors_are_pure_python_driftresult():
         assert isinstance(result, DriftResult)
 
 
-def test_as_base_detector_lifts_any_flat_detector():
-    adapted = drift_control.as_base_detector(drift_control.KSDriftDetector())
-    out = adapted.fit(np.zeros(50)).detect(np.ones(50) * 5)
+def test_univariate_detector_returns_driftresult():
     from drift_control.core import DriftResult
 
+    out = (
+        drift_control.UnivariateDriftDetector(method="ks")
+        .fit(np.zeros(50))
+        .detect(np.ones(50) * 5)
+    )
     assert isinstance(out, DriftResult)

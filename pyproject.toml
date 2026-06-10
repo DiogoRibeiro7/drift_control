@@ -150,7 +150,6 @@ files = [
   "drift_control/detectors/multivariate.py",
   "drift_control/detectors/mixed_type.py",
   "drift_control/detectors/ensemble.py",
-  "drift_control/detectors/adapter.py",
   "drift_control/monitoring/calibration.py",
   "drift_control/monitoring/prediction_drift.py",
   "drift_control/monitoring/performance_drift.py",
@@ -160,7 +159,6 @@ files = [
   "drift_control/adaptation/champion_challenger.py",
   "drift_control/cli.py",
   "drift_control/config.py",
-  "drift_control/energy_drift_detector.py",
   "drift_control/ensemble_drift_detector.py",
   "drift_control/result_schema.py",
   "drift_control/unified_drift_detector.py",
@@ -177,17 +175,3 @@ module = [
   "sklearn.*",
 ]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = [
-  "drift_control.c2st_drift_detector",
-  "drift_control.categorical_chi2_drift_detector",
-  "drift_control.categorical_tvd_drift_detector",
-  "drift_control.psi_drift_detector",
-  "drift_control.ks_drift_detector",
-  "drift_control.cvm_drift_detector",
-  "drift_control.js_drift_detector",
-  "drift_control.wasserstein_drift_detector",
-  "drift_control.mmd_drift_detector",
-]
-ignore_errors = true

@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from drift_control.drift_detector import DataDriftDetector
+from drift_control.ml_efficacy import MLEfficacyEvaluator
 
 
 def _binary_classification_frames():
@@ -31,8 +31,10 @@ def _binary_classification_frames():
 
 def test_compare_ml_efficacy_classification_binary():
     df_prior, df_post = _binary_classification_frames()
-    detector = DataDriftDetector(df_prior, df_post)
-    report = detector.compare_ml_efficacy(
+    evaluator = MLEfficacyEvaluator(
+        df_prior, df_post, categorical_columns=["y"], numeric_columns=["x1", "x2"]
+    )
+    report = evaluator.evaluate(
         target_column="y",
         model_prior=LogisticRegression(max_iter=200),
         model_post=LogisticRegression(max_iter=200),
@@ -59,8 +61,10 @@ def test_compare_ml_efficacy_regression():
     })
     df_post["y"] = 2 * df_post["x1"] - df_post["x2"] + rng.normal(0, 0.1, 60)
 
-    detector = DataDriftDetector(df_prior, df_post)
-    report = detector.compare_ml_efficacy(
+    evaluator = MLEfficacyEvaluator(
+        df_prior, df_post, categorical_columns=[], numeric_columns=["x1", "x2", "y"]
+    )
+    report = evaluator.evaluate(
         target_column="y",
         model_prior=LinearRegression(),
         model_post=LinearRegression(),
@@ -92,8 +96,10 @@ def test_compare_ml_efficacy_multiclass_emits_average_rows():
         "x2": rng.normal(0.3, 1, 120),
         "y": rng.choice(["a", "b", "c"], 120),
     })
-    detector = DataDriftDetector(df_prior, df_post)
-    report = detector.compare_ml_efficacy(
+    evaluator = MLEfficacyEvaluator(
+        df_prior, df_post, categorical_columns=["y"], numeric_columns=["x1", "x2"]
+    )
+    report = evaluator.evaluate(
         target_column="y",
         model_prior=LogisticRegression(max_iter=300),
         model_post=LogisticRegression(max_iter=300),
@@ -105,6 +111,8 @@ def test_compare_ml_efficacy_multiclass_emits_average_rows():
 
 def test_compare_ml_efficacy_rejects_missing_target():
     df_prior, df_post = _binary_classification_frames()
-    detector = DataDriftDetector(df_prior, df_post)
+    evaluator = MLEfficacyEvaluator(
+        df_prior, df_post, categorical_columns=["y"], numeric_columns=["x1", "x2"]
+    )
     with pytest.raises(ValueError, match="target_column does not exist"):
-        detector.compare_ml_efficacy(target_column="not_there")
+        evaluator.evaluate(target_column="not_there")

@@ -2,10 +2,9 @@
 
 Entry points (``StreamMonitor``, the sklearn ``DriftMonitor``) historically
 scored a column with ``detector.detect_drift(reference, current) -> (bool,
-float)``. ``score_pair`` accepts that legacy interface *or* a core
+float)``. ``score_pair`` accepts that tuple interface *or* a core
 :class:`~drift_control.core.base.BaseDetector` (``fit(reference).detect(current)
--> DriftResult``), so the structured detectors — and legacy ones wrapped via
-``as_base_detector`` — work on those paths unchanged.
+-> DriftResult``), so the structured detectors work on those paths unchanged.
 """
 
 from __future__ import annotations
