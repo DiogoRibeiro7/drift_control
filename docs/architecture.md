@@ -1,9 +1,9 @@
 # Architecture
 
 `drift_control` is organized into layered subpackages with a small set of stable
-contracts. New code lives in this structure; the original flat `*_drift_detector`
-modules remain importable during migration. See [`ROADMAP.md`](../ROADMAP.md) for
-the staged plan this implements.
+contracts. All detectors live in this structure on the core contracts; the
+original flat `*_drift_detector` modules have been removed. See
+[`ROADMAP.md`](../ROADMAP.md) for the staged plan this implements.
 
 ## Core contracts (`drift_control.core`)
 

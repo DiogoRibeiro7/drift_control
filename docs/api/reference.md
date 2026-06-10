@@ -2,15 +2,21 @@
 
 ## Core detectors
 
-- `PSIDriftDetector`: population stability index (univariate)
-- `KSDriftDetector`: Kolmogorov-Smirnov p-value test (univariate)
-- `CVMDriftDetector`: Cramer-von Mises p-value test (univariate)
-- `JensenShannonDriftDetector`: Jensen-Shannon distance (univariate)
-- `WassersteinDriftDetector`: permutation-calibrated Wasserstein test (univariate)
-- `MMDDriftDetector`: permutation-calibrated kernel MMD test (multivariate)
-- `C2STDriftDetector`: classifier two-sample test using ROC-AUC + permutation calibration (multivariate)
-- `EnsembleDriftDetector`: per-column voting across multiple univariate methods
-- `UnifiedDriftDetector`: stable wrapper returning normalized results across methods
+All detectors implement the core `fit(reference).detect(current) -> DriftResult`
+contract (online detectors implement `update`/`reset`).
+
+- `UnivariateDriftDetector(method=...)`: per-column drift — `psi`, `ks`, `cvm`,
+  `js` (numeric), `chi2`, `tvd` (categorical)
+- `MultivariateDriftDetector(method=...)`: multivariate, permutation-calibrated —
+  `mmd` (kernel), `energy` (distance), `c2st` (classifier two-sample / ROC-AUC)
+- `MixedTypeDriftDetector`: per-column drift across mixed numeric/categorical frames
+- `DateTimeDriftDetector`: cadence + hour-of-day drift on datetime columns
+- `PCAReconstructionDriftDetector`: PCA reconstruction-error drift (multivariate)
+- `DetectorEnsemble`: vote (`any`/`majority`/`all`) over core detector members
+- `EnsembleDriftDetector`: per-column voting across multiple univariate methods (CLI)
+- `UnifiedDriftDetector(method=...)`: facade returning normalized `DriftResult`
+  across all methods (adds `wasserstein` and `datetime`), with telemetry,
+  sample-size checks, and optional bootstrap CIs
 
 ## Unified result object
 
@@ -37,8 +43,10 @@
 
 ## Concept drift and streaming
 
-- `DDMDetector`, `EDDMDetector`, `ADWINDetector`, `PageHinkleyDetector`
-- `AccuracyMonitor`
+- `DDM`, `EDDM`, `PageHinkley`, `CUSUM`, `KSWIN`: pure-Python online detectors
+  returning a `DriftResult` from `update(value)`
+- `PerformanceDriftMonitor`, `PredictionDriftMonitor`, `CalibrationDriftMonitor`:
+  prediction/performance monitoring
 - `StreamMonitor`, `KafkaStreamMonitor`
 
 ## Public import pattern

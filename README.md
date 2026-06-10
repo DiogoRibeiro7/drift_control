@@ -6,9 +6,9 @@ Maintained by [Diogo Ribeiro](https://orcid.org/0009-0001-2022-7072).
 
 ## Features
 
-- Univariate numeric drift: KS test, PSI
-- Multivariate drift: covariate shift classifier and kernel MMD (permutation-calibrated)
-- Concept drift (streaming): DDM, EDDM, ADWIN, Page-Hinkley
+- Univariate drift: KS, PSI, JS, Wasserstein, CVM, Chi-square, TVD (numeric + categorical)
+- Multivariate drift: classifier two-sample (C2ST), kernel MMD, energy distance (permutation-calibrated)
+- Concept drift (streaming): DDM, EDDM, Page-Hinkley, CUSUM, KSWIN (pure-Python)
 - Batch + streaming workflows (`StreamMonitor`, sklearn-compatible `DriftMonitor`)
 - Baseline management helpers with pluggable stores (local, S3)
 - Alert sinks for Slack, webhooks, and composable routing (composite/column-filter/retrying)
@@ -37,19 +37,24 @@ pip install "drift-control[full]"
 
 ```python
 import numpy as np
-from drift_control import KSDriftDetector, MMDDriftDetector
+from drift_control import MultivariateDriftDetector, UnivariateDriftDetector
 
 ref = np.random.normal(0, 1, size=(300, 4))
 cur = np.random.normal(0.7, 1, size=(300, 4))
 
-# Univariate (single feature)
-ks = KSDriftDetector(alpha=0.05)
-print(ks.detect_drift(ref[:, 0], cur[:, 0]))
+# Univariate (single feature) -- fit on reference, detect on current
+ks = UnivariateDriftDetector(method="ks", alpha=0.05).fit(ref[:, 0])
+print(ks.detect(cur[:, 0]))
 
 # Multivariate (all features)
-mmd = MMDDriftDetector(alpha=0.05, n_permutations=200)
-print(mmd.detect_drift(ref, cur, return_details=True))
+mmd = MultivariateDriftDetector(method="mmd", alpha=0.05, n_permutations=200).fit(ref)
+print(mmd.detect(cur))
 ```
+
+Every detector returns a `DriftResult` (`.drift`, `.score`, `.threshold`,
+`.p_value`, `.comparator`, `.metadata`) whose `score`/`threshold`/`comparator`
+reconcile with `drift`. For a single facade across all methods (with telemetry,
+sample-size checks and bootstrap CIs), use `UnifiedDriftDetector(method=...)`.
 
 ## CLI
 
@@ -106,7 +111,6 @@ pip install "drift-control[notebooks]"
 
 - Docs index: [docs/README.md](docs/README.md)
 - Architecture (structured subpackages + core contracts): [docs/architecture.md](docs/architecture.md)
-- Flat vs structured API (which detector to use): [docs/flat-vs-structured-api.md](docs/flat-vs-structured-api.md)
 - API reference: [docs/api/reference.md](docs/api/reference.md)
 - Detector selection guide: [docs/api/detector-selection-guide.md](docs/api/detector-selection-guide.md)
 - CLI schema and versioning: [docs/cli/schema.md](docs/cli/schema.md)

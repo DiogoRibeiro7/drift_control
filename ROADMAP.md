@@ -354,7 +354,7 @@ Testing strategy:
 Example usage:
 
 ```python
-detector = KSDriftDetector(alpha=0.05)
+detector = UnivariateDriftDetector(method="ks", alpha=0.05)
 detector.fit(reference[:, 0])
 result = detector.detect(current[:, 0])
 ```

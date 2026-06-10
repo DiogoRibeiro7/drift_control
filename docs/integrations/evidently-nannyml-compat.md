@@ -12,7 +12,7 @@ Goal: make migration incremental rather than all-or-nothing.
 | Categorical drift | Categorical drift metrics/tests | `UnifiedDriftDetector(method="chi2cat"/"tvdcat")` |
 | Multivariate drift | Dataset drift checks | `UnifiedDriftDetector(method="mmd"/"c2st"/"energy")` |
 | Ensemble signal | Combined report verdicts | `EnsembleDriftDetector(methods=[...], vote_mode=...)` |
-| Segment drift | Group/slice reporting | `SliceDriftDetector(...)` |
+| Segment drift | Group/slice reporting | Loop a `UnifiedDriftDetector` over each segment (no dedicated slice detector) |
 | Streaming + alerting | Monitoring jobs/notification integrations | `StreamMonitor(on_drift=..., alert_sinks=[...])` |
 | Versioned reference data | Stored references | `BaselineManager` + `BaselineStore` (`local/s3`) |
 
