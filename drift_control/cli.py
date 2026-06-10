@@ -13,7 +13,7 @@ from .baseline_manager import BaselineManager
 from .baseline_store import BaselineStore, LocalBaselineStore, S3BaselineStore
 from .benchmark import SyntheticDriftBenchmark
 from .config import DriftCheckConfig
-from .drift_report import DriftReport
+from .drift_report import HtmlDriftReport
 from .ensemble_drift_detector import EnsembleDriftDetector
 from .multiple_testing import adjust_pvalues
 from .telemetry import DriftTelemetry
@@ -404,7 +404,7 @@ def check(
                 }
             click.echo(json.dumps(json_payload))
 
-        report = DriftReport(method=cfg.method, columns=results, correction=cfg.correction)
+        report = HtmlDriftReport(method=cfg.method, columns=results, correction=cfg.correction)
         if html_report is not None:
             report.render(html_report)
         if markdown_report is not None:

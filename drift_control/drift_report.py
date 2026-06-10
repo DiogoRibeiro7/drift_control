@@ -7,8 +7,13 @@ from pathlib import Path
 
 
 @dataclass
-class DriftReport:
-    """Render a self-contained HTML report for drift results."""
+class HtmlDriftReport:
+    """Render a self-contained HTML/markdown report from a column-payload mapping.
+
+    This is a *renderer* over the CLI's ``{column: payload}`` results, distinct
+    from :class:`drift_control.monitoring.DriftReport`, which is the aggregate
+    report *model* over a list of :class:`DriftResult` objects.
+    """
 
     method: str
     columns: dict[str, dict[str, object]]
@@ -176,3 +181,6 @@ class DriftReport:
         out = Path(path)
         out.write_text(html, encoding="utf-8")
         return out
+
+
+__all__ = ["HtmlDriftReport"]

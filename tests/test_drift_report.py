@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from drift_control.drift_report import DriftReport
+from drift_control.drift_report import HtmlDriftReport
 
 
 def test_drift_report_renders_html_file(tmp_path: Path):
-    report = DriftReport(
+    report = HtmlDriftReport(
         method="ks",
         correction="none",
         columns={
@@ -23,7 +23,7 @@ def test_drift_report_renders_html_file(tmp_path: Path):
 
 
 def test_drift_report_markdown_top_drifting_sorted_and_limited(tmp_path: Path):
-    report = DriftReport(
+    report = HtmlDriftReport(
         method="ks",
         correction="none",
         columns={
@@ -44,7 +44,7 @@ def test_drift_report_markdown_top_drifting_sorted_and_limited(tmp_path: Path):
 
 
 def test_drift_report_renders_time_series_heatmap(tmp_path: Path):
-    report = DriftReport(method="ks", correction="none", columns={})
+    report = HtmlDriftReport(method="ks", correction="none", columns={})
     history = [
         {"x": {"score": 0.1}, "y": {"score": 0.3}},
         {"x": {"score": 0.2}, "y": {"score": 0.05}},
