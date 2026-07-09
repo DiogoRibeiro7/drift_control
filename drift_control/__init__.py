@@ -38,11 +38,11 @@ _ROOT_EXPORTS = _export_map(
     "drift_control.telemetry",
     ["DriftTelemetry"],
 ) | _export_map(
-    "drift_control.monitoring",
-    ["DriftReport", "DriftReportItem"],
-) | _export_map(
     "drift_control.drift_report",
-    ["HtmlDriftReport"],
+    ["DriftReport", "HtmlDriftReport"],
+) | _export_map(
+    "drift_control.monitoring",
+    ["DriftReportItem"],
 ) | _export_map(
     "drift_control.benchmark",
     ["SyntheticDriftBenchmark", "BenchmarkResult"],

@@ -6,6 +6,30 @@ from html import escape
 from pathlib import Path
 
 
+def _format_score(value: object) -> str:
+    return f"{float(value):.6f}" if isinstance(value, (int, float)) else "-"
+
+
+def _format_count(value: object) -> str:
+    return str(value) if isinstance(value, int) else "-"
+
+
+def _sort_key(item: tuple[str, dict[str, object]]) -> tuple[int, float]:
+    payload = item[1]
+    drift = 1 if bool(payload.get("drift")) else 0
+    score = payload.get("score")
+    score_val = float(score) if isinstance(score, (int, float)) else float("-inf")
+    return drift, score_val
+
+
+def _heat_color(value: float, max_value: float) -> str:
+    if max_value <= 0:
+        return "#f5f5f5"
+    ratio = max(0.0, min(1.0, value / max_value))
+    green_blue = int(245 - (140 * ratio))
+    return f"#ff{green_blue:02x}{green_blue:02x}"
+
+
 @dataclass
 class HtmlDriftReport:
     """Render a self-contained HTML/markdown report from a column-payload mapping.
@@ -21,30 +45,34 @@ class HtmlDriftReport:
     generated_at: str | None = None
 
     def _sorted_items(self) -> list[tuple[str, dict[str, object]]]:
-        def _key(item: tuple[str, dict[str, object]]) -> tuple[int, float]:
-            payload = item[1]
-            drift = 1 if bool(payload.get("drift")) else 0
-            score = payload.get("score")
-            score_val = float(score) if isinstance(score, (int, float)) else float("-inf")
-            return (drift, score_val)
+        return sorted(self.columns.items(), key=_sort_key, reverse=True)
 
-        return sorted(self.columns.items(), key=_key, reverse=True)
-
-    def _render_rows(self) -> str:
+    def _render_html_rows(self) -> str:
         rows: list[str] = []
         for name, payload in self._sorted_items():
-            score = payload.get("score")
-            drift = payload.get("drift")
-            p_value = payload.get("p_value")
             rows.append(
                 "<tr>"
                 f"<td>{escape(name)}</td>"
-                f"<td>{escape(f'{score:.6f}' if isinstance(score, (int, float)) else str(score))}</td>"
-                f"<td>{escape(f'{p_value:.6f}' if isinstance(p_value, (int, float)) else '-')}</td>"
-                f"<td>{'YES' if drift else 'NO'}</td>"
+                f"<td>{escape(_format_score(payload.get('score')))}</td>"
+                f"<td>{escape(_format_score(payload.get('p_value')))}</td>"
+                f"<td>{'YES' if bool(payload.get('drift')) else 'NO'}</td>"
                 "</tr>"
             )
         return "\n".join(rows)
+
+    def _markdown_rows(self, limit: int | None = None) -> list[str]:
+        items = self._sorted_items()
+        if limit is not None and limit > 0:
+            items = items[:limit]
+        rows: list[str] = []
+        for name, payload in items:
+            rows.append(
+                f"| {name} | {_format_score(payload.get('score'))} | "
+                f"{_format_score(payload.get('p_value'))} | "
+                f"{'YES' if bool(payload.get('drift')) else 'NO'} | "
+                f"{_format_count(payload.get('n_ref'))} | {_format_count(payload.get('n_cur'))} |"
+            )
+        return rows
 
     def to_html(self) -> str:
         ts = self.generated_at or datetime.now(timezone.utc).isoformat()
@@ -71,7 +99,7 @@ class HtmlDriftReport:
       <tr><th>Column</th><th>Score</th><th>P-Value</th><th>Drift</th></tr>
     </thead>
     <tbody>
-      {self._render_rows()}
+      {self._render_html_rows()}
     </tbody>
   </table>
 </body>
@@ -83,27 +111,11 @@ class HtmlDriftReport:
         return out
 
     def top_drifting_markdown(self, limit: int | None = None) -> str:
-        rows: list[str] = [
+        rows = [
             "| Column | Score | P-Value | Drift | Reference N | Current N |",
             "|---|---:|---:|---|---:|---:|",
+            *self._markdown_rows(limit=limit),
         ]
-        items = self._sorted_items()
-        if limit is not None and limit > 0:
-            items = items[:limit]
-        for name, payload in items:
-            score = payload.get("score")
-            p_value = payload.get("p_value")
-            drift = bool(payload.get("drift"))
-            n_ref = payload.get("n_ref")
-            n_cur = payload.get("n_cur")
-            score_str = f"{float(score):.6f}" if isinstance(score, (int, float)) else "-"
-            pval_str = f"{float(p_value):.6f}" if isinstance(p_value, (int, float)) else "-"
-            nref_str = str(n_ref) if isinstance(n_ref, int) else "-"
-            ncur_str = str(n_cur) if isinstance(n_cur, int) else "-"
-            rows.append(
-                f"| {name} | {score_str} | {pval_str} | "
-                f"{'YES' if drift else 'NO'} | {nref_str} | {ncur_str} |"
-            )
         return "\n".join(rows)
 
     def render_markdown(self, path: str | Path, limit: int | None = None) -> Path:
@@ -111,14 +123,22 @@ class HtmlDriftReport:
         out.write_text(self.top_drifting_markdown(limit=limit), encoding="utf-8")
         return out
 
-    @staticmethod
-    def _heat_color(value: float, max_value: float) -> str:
-        if max_value <= 0:
-            return "#f5f5f5"
-        ratio = max(0.0, min(1.0, value / max_value))
-        # White -> red gradient.
-        green_blue = int(245 - (140 * ratio))
-        return f"#ff{green_blue:02x}{green_blue:02x}"
+    def _heatmap_matrix(
+        self,
+        history: list[dict[str, dict[str, object]]],
+    ) -> tuple[list[str], list[list[float]], float]:
+        features = sorted({key for snapshot in history for key in snapshot.keys()})
+        matrix: list[list[float]] = []
+        max_score = 0.0
+        for feature in features:
+            row: list[float] = []
+            for snapshot in history:
+                raw_score = snapshot.get(feature, {}).get("score")
+                score = float(raw_score) if isinstance(raw_score, (int, float)) else 0.0
+                row.append(score)
+                max_score = max(max_score, score)
+            matrix.append(row)
+        return features, matrix, max_score
 
     def render_time_series_heatmap(
         self,
@@ -133,26 +153,13 @@ class HtmlDriftReport:
             raise ValueError("labels length must match history length")
 
         time_labels = labels or [f"t{i+1}" for i in range(len(history))]
-        features: list[str] = sorted({k for snap in history for k in snap.keys()})
-
-        matrix: list[list[float]] = []
-        max_score = 0.0
-        for feature in features:
-            row: list[float] = []
-            for snap in history:
-                raw = snap.get(feature, {}).get("score")
-                score = float(raw) if isinstance(raw, (int, float)) else 0.0
-                row.append(score)
-                if score > max_score:
-                    max_score = score
-            matrix.append(row)
-
-        head_cells = "".join(f"<th>{escape(lbl)}</th>" for lbl in time_labels)
+        features, matrix, max_score = self._heatmap_matrix(history)
+        head_cells = "".join(f"<th>{escape(label)}</th>" for label in time_labels)
         body_rows: list[str] = []
         for feature, row in zip(features, matrix, strict=False):
             tds = "".join(
-                f'<td style="background:{self._heat_color(val, max_score)}">{val:.4f}</td>'
-                for val in row
+                f'<td style="background:{_heat_color(value, max_score)}">{value:.4f}</td>'
+                for value in row
             )
             body_rows.append(f"<tr><th>{escape(feature)}</th>{tds}</tr>")
 
@@ -183,4 +190,6 @@ class HtmlDriftReport:
         return out
 
 
-__all__ = ["HtmlDriftReport"]
+DriftReport = HtmlDriftReport
+
+__all__ = ["HtmlDriftReport", "DriftReport"]
