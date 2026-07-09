@@ -11,6 +11,21 @@ NullPolicy = str
 NumericPolicy = str
 
 
+def _validate_schema_policy(schema_policy: str) -> None:
+    if schema_policy not in {"strict", "align_intersection"}:
+        raise ValueError("schema_policy must be one of: strict, align_intersection")
+
+
+def _validate_null_policy(null_policy: str) -> None:
+    if null_policy not in {"error", "drop_rows"}:
+        raise ValueError("null_policy must be one of: error, drop_rows")
+
+
+def _validate_numeric_policy(numeric_policy: str) -> None:
+    if numeric_policy not in {"strict", "coerce"}:
+        raise ValueError("numeric_policy must be one of: strict, coerce")
+
+
 @dataclass(frozen=True)
 class DatasetValidationPolicy:
     """Policy for validating and normalizing baseline/current datasets."""
@@ -20,12 +35,9 @@ class DatasetValidationPolicy:
     numeric_policy: NumericPolicy = "strict"
 
     def __post_init__(self) -> None:
-        if self.schema_policy not in {"strict", "align_intersection"}:
-            raise ValueError("schema_policy must be one of: strict, align_intersection")
-        if self.null_policy not in {"error", "drop_rows"}:
-            raise ValueError("null_policy must be one of: error, drop_rows")
-        if self.numeric_policy not in {"strict", "coerce"}:
-            raise ValueError("numeric_policy must be one of: strict, coerce")
+        _validate_schema_policy(self.schema_policy)
+        _validate_null_policy(self.null_policy)
+        _validate_numeric_policy(self.numeric_policy)
 
 
 def validate_matching_columns(df_prior: pd.DataFrame, df_post: pd.DataFrame) -> None:
@@ -55,13 +67,11 @@ def coerce_numeric_series(
         raise ValueError(
             f"Column '{column_name}' must be numeric for method '{method_name}'."
         ) from exc
-
     if prior_num.isna().any() or post_num.isna().any():
         raise ValueError(
             f"Column '{column_name}' contains null values after numeric conversion; "
             f"cannot run '{method_name}'."
         )
-
     return prior_num, post_num
 
 
@@ -82,23 +92,80 @@ def coerce_categorical_series(
     return prior_cat, post_cat
 
 
-def coerce_numeric_frame(
-    df: pd.DataFrame,
-    method_name: str,
-) -> pd.DataFrame:
+def coerce_numeric_frame(df: pd.DataFrame, method_name: str) -> pd.DataFrame:
     """Convert all DataFrame columns to numeric and reject null/invalid values."""
     try:
         out = cast(pd.DataFrame, df.apply(pd.to_numeric, errors="raise"))
     except Exception as exc:
-        raise ValueError(
-            f"All columns must be numeric for method '{method_name}'."
-        ) from exc
-
+        raise ValueError(f"All columns must be numeric for method '{method_name}'.") from exc
     if out.isna().any().any():
         raise ValueError(
             f"Input contains null values after numeric conversion; cannot run '{method_name}'."
         )
     return out
+
+
+def _align_frames_by_schema_policy(
+    prior: pd.DataFrame,
+    post: pd.DataFrame,
+    schema_policy: SchemaPolicy,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if schema_policy == "strict":
+        validate_matching_columns(prior, post)
+        ordered = list(prior.columns)
+        return prior, post.loc[:, ordered]
+    shared = [column for column in prior.columns if column in post.columns]
+    if not shared:
+        raise ValueError("No shared columns between baseline and current datasets.")
+    return prior.loc[:, shared], post.loc[:, shared]
+
+
+def _validate_requested_numeric_columns(
+    prior: pd.DataFrame,
+    numeric_columns: list[str] | None,
+) -> list[str]:
+    columns = numeric_columns or list(prior.columns)
+    missing_columns = [column for column in columns if column not in prior.columns]
+    if missing_columns:
+        raise ValueError(f"Unknown numeric_columns requested: {missing_columns}")
+    return columns
+
+
+def _apply_numeric_policy(
+    prior: pd.DataFrame,
+    post: pd.DataFrame,
+    columns: list[str],
+    numeric_policy: NumericPolicy,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if numeric_policy == "strict":
+        non_numeric = [
+            column
+            for column in columns
+            if not (is_numeric_dtype(prior[column]) and is_numeric_dtype(post[column]))
+        ]
+        if non_numeric:
+            raise ValueError(f"Non-numeric columns under strict numeric policy: {non_numeric}")
+        return prior, post
+    for column in columns:
+        prior[column] = pd.to_numeric(prior[column], errors="coerce")
+        post[column] = pd.to_numeric(post[column], errors="coerce")
+    return prior, post
+
+
+def _apply_null_policy(
+    prior: pd.DataFrame,
+    post: pd.DataFrame,
+    null_policy: NullPolicy,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if null_policy == "error":
+        if prior.isna().any().any() or post.isna().any().any():
+            raise ValueError("Null values present after validation/coercion.")
+        return prior, post
+    prior = prior.dropna().reset_index(drop=True)
+    post = post.dropna().reset_index(drop=True)
+    if prior.empty or post.empty:
+        raise ValueError("Null-row dropping removed all rows from baseline or current.")
+    return prior, post
 
 
 def validate_dataset_pair(
@@ -111,45 +178,8 @@ def validate_dataset_pair(
     cfg = policy or DatasetValidationPolicy()
     prior = df_prior.copy(deep=True)
     post = df_post.copy(deep=True)
-
-    set(prior.columns)
-    set(post.columns)
-    if cfg.schema_policy == "strict":
-        validate_matching_columns(prior, post)
-        ordered = list(prior.columns)
-        post = post.loc[:, ordered]
-    else:
-        shared = [c for c in prior.columns if c in post.columns]
-        if not shared:
-            raise ValueError("No shared columns between baseline and current datasets.")
-        prior = prior.loc[:, shared]
-        post = post.loc[:, shared]
-
-    cols_to_check = numeric_columns or list(prior.columns)
-    missing_cols = [c for c in cols_to_check if c not in prior.columns]
-    if missing_cols:
-        raise ValueError(f"Unknown numeric_columns requested: {missing_cols}")
-
-    if cfg.numeric_policy == "strict":
-        non_numeric = [
-            c
-            for c in cols_to_check
-            if not (is_numeric_dtype(prior[c]) and is_numeric_dtype(post[c]))
-        ]
-        if non_numeric:
-            raise ValueError(f"Non-numeric columns under strict numeric policy: {non_numeric}")
-    else:
-        for c in cols_to_check:
-            prior[c] = pd.to_numeric(prior[c], errors="coerce")
-            post[c] = pd.to_numeric(post[c], errors="coerce")
-
-    if cfg.null_policy == "error":
-        if prior.isna().any().any() or post.isna().any().any():
-            raise ValueError("Null values present after validation/coercion.")
-    else:
-        prior = prior.dropna().reset_index(drop=True)
-        post = post.dropna().reset_index(drop=True)
-        if prior.empty or post.empty:
-            raise ValueError("Null-row dropping removed all rows from baseline or current.")
-
+    prior, post = _align_frames_by_schema_policy(prior, post, cfg.schema_policy)
+    columns = _validate_requested_numeric_columns(prior, numeric_columns)
+    prior, post = _apply_numeric_policy(prior, post, columns, cfg.numeric_policy)
+    prior, post = _apply_null_policy(prior, post, cfg.null_policy)
     return prior, post
