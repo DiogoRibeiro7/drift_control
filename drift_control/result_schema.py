@@ -6,6 +6,14 @@ from html import escape
 from typing import Any
 
 
+def _format_optional_float(value: float | None) -> str:
+    return "-" if value is None else f"{value:.6f}"
+
+
+def _render_html_cell(value: str) -> str:
+    return f"<td>{value}</td>"
+
+
 @dataclass(frozen=True)
 class DriftResult:
     """Normalized drift result schema across detector methods."""
@@ -55,22 +63,21 @@ class DriftResult:
 
     def _repr_html_(self) -> str:
         meta = escape(json.dumps(self.metadata, sort_keys=True))
-        p_value = "-" if self.p_value is None else f"{self.p_value:.6f}"
-        threshold = "-" if self.threshold is None else f"{self.threshold:.6f}"
+        cells = [
+            _render_html_cell(escape(self.method)),
+            _render_html_cell("YES" if self.drift else "NO"),
+            _render_html_cell(f"{self.score:.6f}"),
+            _render_html_cell(_format_optional_float(self.p_value)),
+            _render_html_cell(_format_optional_float(self.threshold)),
+            _render_html_cell(escape(self.comparator)),
+            _render_html_cell(f"<code>{meta}</code>"),
+        ]
         return (
             "<table>"
             "<thead><tr>"
             "<th>Method</th><th>Drift</th><th>Score</th><th>P-Value</th>"
             "<th>Threshold</th><th>Comparator</th><th>Metadata</th>"
             "</tr></thead>"
-            "<tbody><tr>"
-            f"<td>{escape(self.method)}</td>"
-            f"<td>{'YES' if self.drift else 'NO'}</td>"
-            f"<td>{self.score:.6f}</td>"
-            f"<td>{p_value}</td>"
-            f"<td>{threshold}</td>"
-            f"<td>{escape(self.comparator)}</td>"
-            f"<td><code>{meta}</code></td>"
-            "</tr></tbody>"
+            f"<tbody><tr>{''.join(cells)}</tr></tbody>"
             "</table>"
         )

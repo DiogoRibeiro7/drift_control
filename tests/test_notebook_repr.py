@@ -19,6 +19,20 @@ def test_drift_result_repr_html_contains_key_fields():
     assert "calibrated_threshold" in html
 
 
+def test_drift_result_repr_html_escapes_user_content():
+    result = DriftResult(
+        method="<script>",
+        drift=False,
+        score=0.2,
+        comparator="<",
+        metadata={"payload": "<b>unsafe</b>"},
+    )
+    html = result._repr_html_()
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+    assert "&lt;b&gt;unsafe&lt;/b&gt;" in html
+
+
 def test_ensemble_column_result_repr_html_contains_summary_and_methods():
     result = EnsembleColumnResult(
         drift_detected=True,
