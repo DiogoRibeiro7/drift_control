@@ -39,3 +39,15 @@ def test_transform_with_reordered_columns_fails():
     monitor.fit(baseline)
     with pytest.raises(ValueError, match="Feature schema mismatch"):
         monitor.transform(current)
+
+
+def test_score_drift_does_not_set_transform_side_effect_state():
+    baseline = pd.DataFrame({'x': [1, 2, 3, 4, 5]})
+    current = pd.DataFrame({'x': [10, 11, 12, 13, 14]})
+    monitor = DriftMonitor(
+        detector=UnivariateDriftDetector(method="psi", threshold=0.1, bins=5)
+    )
+    monitor.fit(baseline)
+    scores = monitor.score_drift(current)
+    assert scores['x']['drift'] is True
+    assert monitor.drift_results_ is None

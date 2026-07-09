@@ -9,6 +9,11 @@ from ._interop import score_pair
 from .detectors import UnivariateDriftDetector
 
 
+def _coerce_frame(X: pd.DataFrame, *, copy: bool = False) -> pd.DataFrame:
+    frame = pd.DataFrame(X)
+    return frame.copy() if copy else frame
+
+
 class DriftMonitor(BaseEstimator, TransformerMixin):
     """A scikit-learn compatible transformer for monitoring data drift.
 
@@ -27,7 +32,7 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
 
     def fit(self, X: pd.DataFrame, y: Any = None):
         """Store the baseline dataset."""
-        X_df = pd.DataFrame(X).copy()
+        X_df = _coerce_frame(X, copy=True)
         self.baseline_ = X_df
         self.feature_names_in_ = X_df.columns
         self.n_features_in_ = len(X_df.columns)
@@ -36,7 +41,7 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
     def _check_input(self, X: pd.DataFrame) -> pd.DataFrame:
         if self.baseline_ is None:
             raise ValueError("Call fit before scoring drift")
-        X_df = pd.DataFrame(X)
+        X_df = _coerce_frame(X)
         if self.n_features_in_ != len(X_df.columns):
             raise ValueError(
                 f"Expected {self.n_features_in_} features, got {len(X_df.columns)}."
@@ -51,15 +56,18 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
             )
         return X_df
 
+    def _score_columns(self, current: pd.DataFrame) -> dict[str, dict[str, Any]]:
+        results: dict[str, dict[str, Any]] = {}
+        assert self.baseline_ is not None
+        for column in self.baseline_.columns:
+            drift, score = score_pair(self.detector, self.baseline_[column], current[column])
+            results[column] = {"drift": drift, "score": score}
+        return results
+
     def score_drift(self, X: pd.DataFrame) -> dict[str, dict[str, Any]]:
         """Score drift against the baseline without mutating instance state."""
         X_df = self._check_input(X)
-        results: dict[str, dict[str, Any]] = {}
-        assert self.baseline_ is not None
-        for col in self.baseline_.columns:
-            drift, score = score_pair(self.detector, self.baseline_[col], X_df[col])
-            results[col] = {"drift": drift, "score": score}
-        return results
+        return self._score_columns(X_df)
 
     def transform(self, X: pd.DataFrame, y: Any = None):
         """Check drift against the baseline and return data unchanged.
