@@ -136,6 +136,20 @@ def test_performance_delayed_labels():
     assert out.drift_detected is True
 
 
+def test_performance_auc_omitted_when_scores_are_incomplete():
+    mon = PerformanceDriftMonitor(
+        task="classification", metrics=["auc"], window=4, reference={"auc": 0.9}
+    )
+    mon.update([0, 1], [0, 1], [0.1, 0.9])
+    mon.update([0, 1], [0, 1], None)
+    current = mon.current_metrics()
+    assert "auc" not in current
+    out = mon.detect()
+    assert out.metadata["current"] == {}
+    assert out.metadata["degraded"] == []
+    assert out.drift_detected is False
+
+
 def test_performance_validation():
     with pytest.raises(ValidationError):
         PerformanceDriftMonitor(task="ranking")

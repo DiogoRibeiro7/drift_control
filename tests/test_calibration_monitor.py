@@ -28,6 +28,10 @@ def test_validation():
         CalibrationDriftMonitor(window=1000).detect()  # no reference, window not full
 
 
+def test_current_value_is_none_before_any_updates():
+    assert CalibrationDriftMonitor().current_value() is None
+
+
 # --- detection --------------------------------------------------------------
 
 def test_detects_calibration_degradation_ece():

@@ -5,6 +5,13 @@ import pandas as pd
 from drift_control.baseline_store import BaselineStore, LocalBaselineStore
 
 
+def _default_store(
+    directory: str,
+    default_format: Literal["parquet", "csv"],
+) -> BaselineStore:
+    return LocalBaselineStore(directory=directory, default_format=default_format)
+
+
 class BaselineManager:
     """Simple helper for saving and loading baseline datasets with versioning."""
 
@@ -16,7 +23,7 @@ class BaselineManager:
     ) -> None:
         self.directory = directory
         self.default_format = default_format
-        self.store = store or LocalBaselineStore(directory=directory, default_format=default_format)
+        self.store = store or _default_store(directory, default_format)
 
     def save_baseline(
         self,

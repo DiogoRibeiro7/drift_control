@@ -23,6 +23,80 @@ _CLASSIFICATION_METRICS = {"accuracy", "precision", "recall", "f1", "auc"}
 _REGRESSION_METRICS = {"mae", "rmse"}  # both lower-is-better
 
 
+def _allowed_metrics(task: str) -> set[str]:
+    return _CLASSIFICATION_METRICS if task == "classification" else _REGRESSION_METRICS
+
+
+def _default_metrics(task: str) -> list[str]:
+    return ["accuracy", "f1"] if task == "classification" else ["mae", "rmse"]
+
+
+def _classification_metrics(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    y_score: deque[float | None],
+    metrics: list[str],
+) -> dict[str, float]:
+    out: dict[str, float] = {}
+    if "accuracy" in metrics:
+        out["accuracy"] = float(accuracy_score(y_true, y_pred))
+    if "precision" in metrics:
+        out["precision"] = float(
+            precision_score(y_true, y_pred, average="macro", zero_division=0)
+        )
+    if "recall" in metrics:
+        out["recall"] = float(
+            recall_score(y_true, y_pred, average="macro", zero_division=0)
+        )
+    if "f1" in metrics:
+        out["f1"] = float(f1_score(y_true, y_pred, average="macro", zero_division=0))
+    if "auc" in metrics:
+        scores = [score for score in y_score if score is not None]
+        if len(scores) == y_true.shape[0] and np.unique(y_true).size == 2:
+            out["auc"] = float(roc_auc_score(y_true, np.array(scores, dtype=float)))
+    return out
+
+
+def _regression_metrics(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    metrics: list[str],
+) -> dict[str, float]:
+    out: dict[str, float] = {}
+    y_true_float = y_true.astype(float)
+    y_pred_float = y_pred.astype(float)
+    if "mae" in metrics:
+        out["mae"] = float(mean_absolute_error(y_true_float, y_pred_float))
+    if "rmse" in metrics:
+        out["rmse"] = float(np.sqrt(mean_squared_error(y_true_float, y_pred_float)))
+    return out
+
+
+def _metric_change(metric: str, reference: float, current: float) -> float:
+    return (reference - current) if metric in _CLASSIFICATION_METRICS else (current - reference)
+
+
+def _summarize_degradation(
+    metrics: list[str],
+    current: dict[str, float],
+    reference: dict[str, float],
+    *,
+    min_change: float,
+) -> tuple[float, list[str]]:
+    worst = 0.0
+    degraded: list[str] = []
+    for metric in metrics:
+        current_value = current.get(metric)
+        reference_value = reference.get(metric)
+        if current_value is None or reference_value is None:
+            continue
+        change = _metric_change(metric, reference_value, current_value)
+        worst = max(worst, change)
+        if change > min_change:
+            degraded.append(metric)
+    return worst, degraded
+
+
 class PerformanceDriftMonitor:
     """Track rolling metrics over a window and flag degradation vs a reference.
 
@@ -46,13 +120,8 @@ class PerformanceDriftMonitor:
             raise ValidationError("task must be 'classification' or 'regression'")
         if window < 1:
             raise ValidationError("window must be >= 1")
-        allowed = (
-            _CLASSIFICATION_METRICS
-            if task == "classification"
-            else _REGRESSION_METRICS
-        )
-        default = ["accuracy", "f1"] if task == "classification" else ["mae", "rmse"]
-        chosen = list(metrics) if metrics else default
+        allowed = _allowed_metrics(task)
+        chosen = list(metrics) if metrics else _default_metrics(task)
         bad = [m for m in chosen if m not in allowed]
         if bad:
             raise ValidationError(
@@ -107,32 +176,9 @@ class PerformanceDriftMonitor:
             return {}
         yt = np.array(self._y_true)
         yp = np.array(self._y_pred)
-        out: dict[str, float] = {}
         if self.task == "classification":
-            if "accuracy" in self.metrics:
-                out["accuracy"] = float(accuracy_score(yt, yp))
-            if "precision" in self.metrics:
-                out["precision"] = float(
-                    precision_score(yt, yp, average="macro", zero_division=0)
-                )
-            if "recall" in self.metrics:
-                out["recall"] = float(
-                    recall_score(yt, yp, average="macro", zero_division=0)
-                )
-            if "f1" in self.metrics:
-                out["f1"] = float(f1_score(yt, yp, average="macro", zero_division=0))
-            if "auc" in self.metrics:
-                scores = [s for s in self._y_score if s is not None]
-                if len(scores) == yt.shape[0] and np.unique(yt).size == 2:
-                    out["auc"] = float(roc_auc_score(yt, np.array(scores, dtype=float)))
-        else:
-            yt_f = yt.astype(float)
-            yp_f = yp.astype(float)
-            if "mae" in self.metrics:
-                out["mae"] = float(mean_absolute_error(yt_f, yp_f))
-            if "rmse" in self.metrics:
-                out["rmse"] = float(np.sqrt(mean_squared_error(yt_f, yp_f)))
-        return out
+            return _classification_metrics(yt, yp, self._y_score, self.metrics)
+        return _regression_metrics(yt, yp, self.metrics)
 
     def _maybe_capture_reference(self) -> None:
         if self.reference is None and len(self._y_true) >= self.window:
@@ -144,17 +190,12 @@ class PerformanceDriftMonitor:
                 "no reference metrics; pass reference= or fill a full window first"
             )
         current = self.current_metrics()
-        worst = 0.0
-        degraded: list[str] = []
-        for metric in self.metrics:
-            cur = current.get(metric)
-            ref = self.reference.get(metric)
-            if cur is None or ref is None:
-                continue
-            change = (ref - cur) if metric in _CLASSIFICATION_METRICS else (cur - ref)
-            worst = max(worst, change)
-            if change > self.min_change:
-                degraded.append(metric)
+        worst, degraded = _summarize_degradation(
+            self.metrics,
+            current,
+            self.reference,
+            min_change=self.min_change,
+        )
         return DriftResult.new(
             drift_detected=len(degraded) > 0,
             score=float(worst),

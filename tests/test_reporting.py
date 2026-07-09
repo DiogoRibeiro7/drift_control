@@ -58,6 +58,19 @@ def test_default_name_from_metadata():
     assert report.items[0].name == "col_ks"
 
 
+def test_default_name_falls_back_to_check_index_when_missing():
+    result = DriftResult(
+        method="",
+        drift=True,
+        score=0.6,
+        threshold=0.2,
+        comparator=">",
+        metadata={},
+    )
+    report = DriftReport.from_results([result])
+    assert report.items[0].name == "check_0"
+
+
 # --- severity scoring -------------------------------------------------------
 
 def test_severity_none_for_no_drift():

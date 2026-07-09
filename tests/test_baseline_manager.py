@@ -46,3 +46,29 @@ def test_delete_baseline_removes_files(tmp_path):
         manager.load_baseline("data", "1")
     with pytest.raises(FileNotFoundError):
         manager.get_metadata("data", "1")
+
+
+def test_manager_uses_injected_store(tmp_path):
+    calls = {"load": None}
+
+    class _FakeStore:
+        def save(self, **kwargs):
+            return "fake-path"
+
+        def load(self, *, name, version, verify_integrity=True):
+            calls["load"] = (name, version, verify_integrity)
+            return pd.DataFrame({"a": [1]})
+
+        def list(self, *, name=None):
+            return ["data@1"]
+
+        def metadata(self, *, name, version):
+            return {"name": name, "version": version}
+
+        def delete(self, *, name, version):
+            calls["delete"] = (name, version)
+
+    manager = BaselineManager(directory=tmp_path, store=_FakeStore())
+    loaded = manager.load_baseline("data", "1", verify_integrity=False)
+    pd.testing.assert_frame_equal(loaded, pd.DataFrame({"a": [1]}))
+    assert calls["load"] == ("data", "1", False)

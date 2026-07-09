@@ -22,6 +22,12 @@ SCHEMA_VERSION = "1.0"
 _SEVERITY_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3}
 
 
+def _result_name(result: DriftResult, index: int, names: list[str] | None) -> str:
+    if names is not None:
+        return names[index]
+    return str(result.metadata.get("feature") or result.method or f"check_{index}")
+
+
 def _severity(result: DriftResult) -> str:
     if not result.drift:
         return "none"
@@ -38,6 +44,47 @@ def _severity(result: DriftResult) -> str:
     if ratio <= 0.1:
         return "high"
     return "medium" if ratio <= 0.5 else "low"
+
+
+def _build_report_items(
+    results: list[DriftResult],
+    names: list[str] | None,
+) -> list[DriftReportItem]:
+    items: list[DriftReportItem] = []
+    for index, result in enumerate(results):
+        items.append(
+            DriftReportItem(
+                name=_result_name(result, index, names),
+                method=result.method,
+                drift=result.drift,
+                severity=_severity(result),
+                score=result.score,
+                threshold=result.threshold,
+                comparator=result.comparator,
+                p_value=result.p_value,
+            )
+        )
+    return items
+
+
+def _summary(items: list[DriftReportItem]) -> tuple[int, int, float, str]:
+    n_total = len(items)
+    n_drifting = sum(1 for item in items if item.drift)
+    max_severity = max(
+        (item.severity for item in items),
+        key=lambda severity: _SEVERITY_ORDER[severity],
+        default="none",
+    )
+    drift_rate = (n_drifting / n_total) if n_total else 0.0
+    return n_total, n_drifting, drift_rate, max_severity
+
+
+def _item_markdown_row(item: DriftReportItem) -> str:
+    threshold = "-" if item.threshold is None else f"{item.threshold:.4g}"
+    return (
+        f"| {item.name} | {item.method} | {'yes' if item.drift else 'no'} | "
+        f"{item.severity} | {item.score:.4g} | {threshold} |"
+    )
 
 
 @dataclass(frozen=True)
@@ -84,36 +131,13 @@ class DriftReport:
         results = list(results)
         if names is not None and len(names) != len(results):
             raise ValidationError("names must have the same length as results")
-        items: list[DriftReportItem] = []
-        for i, r in enumerate(results):
-            if names is not None:
-                name = names[i]
-            else:
-                name = str(r.metadata.get("feature") or r.method or f"check_{i}")
-            items.append(
-                DriftReportItem(
-                    name=name,
-                    method=r.method,
-                    drift=r.drift,
-                    severity=_severity(r),
-                    score=r.score,
-                    threshold=r.threshold,
-                    comparator=r.comparator,
-                    p_value=r.p_value,
-                )
-            )
-        n_total = len(items)
-        n_drifting = sum(1 for it in items if it.drift)
-        max_severity = max(
-            (it.severity for it in items),
-            key=lambda s: _SEVERITY_ORDER[s],
-            default="none",
-        )
+        items = _build_report_items(results, names)
+        n_total, n_drifting, drift_rate, max_severity = _summary(items)
         return cls(
             items=items,
             n_total=n_total,
             n_drifting=n_drifting,
-            drift_rate=(n_drifting / n_total) if n_total else 0.0,
+            drift_rate=drift_rate,
             max_severity=max_severity,
         )
 
@@ -147,12 +171,8 @@ class DriftReport:
             "| Name | Method | Drift | Severity | Score | Threshold |",
             "| --- | --- | --- | --- | --- | --- |",
         ]
-        for it in self.items:
-            thr = "-" if it.threshold is None else f"{it.threshold:.4g}"
-            lines.append(
-                f"| {it.name} | {it.method} | {'yes' if it.drift else 'no'} | "
-                f"{it.severity} | {it.score:.4g} | {thr} |"
-            )
+        for item in self.items:
+            lines.append(_item_markdown_row(item))
         return "\n".join(lines)
 
     def to_alert_payload(self) -> dict[str, dict[str, Any]]:

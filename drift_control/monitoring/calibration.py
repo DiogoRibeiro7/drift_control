@@ -12,6 +12,34 @@ from ..core.result import DriftResult
 from ..core.types import ArrayLike
 
 
+def _calibration_value(
+    metric: str,
+    y_true: np.ndarray,
+    proba: np.ndarray,
+    *,
+    n_bins: int,
+) -> float:
+    if metric == "ece":
+        return expected_calibration_error(y_true, proba, n_bins=n_bins)
+    return brier_score(y_true, proba)
+
+
+def _calibration_metadata(
+    *,
+    metric: str,
+    reference: float,
+    current: float,
+    n: int,
+) -> dict[str, float | str | int]:
+    return {
+        "metric": metric,
+        "reference": reference,
+        "current": current,
+        "increase": current - reference,
+        "n": n,
+    }
+
+
 def _binary(y_true: ArrayLike, proba: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
     y: np.ndarray = np.asarray(y_true, dtype=float).ravel()
     p: np.ndarray = np.asarray(proba, dtype=float).ravel()
@@ -118,9 +146,7 @@ class CalibrationDriftMonitor:
             return None
         y = np.array(self._y)
         p = np.array(self._p)
-        if self.metric == "ece":
-            return expected_calibration_error(y, p, n_bins=self.n_bins)
-        return brier_score(y, p)
+        return _calibration_value(self.metric, y, p, n_bins=self.n_bins)
 
     def _maybe_capture_reference(self) -> None:
         if self.reference is None and len(self._y) >= self.window:
@@ -140,13 +166,12 @@ class CalibrationDriftMonitor:
             threshold=threshold,
             method=f"calibration_{self.metric}",
             comparator=">",
-            metadata={
-                "metric": self.metric,
-                "reference": self.reference,
-                "current": current,
-                "increase": current - self.reference,
-                "n": len(self._y),
-            },
+            metadata=_calibration_metadata(
+                metric=self.metric,
+                reference=self.reference,
+                current=current,
+                n=len(self._y),
+            ),
         )
 
 
