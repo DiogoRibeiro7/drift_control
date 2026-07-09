@@ -81,6 +81,16 @@ def test_trigger_on_metric_drop_with_autobaseline():
     assert p.should_retrain(_no_drift(), {"accuracy": 0.75}) is True   # drop 0.15 >= 0.1
 
 
+def test_trigger_metric_path_ignores_missing_metric_values():
+    p = TriggerRetrainingPolicy(
+        required_drift_events=1000,
+        metric="accuracy",
+        min_metric_drop=0.1,
+    )
+    assert p.should_retrain(_no_drift(), {}) is False
+    assert p.should_retrain(_no_drift(), {"accuracy": 0.9}) is False
+
+
 def test_trigger_require_all_needs_both():
     p = TriggerRetrainingPolicy(
         required_drift_events=1,
@@ -178,6 +188,8 @@ def test_champion_challenger_validation():
         ChampionChallengerEvaluator(min_improvement=-0.1)
     with pytest.raises(ValidationError):
         ChampionChallengerEvaluator().evaluate([0, 1], [0], [0, 1])
+    with pytest.raises(ValidationError):
+        ChampionChallengerEvaluator().evaluate([], [], [])
 
 
 # --- exposure ---------------------------------------------------------------

@@ -13,6 +13,37 @@ from ..core.result import DriftResult
 from ..core.types import Metrics
 
 
+def _metric_triggered(
+    *,
+    metric: str | None,
+    min_metric_drop: float | None,
+    metrics: Metrics,
+    baseline: float | None,
+) -> tuple[bool, float | None]:
+    if metric is None:
+        return False, baseline
+    assert min_metric_drop is not None
+    value = metrics.get(metric)
+    if value is None:
+        return False, baseline
+    value_float = float(value)
+    if baseline is None:
+        return False, value_float
+    return baseline - value_float >= min_metric_drop, baseline
+
+
+def _combine_triggers(
+    *,
+    drift_trigger: bool,
+    metric_trigger: bool,
+    require_all: bool,
+    has_metric_trigger: bool,
+) -> bool:
+    if require_all and has_metric_trigger:
+        return drift_trigger and metric_trigger
+    return drift_trigger or metric_trigger
+
+
 class PeriodicRetrainingPolicy(RetrainingPolicy):
     """Retrain every ``period`` calls, ignoring drift signals."""
 
@@ -80,21 +111,20 @@ class TriggerRetrainingPolicy(RetrainingPolicy):
         if drift_result.drift_detected:
             self._drift_events += 1
 
-        metric_trigger = False
-        if self.metric is not None:
-            assert self.min_metric_drop is not None  # paired by construction
-            value = metrics.get(self.metric)
-            if value is not None:
-                if self._baseline is None:
-                    self._baseline = float(value)
-                elif self._baseline - float(value) >= self.min_metric_drop:
-                    metric_trigger = True
+        metric_trigger, self._baseline = _metric_triggered(
+            metric=self.metric,
+            min_metric_drop=self.min_metric_drop,
+            metrics=metrics,
+            baseline=self._baseline,
+        )
 
         drift_trigger = self._drift_events >= self.required_drift_events
-        if self.require_all and self.metric is not None:
-            triggered = drift_trigger and metric_trigger
-        else:
-            triggered = drift_trigger or metric_trigger
+        triggered = _combine_triggers(
+            drift_trigger=drift_trigger,
+            metric_trigger=metric_trigger,
+            require_all=self.require_all,
+            has_metric_trigger=self.metric is not None,
+        )
 
         if triggered and self._since_retrain > self.cooldown:
             self._drift_events = 0

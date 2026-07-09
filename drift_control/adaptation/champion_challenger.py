@@ -18,6 +18,32 @@ def _default_metric(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(accuracy_score(y_true, y_pred))
 
 
+def _as_aligned_arrays(
+    y_true: ArrayLike,
+    champion_pred: ArrayLike,
+    challenger_pred: ArrayLike,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    yt = np.asarray(y_true)
+    champ = np.asarray(champion_pred)
+    chall = np.asarray(challenger_pred)
+    if not (yt.shape[0] == champ.shape[0] == chall.shape[0]):
+        raise ValidationError("y_true and both prediction arrays must align")
+    if yt.shape[0] == 0:
+        raise ValidationError("inputs must be non-empty")
+    return yt, champ, chall
+
+
+def _improvement(
+    *,
+    champion_score: float,
+    challenger_score: float,
+    higher_is_better: bool,
+) -> float:
+    if higher_is_better:
+        return challenger_score - champion_score
+    return champion_score - challenger_score
+
+
 @dataclass(frozen=True)
 class ChampionChallengerResult:
     """Outcome of comparing a challenger model against the champion."""
@@ -55,19 +81,13 @@ class ChampionChallengerEvaluator:
         champion_pred: ArrayLike,
         challenger_pred: ArrayLike,
     ) -> ChampionChallengerResult:
-        yt = np.asarray(y_true)
-        champ = np.asarray(champion_pred)
-        chall = np.asarray(challenger_pred)
-        if not (yt.shape[0] == champ.shape[0] == chall.shape[0]):
-            raise ValidationError("y_true and both prediction arrays must align")
-        if yt.shape[0] == 0:
-            raise ValidationError("inputs must be non-empty")
+        yt, champ, chall = _as_aligned_arrays(y_true, champion_pred, challenger_pred)
         champion_score = float(self.metric_fn(yt, champ))
         challenger_score = float(self.metric_fn(yt, chall))
-        improvement = (
-            challenger_score - champion_score
-            if self.higher_is_better
-            else champion_score - challenger_score
+        improvement = _improvement(
+            champion_score=champion_score,
+            challenger_score=challenger_score,
+            higher_is_better=self.higher_is_better,
         )
         return ChampionChallengerResult(
             promote=improvement > self.min_improvement,
