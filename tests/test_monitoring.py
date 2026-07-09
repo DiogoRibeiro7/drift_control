@@ -54,6 +54,16 @@ def test_prediction_class_distribution_drift():
     assert out.metadata["class_drift"] is True
 
 
+def test_prediction_single_class_fallback_is_non_drifting():
+    ref = np.array(["a"] * 100)
+    mon = PredictionDriftMonitor(alpha=0.05).fit(ref)
+    out = mon.detect(np.array(["a"] * 100))
+    assert out.drift_detected is False
+    assert out.metadata["class_distribution_p_value"] == pytest.approx(1.0)
+    assert out.metadata["n_classes"] == 1
+    assert out.metadata["class_drift"] is False
+
+
 def test_prediction_confidence_drift_via_proba():
     ref_pred = (RNG.uniform(0, 1, 1000) < 0.5).astype(int)
     ref_proba = RNG.uniform(0.45, 0.55, 1000)  # low-confidence reference
