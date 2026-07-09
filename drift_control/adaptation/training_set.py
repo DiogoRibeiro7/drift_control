@@ -8,6 +8,21 @@ from ..core.exceptions import ValidationError
 from ..core.types import ArrayLike
 
 
+def _validate_positive_size(value: int, *, name: str) -> int:
+    if value < 1:
+        raise ValidationError(f"{name} must be >= 1")
+    return int(value)
+
+
+def _tail_rows(
+    x: np.ndarray,
+    y: np.ndarray,
+    *,
+    size: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    return x[-size:], y[-size:]
+
+
 def _as_xy(x: ArrayLike, y: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
     xa: np.ndarray = np.asarray(x)
     ya: np.ndarray = np.asarray(y)
@@ -20,10 +35,9 @@ def _as_xy(x: ArrayLike, y: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
 
 def select_sliding(x: ArrayLike, y: ArrayLike, *, size: int) -> tuple[np.ndarray, np.ndarray]:
     """Keep only the most recent ``size`` rows (sliding-window training)."""
-    if size < 1:
-        raise ValidationError("size must be >= 1")
+    size = _validate_positive_size(size, name="size")
     xa, ya = _as_xy(x, y)
-    return xa[-size:], ya[-size:]
+    return _tail_rows(xa, ya, size=size)
 
 
 def select_expanding(
@@ -33,9 +47,8 @@ def select_expanding(
     xa, ya = _as_xy(x, y)
     if max_size is None:
         return xa, ya
-    if max_size < 1:
-        raise ValidationError("max_size must be >= 1 when provided")
-    return xa[-max_size:], ya[-max_size:]
+    max_size = _validate_positive_size(max_size, name="max_size")
+    return _tail_rows(xa, ya, size=max_size)
 
 
 def recency_weights(n: int, *, half_life: float) -> np.ndarray:

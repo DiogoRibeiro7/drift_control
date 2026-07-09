@@ -135,6 +135,8 @@ def test_selector_validation():
     with pytest.raises(ValidationError):
         select_sliding([1, 2], [1], size=1)  # mismatched lengths
     with pytest.raises(ValidationError):
+        select_expanding([1, 2], [1, 2], max_size=0)
+    with pytest.raises(ValidationError):
         recency_weights(5, half_life=0)
 
 
