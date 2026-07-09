@@ -135,6 +135,7 @@ def test_retraining_policy_consumes_result_and_metrics():
 def test_detector_config_defaults_and_validation():
     cfg = DetectorConfig()
     assert cfg.alpha == 0.05 and cfg.random_state == 42
+    assert DetectorConfig(threshold=1).threshold == pytest.approx(1.0)
     with pytest.raises(ValidationError):
         DetectorConfig(alpha=0.0)
     with pytest.raises(ValidationError):

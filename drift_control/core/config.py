@@ -13,6 +13,18 @@ from dataclasses import dataclass
 from .exceptions import ValidationError
 
 
+def _validate_alpha(alpha: float) -> float:
+    if not (0.0 < alpha < 1.0):
+        raise ValidationError("alpha must be in the open interval (0, 1)")
+    return float(alpha)
+
+
+def _validate_threshold(threshold: float | None) -> float | None:
+    if threshold is not None and threshold < 0.0:
+        raise ValidationError("threshold must be non-negative when provided")
+    return None if threshold is None else float(threshold)
+
+
 @dataclass
 class DetectorConfig:
     """Common configuration shared by detectors.
@@ -30,10 +42,8 @@ class DetectorConfig:
     feature_names: list[str] | None = None
 
     def __post_init__(self) -> None:
-        if not (0.0 < self.alpha < 1.0):
-            raise ValidationError("alpha must be in the open interval (0, 1)")
-        if self.threshold is not None and self.threshold < 0.0:
-            raise ValidationError("threshold must be non-negative when provided")
+        self.alpha = _validate_alpha(self.alpha)
+        self.threshold = _validate_threshold(self.threshold)
 
 
 __all__ = ["DetectorConfig"]
