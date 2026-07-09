@@ -6,6 +6,8 @@ the cost of the symbols actually used. Heavy optional dependencies
 imported when the relevant attribute is first accessed.
 """
 
+from __future__ import annotations
+
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _version
@@ -18,102 +20,165 @@ try:
 except PackageNotFoundError:
     __version__ = "0.1.0"
 
-_LAZY: dict[str, str] = {
-    "DriftResult": "drift_control.result_schema",
-    "UnifiedDriftDetector": "drift_control.unified_drift_detector",
-    "DriftCheckConfig": "drift_control.config",
-    "EnsembleConfig": "drift_control.config",
-    "DriftTelemetry": "drift_control.telemetry",
-    "DriftReport": "drift_control.monitoring",
-    "DriftReportItem": "drift_control.monitoring",
-    "HtmlDriftReport": "drift_control.drift_report",
-    "SyntheticDriftBenchmark": "drift_control.benchmark",
-    "BenchmarkResult": "drift_control.benchmark",
-    "EnsembleDriftDetector": "drift_control.ensemble_drift_detector",
-    "EnsembleColumnResult": "drift_control.ensemble_drift_detector",
-    "DriftMonitor": "drift_control.sklearn_adapter",
-    "StreamMonitor": "drift_control.stream_monitor",
-    "KafkaStreamMonitor": "drift_control.stream_monitor",
-    "plot_psi": "drift_control.visualization",
-    "plot_ks": "drift_control.visualization",
-    "BaselineStore": "drift_control.baseline_store",
-    "LocalBaselineStore": "drift_control.baseline_store",
-    "S3BaselineStore": "drift_control.baseline_store",
-    "AlertSink": "drift_control.alert_sinks",
-    "CompositeAlertSink": "drift_control.alert_sinks",
-    "ColumnFilterAlertSink": "drift_control.alert_sinks",
-    "LogAlertSink": "drift_control.alert_sinks",
-    "WebhookAlertSink": "drift_control.alert_sinks",
-    "RetryingWebhookAlertSink": "drift_control.alert_sinks",
-    "SlackWebhookAlertSink": "drift_control.alert_sinks",
-    "create_airflow_drift_task": "drift_control.integrations.airflow",
-    # Core interfaces (see drift_control.core / ROADMAP.md).
-    "BaseDetector": "drift_control.core",
-    "OnlineDetector": "drift_control.core",
-    "RetrainingPolicy": "drift_control.core",
-    "DetectorConfig": "drift_control.core",
-    "DriftControlError": "drift_control.core",
-    "ValidationError": "drift_control.core",
-    "NotFittedError": "drift_control.core",
-    "NotEnoughDataError": "drift_control.core",
-    # Preprocessing: validation + streaming windows (ROADMAP.md Phase 1).
-    "validate_reference_current": "drift_control.preprocessing",
-    "ValidatedPair": "drift_control.preprocessing",
-    "coerce_observations": "drift_control.preprocessing",
-    "SlidingWindow": "drift_control.preprocessing",
-    "ExpandingWindow": "drift_control.preprocessing",
-    "TumblingWindow": "drift_control.preprocessing",
-    # Distance primitives (ROADMAP.md Phase 2).
-    "population_stability_index": "drift_control.distances",
-    "kl_divergence": "drift_control.distances",
-    "js_divergence": "drift_control.distances",
-    "js_distance": "drift_control.distances",
-    "ks_statistic": "drift_control.distances",
-    "chi2_statistic": "drift_control.distances",
-    "total_variation_distance": "drift_control.distances",
-    "wasserstein_distance": "drift_control.distances",
-    "energy_distance": "drift_control.distances",
-    "mmd_squared": "drift_control.distances",
-    "mmd_permutation_test": "drift_control.distances",
-    "energy_permutation_test": "drift_control.distances",
-    "to_histograms": "drift_control.distances",
-    # Batch detectors on the core contract (ROADMAP.md Phase 3).
-    "UnivariateDriftDetector": "drift_control.detectors",
-    "MixedTypeDriftDetector": "drift_control.detectors",
-    "DateTimeDriftDetector": "drift_control.detectors",
-    # Online concept-drift detectors (ROADMAP.md Phase 4).
-    "DDM": "drift_control.detectors",
-    "EDDM": "drift_control.detectors",
-    "PageHinkley": "drift_control.detectors",
-    "CUSUM": "drift_control.detectors",
-    "KSWIN": "drift_control.detectors",
-    # Change-point detection (ROADMAP.md Phase 5).
-    "ShewhartChart": "drift_control.detectors",
-    "EWMAChart": "drift_control.detectors",
-    "SegmentationResult": "drift_control.detectors",
-    "binary_segmentation": "drift_control.detectors",
-    "pelt": "drift_control.detectors",
-    "window_based_change_detection": "drift_control.detectors",
-    "run_online": "drift_control.detectors",
-    # Multivariate + advanced detectors.
-    "MultivariateDriftDetector": "drift_control.detectors",
-    "DetectorEnsemble": "drift_control.detectors",
-    "PCAReconstructionDriftDetector": "drift_control.detectors",
-    # Prediction / performance monitoring (ROADMAP.md Phase 6).
-    "PredictionDriftMonitor": "drift_control.monitoring",
-    "PerformanceDriftMonitor": "drift_control.monitoring",
-    "brier_score": "drift_control.monitoring",
-    "expected_calibration_error": "drift_control.monitoring",
-    "CalibrationDriftMonitor": "drift_control.monitoring",
-    # Adaptation policies (ROADMAP.md Phase 7).
-    "PeriodicRetrainingPolicy": "drift_control.adaptation",
-    "TriggerRetrainingPolicy": "drift_control.adaptation",
-    "select_sliding": "drift_control.adaptation",
-    "select_expanding": "drift_control.adaptation",
-    "recency_weights": "drift_control.adaptation",
-    "ChampionChallengerEvaluator": "drift_control.adaptation",
-    "ChampionChallengerResult": "drift_control.adaptation",
-}
+
+def _export_map(module_name: str, names: list[str]) -> dict[str, str]:
+    return {name: module_name for name in names}
+
+
+_ROOT_EXPORTS = _export_map(
+    "drift_control.result_schema",
+    ["DriftResult"],
+) | _export_map(
+    "drift_control.unified_drift_detector",
+    ["UnifiedDriftDetector"],
+) | _export_map(
+    "drift_control.config",
+    ["DriftCheckConfig", "EnsembleConfig"],
+) | _export_map(
+    "drift_control.telemetry",
+    ["DriftTelemetry"],
+) | _export_map(
+    "drift_control.monitoring",
+    ["DriftReport", "DriftReportItem"],
+) | _export_map(
+    "drift_control.drift_report",
+    ["HtmlDriftReport"],
+) | _export_map(
+    "drift_control.benchmark",
+    ["SyntheticDriftBenchmark", "BenchmarkResult"],
+) | _export_map(
+    "drift_control.ensemble_drift_detector",
+    ["EnsembleDriftDetector", "EnsembleColumnResult"],
+) | _export_map(
+    "drift_control.sklearn_adapter",
+    ["DriftMonitor"],
+) | _export_map(
+    "drift_control.stream_monitor",
+    ["StreamMonitor", "KafkaStreamMonitor"],
+) | _export_map(
+    "drift_control.visualization",
+    ["plot_psi", "plot_ks"],
+) | _export_map(
+    "drift_control.baseline_store",
+    ["BaselineStore", "LocalBaselineStore", "S3BaselineStore"],
+) | _export_map(
+    "drift_control.alert_sinks",
+    [
+        "AlertSink",
+        "CompositeAlertSink",
+        "ColumnFilterAlertSink",
+        "LogAlertSink",
+        "WebhookAlertSink",
+        "RetryingWebhookAlertSink",
+        "SlackWebhookAlertSink",
+    ],
+) | _export_map(
+    "drift_control.integrations.airflow",
+    ["create_airflow_drift_task"],
+)
+
+_CORE_EXPORTS = _export_map(
+    "drift_control.core",
+    [
+        "BaseDetector",
+        "OnlineDetector",
+        "RetrainingPolicy",
+        "DetectorConfig",
+        "DriftControlError",
+        "ValidationError",
+        "NotFittedError",
+        "NotEnoughDataError",
+    ],
+)
+
+_PREPROCESSING_EXPORTS = _export_map(
+    "drift_control.preprocessing",
+    [
+        "validate_reference_current",
+        "ValidatedPair",
+        "coerce_observations",
+        "SlidingWindow",
+        "ExpandingWindow",
+        "TumblingWindow",
+    ],
+)
+
+_DISTANCE_EXPORTS = _export_map(
+    "drift_control.distances",
+    [
+        "population_stability_index",
+        "kl_divergence",
+        "js_divergence",
+        "js_distance",
+        "ks_statistic",
+        "chi2_statistic",
+        "total_variation_distance",
+        "wasserstein_distance",
+        "energy_distance",
+        "mmd_squared",
+        "mmd_permutation_test",
+        "energy_permutation_test",
+        "to_histograms",
+    ],
+)
+
+_DETECTOR_EXPORTS = _export_map(
+    "drift_control.detectors",
+    [
+        "UnivariateDriftDetector",
+        "MixedTypeDriftDetector",
+        "DateTimeDriftDetector",
+        "DDM",
+        "EDDM",
+        "PageHinkley",
+        "CUSUM",
+        "KSWIN",
+        "ShewhartChart",
+        "EWMAChart",
+        "SegmentationResult",
+        "binary_segmentation",
+        "pelt",
+        "window_based_change_detection",
+        "run_online",
+        "MultivariateDriftDetector",
+        "DetectorEnsemble",
+        "PCAReconstructionDriftDetector",
+    ],
+)
+
+_MONITORING_EXPORTS = _export_map(
+    "drift_control.monitoring",
+    [
+        "PredictionDriftMonitor",
+        "PerformanceDriftMonitor",
+        "brier_score",
+        "expected_calibration_error",
+        "CalibrationDriftMonitor",
+    ],
+)
+
+_ADAPTATION_EXPORTS = _export_map(
+    "drift_control.adaptation",
+    [
+        "PeriodicRetrainingPolicy",
+        "TriggerRetrainingPolicy",
+        "select_sliding",
+        "select_expanding",
+        "recency_weights",
+        "ChampionChallengerEvaluator",
+        "ChampionChallengerResult",
+    ],
+)
+
+_LAZY: dict[str, str] = (
+    _ROOT_EXPORTS
+    | _CORE_EXPORTS
+    | _PREPROCESSING_EXPORTS
+    | _DISTANCE_EXPORTS
+    | _DETECTOR_EXPORTS
+    | _MONITORING_EXPORTS
+    | _ADAPTATION_EXPORTS
+)
 
 __all__ = list(_LAZY.keys())
 
