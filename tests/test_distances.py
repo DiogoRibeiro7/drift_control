@@ -11,6 +11,7 @@ from scipy.stats import wasserstein_distance as scipy_wd
 
 from drift_control.core.exceptions import ValidationError
 from drift_control.distances import (
+    bin_edges,
     chi2_statistic,
     energy_distance,
     js_distance,
@@ -46,6 +47,12 @@ def test_to_histograms_are_probabilities():
     assert ref_p.shape == cur_p.shape
     assert ref_p.sum() == pytest.approx(1.0)
     assert cur_p.sum() == pytest.approx(1.0)
+
+
+def test_bin_edges_constant_reference_falls_back_to_two_edges():
+    edges = bin_edges(np.ones(5), bins=4)
+    assert edges.shape == (2,)
+    assert edges[1] > edges[0]
 
 
 # --- KL / JS ----------------------------------------------------------------

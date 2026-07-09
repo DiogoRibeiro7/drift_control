@@ -14,13 +14,27 @@ from ..core.types import ArrayLike
 from ._common import as_1d
 
 
+def _validate_bins(bins: int) -> int:
+    if bins < 1:
+        raise ValidationError("bins must be >= 1")
+    return int(bins)
+
+
+def _fallback_edges(reference: np.ndarray) -> np.ndarray:
+    base = float(reference.min())
+    return np.array([base, base + 1.0])
+
+
+def _probabilities(counts: np.ndarray) -> np.ndarray:
+    return counts / max(counts.sum(), 1)
+
+
 def bin_edges(
     reference: ArrayLike, *, bins: int = 10, strategy: str = "quantile"
 ) -> np.ndarray:
     """Bin edges fit on ``reference`` alone."""
     ref = as_1d(reference, "reference")
-    if bins < 1:
-        raise ValidationError("bins must be >= 1")
+    bins = _validate_bins(bins)
     if strategy == "quantile":
         edges: np.ndarray = np.quantile(ref, np.linspace(0.0, 1.0, bins + 1))
     elif strategy == "uniform":
@@ -29,8 +43,7 @@ def bin_edges(
         raise ValidationError("strategy must be 'quantile' or 'uniform'")
     edges = np.unique(edges)
     if edges.size < 2:
-        base = float(ref.min())
-        edges = np.array([base, base + 1.0])
+        edges = _fallback_edges(ref)
     return edges
 
 
@@ -49,6 +62,6 @@ def to_histograms(
     edges[-1] = max(float(edges[-1]), float(cur.max()))
     ref_counts, _ = np.histogram(ref, bins=edges)
     cur_counts, _ = np.histogram(cur, bins=edges)
-    ref_p: np.ndarray = ref_counts / max(ref_counts.sum(), 1)
-    cur_p: np.ndarray = cur_counts / max(cur_counts.sum(), 1)
+    ref_p = _probabilities(ref_counts)
+    cur_p = _probabilities(cur_counts)
     return ref_p, cur_p
