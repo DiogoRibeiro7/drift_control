@@ -37,6 +37,18 @@ def test_score_pair_dispatches_tuple_and_core():
     assert isinstance(tuple_score, float) and isinstance(core_score, float)
 
 
+def test_score_pair_normalizes_legacy_detector_outputs():
+    class _LooseTupleDetector:
+        def detect_drift(self, reference, current):
+            return 1, np.mean(current) - np.mean(reference)
+
+    ref = RNG.normal(0, 1, 50)
+    cur = RNG.normal(2, 1, 50)
+    drift, score = score_pair(_LooseTupleDetector(), ref, cur)
+    assert drift is True
+    assert isinstance(score, float)
+
+
 # --- StreamMonitor ----------------------------------------------------------
 
 def test_stream_monitor_with_core_detector():

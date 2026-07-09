@@ -12,6 +12,17 @@ from __future__ import annotations
 from typing import Any
 
 
+def _score_legacy_pair(detector: Any, reference: Any, current: Any) -> tuple[bool, float]:
+    detect_drift = detector.detect_drift
+    drift, score = detect_drift(reference, current)
+    return bool(drift), float(score)
+
+
+def _score_core_pair(detector: Any, reference: Any, current: Any) -> tuple[bool, float]:
+    result = detector.fit(reference).detect(current)
+    return bool(result.drift_detected), float(result.score)
+
+
 def score_pair(detector: Any, reference: Any, current: Any) -> tuple[bool, float]:
     """Return ``(drift, score)`` for one reference/current pair.
 
@@ -20,10 +31,8 @@ def score_pair(detector: Any, reference: Any, current: Any) -> tuple[bool, float
     """
     detect_drift = getattr(detector, "detect_drift", None)
     if callable(detect_drift):
-        drift, score = detect_drift(reference, current)
-        return bool(drift), float(score)
-    result = detector.fit(reference).detect(current)
-    return bool(result.drift_detected), float(result.score)
+        return _score_legacy_pair(detector, reference, current)
+    return _score_core_pair(detector, reference, current)
 
 
 __all__ = ["score_pair"]
