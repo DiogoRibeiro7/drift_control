@@ -20,9 +20,100 @@ SUPPORTED_METHODS = {
     "datetime",
     "ensemble",
 }
-SUPPORTED_ENSEMBLE_METHODS = {"psi", "ks", "cvm", "js", "wasserstein", "chi2cat", "tvdcat"}
+SUPPORTED_ENSEMBLE_METHODS = {
+    "psi",
+    "ks",
+    "cvm",
+    "js",
+    "wasserstein",
+    "chi2cat",
+    "tvdcat",
+}
 SUPPORTED_VOTE_MODES = {"majority", "any", "all", "stacking"}
 SUPPORTED_CORRECTIONS = {"none", "bonferroni", "bh"}
+DEFAULT_ENSEMBLE_METHODS = ["psi", "ks", "cvm", "js"]
+
+
+def _default_ensemble_config() -> EnsembleConfig:
+    return EnsembleConfig(methods=list(DEFAULT_ENSEMBLE_METHODS))
+
+
+def _parse_ensemble_methods_csv(raw: str) -> list[str]:
+    methods = [method.strip() for method in raw.split(",") if method.strip()]
+    return methods or list(DEFAULT_ENSEMBLE_METHODS)
+
+
+def _optional_float(raw: str | None) -> float | None:
+    if raw is None or raw == "":
+        return None
+    return float(raw)
+
+
+def _optional_int(raw: str | None) -> int | None:
+    if raw is None or raw == "":
+        return None
+    return int(raw)
+
+
+def _build_ensemble_config(
+    *,
+    methods: list[str],
+    vote_mode: str,
+    min_votes: int | None,
+    stack_threshold: float,
+) -> EnsembleConfig:
+    return EnsembleConfig(
+        methods=methods,
+        vote_mode=vote_mode,
+        min_votes=min_votes,
+        stack_threshold=stack_threshold,
+    )
+
+
+def _load_config_mapping(path: str | Path) -> dict[str, Any]:
+    file_path = Path(path)
+    suffix = file_path.suffix.lower()
+    text = file_path.read_text(encoding="utf-8")
+    if suffix == ".json":
+        raw = json.loads(text)
+    elif suffix == ".toml":
+        try:
+            import tomllib as _toml_loader  # type: ignore[import-not-found]
+        except ModuleNotFoundError:  # pragma: no cover
+            import tomli as _toml_loader  # type: ignore[import-not-found]
+        raw = _toml_loader.loads(text)
+    elif suffix in {".yaml", ".yml"}:
+        try:
+            import yaml
+        except ImportError as exc:
+            raise ValueError(
+                "YAML config requires pyyaml. Install with: pip install pyyaml"
+            ) from exc
+        raw = yaml.safe_load(text)
+    else:
+        raise ValueError("config file must be .json, .toml, .yaml, or .yml")
+    if not isinstance(raw, dict):
+        raise ValueError("config file root must be a mapping/object")
+    return raw
+
+
+def _ensemble_from_mapping(raw: Any) -> EnsembleConfig:
+    ensemble_raw = {} if raw is None else raw
+    if not isinstance(ensemble_raw, dict):
+        raise ValueError("ensemble config must be a mapping/object")
+    methods_raw = ensemble_raw.get("methods", list(DEFAULT_ENSEMBLE_METHODS))
+    if not isinstance(methods_raw, list):
+        raise ValueError("ensemble.methods must be a list")
+    methods = [str(method) for method in methods_raw]
+    vote_mode = str(ensemble_raw.get("vote_mode", "majority"))
+    min_votes = int(ensemble_raw["min_votes"]) if ensemble_raw.get("min_votes") is not None else None
+    stack_threshold = float(ensemble_raw.get("stack_threshold", 0.5))
+    return _build_ensemble_config(
+        methods=methods,
+        vote_mode=vote_mode,
+        min_votes=min_votes,
+        stack_threshold=stack_threshold,
+    )
 
 
 @dataclass(frozen=True)
@@ -38,9 +129,10 @@ class EnsembleConfig:
             raise ValueError(f"unknown methods: {unknown}")
         if self.vote_mode not in SUPPORTED_VOTE_MODES:
             raise ValueError("vote_mode must be one of: 'majority', 'any', 'all', 'stacking'")
-        if self.min_votes is not None:
-            if self.min_votes < 1 or self.min_votes > len(self.methods):
-                raise ValueError("min_votes must be between 1 and the number of methods")
+        if self.min_votes is not None and (
+            self.min_votes < 1 or self.min_votes > len(self.methods)
+        ):
+            raise ValueError("min_votes must be between 1 and the number of methods")
         if not (0 <= self.stack_threshold <= 1):
             raise ValueError("stack_threshold must be between 0 and 1")
 
@@ -50,9 +142,7 @@ class DriftCheckConfig:
     method: str = "psi"
     threshold: float | None = None
     correction: str = "none"
-    ensemble: EnsembleConfig = field(
-        default_factory=lambda: EnsembleConfig(methods=["psi", "ks", "cvm", "js"])
-    )
+    ensemble: EnsembleConfig = field(default_factory=_default_ensemble_config)
 
     def __post_init__(self) -> None:
         if self.method not in SUPPORTED_METHODS:
@@ -70,11 +160,8 @@ class DriftCheckConfig:
         min_votes: int | None,
         stack_threshold: float = 0.5,
     ) -> DriftCheckConfig:
-        methods = [m.strip() for m in ensemble_methods.split(",") if m.strip()]
-        if not methods:
-            methods = ["psi", "ks", "cvm", "js"]
-        ensemble = EnsembleConfig(
-            methods=methods,
+        ensemble = _build_ensemble_config(
+            methods=_parse_ensemble_methods_csv(ensemble_methods),
             vote_mode=vote_mode,
             min_votes=min_votes,
             stack_threshold=stack_threshold,
@@ -89,87 +176,31 @@ class DriftCheckConfig:
     @staticmethod
     def from_file(path: str | Path) -> DriftCheckConfig:
         """Load drift configuration from JSON, TOML, or YAML file."""
-        file_path = Path(path)
-        suffix = file_path.suffix.lower()
-        text = file_path.read_text(encoding="utf-8")
-
-        if suffix == ".json":
-            raw = json.loads(text)
-        elif suffix == ".toml":
-            try:
-                import tomllib as _toml_loader  # type: ignore[import-not-found]
-            except ModuleNotFoundError:  # pragma: no cover
-                import tomli as _toml_loader  # type: ignore[import-not-found]
-            raw = _toml_loader.loads(text)
-        elif suffix in {".yaml", ".yml"}:
-            try:
-                import yaml
-            except ImportError as exc:
-                raise ValueError(
-                    "YAML config requires pyyaml. Install with: pip install pyyaml"
-                ) from exc
-            raw = yaml.safe_load(text)
-        else:
-            raise ValueError("config file must be .json, .toml, .yaml, or .yml")
-
-        if not isinstance(raw, dict):
-            raise ValueError("config file root must be a mapping/object")
-
-        return DriftCheckConfig._from_mapping(raw)
+        return DriftCheckConfig._from_mapping(_load_config_mapping(path))
 
     @staticmethod
     def from_env(prefix: str = "DRIFT_CONTROL_") -> DriftCheckConfig:
         """Load drift configuration from environment variables."""
-        method = os.getenv(f"{prefix}METHOD", "psi")
-        threshold_raw = os.getenv(f"{prefix}THRESHOLD")
-        threshold: float | None = None
-        if threshold_raw is not None and threshold_raw != "":
-            threshold = float(threshold_raw)
-        ensemble_methods = os.getenv(f"{prefix}ENSEMBLE_METHODS", "psi,ks,cvm,js")
-        correction = os.getenv(f"{prefix}CORRECTION", "none")
-        vote_mode = os.getenv(f"{prefix}VOTE_MODE", "majority")
-        min_votes_raw = os.getenv(f"{prefix}MIN_VOTES")
-        min_votes: int | None = None
-        if min_votes_raw is not None and min_votes_raw != "":
-            min_votes = int(min_votes_raw)
         return DriftCheckConfig.from_cli(
-            method=method,
-            threshold=threshold,
-            correction=correction,
-            ensemble_methods=ensemble_methods,
-            vote_mode=vote_mode,
-            min_votes=min_votes,
+            method=os.getenv(f"{prefix}METHOD", "psi"),
+            threshold=_optional_float(os.getenv(f"{prefix}THRESHOLD")),
+            correction=os.getenv(f"{prefix}CORRECTION", "none"),
+            ensemble_methods=os.getenv(
+                f"{prefix}ENSEMBLE_METHODS", ",".join(DEFAULT_ENSEMBLE_METHODS)
+            ),
+            vote_mode=os.getenv(f"{prefix}VOTE_MODE", "majority"),
+            min_votes=_optional_int(os.getenv(f"{prefix}MIN_VOTES")),
             stack_threshold=0.5,
         )
 
     @staticmethod
     def _from_mapping(raw: dict[str, Any]) -> DriftCheckConfig:
         method = str(raw.get("method", "psi"))
-        threshold_val = raw.get("threshold")
-        threshold = float(threshold_val) if threshold_val is not None else None
-        correction = str(raw.get("correction", "none"))
-        ensemble_raw = raw.get("ensemble", {})
-        if ensemble_raw is None:
-            ensemble_raw = {}
-        if not isinstance(ensemble_raw, dict):
-            raise ValueError("ensemble config must be a mapping/object")
-
-        methods_raw = ensemble_raw.get("methods", ["psi", "ks", "cvm", "js"])
-        if not isinstance(methods_raw, list):
-            raise ValueError("ensemble.methods must be a list")
-        methods = [str(m) for m in methods_raw]
-
-        vote_mode = str(ensemble_raw.get("vote_mode", "majority"))
-        min_votes_raw = ensemble_raw.get("min_votes")
-        min_votes = int(min_votes_raw) if min_votes_raw is not None else None
-        stack_threshold_raw = ensemble_raw.get("stack_threshold", 0.5)
-        stack_threshold = float(stack_threshold_raw)
-        ensemble = EnsembleConfig(
-            methods=methods,
-            vote_mode=vote_mode,
-            min_votes=min_votes,
-            stack_threshold=stack_threshold,
+        threshold = (
+            float(raw["threshold"]) if raw.get("threshold") is not None else None
         )
+        correction = str(raw.get("correction", "none"))
+        ensemble = _ensemble_from_mapping(raw.get("ensemble", {}))
         return DriftCheckConfig(
             method=method,
             threshold=threshold,
