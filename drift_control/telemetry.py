@@ -7,6 +7,37 @@ from dataclasses import dataclass
 Attributes = Mapping[str, str | int | float | bool]
 
 
+def _telemetry_state() -> dict[str, object | None]:
+    return {
+        "latency_hist": None,
+        "drift_rate_hist": None,
+        "error_counter": None,
+        "tracer": None,
+    }
+
+
+def _load_opentelemetry_state(namespace: str) -> dict[str, object | None]:
+    from opentelemetry import metrics, trace
+
+    meter = metrics.get_meter(namespace)
+    return {
+        "latency_hist": meter.create_histogram(
+            name="drift_control.latency_ms",
+            unit="ms",
+            description="Drift check latency in milliseconds",
+        ),
+        "drift_rate_hist": meter.create_histogram(
+            name="drift_control.drift_rate",
+            description="Observed drift decision rate",
+        ),
+        "error_counter": meter.create_counter(
+            name="drift_control.error_count",
+            description="Count of drift pipeline errors",
+        ),
+        "tracer": trace.get_tracer(namespace),
+    }
+
+
 @dataclass
 class DriftTelemetry:
     """Optional telemetry hooks backed by OpenTelemetry metrics when available."""
@@ -14,34 +45,16 @@ class DriftTelemetry:
     namespace: str = "drift_control"
 
     def __post_init__(self) -> None:
-        self._latency_hist = None
-        self._drift_rate_hist = None
-        self._error_counter = None
-        self._tracer = None
+        state = _telemetry_state()
         try:
-            from opentelemetry import metrics, trace
-
-            meter = metrics.get_meter(self.namespace)
-            self._tracer = trace.get_tracer(self.namespace)
-            self._latency_hist = meter.create_histogram(
-                name="drift_control.latency_ms",
-                unit="ms",
-                description="Drift check latency in milliseconds",
-            )
-            self._drift_rate_hist = meter.create_histogram(
-                name="drift_control.drift_rate",
-                description="Observed drift decision rate",
-            )
-            self._error_counter = meter.create_counter(
-                name="drift_control.error_count",
-                description="Count of drift pipeline errors",
-            )
+            state = _load_opentelemetry_state(self.namespace)
         except Exception:
             # No-op mode when OpenTelemetry is not installed/configured.
-            self._latency_hist = None
-            self._drift_rate_hist = None
-            self._error_counter = None
-            self._tracer = None
+            pass
+        self._latency_hist = state["latency_hist"]
+        self._drift_rate_hist = state["drift_rate_hist"]
+        self._error_counter = state["error_counter"]
+        self._tracer = state["tracer"]
 
     def record_latency(self, value_ms: float, attributes: Attributes | None = None) -> None:
         if self._latency_hist is not None:

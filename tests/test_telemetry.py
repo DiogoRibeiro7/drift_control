@@ -32,3 +32,31 @@ def test_telemetry_start_span_uses_tracer_when_available():
     with t.start_span("test.span", {"component": "test"}):
         pass
     assert entered["n"] == 1
+
+
+def test_telemetry_records_metrics_when_backends_are_present():
+    calls = {"latency": [], "drift_rate": [], "errors": []}
+
+    class _FakeHistogram:
+        def __init__(self, key):
+            self._key = key
+
+        def record(self, value, attributes=None):
+            calls[self._key].append((value, attributes))
+
+    class _FakeCounter:
+        def add(self, value, attributes=None):
+            calls["errors"].append((value, attributes))
+
+    t = DriftTelemetry(namespace="test.telemetry")
+    t._latency_hist = _FakeHistogram("latency")  # type: ignore[attr-defined]
+    t._drift_rate_hist = _FakeHistogram("drift_rate")  # type: ignore[attr-defined]
+    t._error_counter = _FakeCounter()  # type: ignore[attr-defined]
+
+    t.record_latency(12.3, {"component": "test"})
+    t.record_drift_rate(0.5, {"component": "test"})
+    t.record_error({"component": "test"})
+
+    assert calls["latency"] == [(12.3, {"component": "test"})]
+    assert calls["drift_rate"] == [(0.5, {"component": "test"})]
+    assert calls["errors"] == [(1, {"component": "test"})]
