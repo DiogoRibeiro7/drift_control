@@ -53,6 +53,22 @@ def test_slack_webhook_alert_sink_formats_text(monkeypatch):
     assert payload["drift_result"]["x"]["drift"] is True
 
 
+def test_slack_webhook_alert_sink_formats_no_drift_text(monkeypatch):
+    captured = {}
+
+    def _fake_urlopen(req, timeout):
+        captured["body"] = req.data
+        return _FakeResponse()
+
+    monkeypatch.setattr("drift_control.alert_sinks.request.urlopen", _fake_urlopen)
+    sink = SlackWebhookAlertSink(url="https://hooks.slack.test/abc")
+    sink.send({"x": {"drift": False, "score": 0.1}})
+
+    payload = json.loads(captured["body"].decode("utf-8"))
+    assert payload["text"] == "Drift check executed with no drifting columns."
+    assert payload["drift_result"]["x"]["drift"] is False
+
+
 def test_composite_alert_sink_fans_out_to_all_sinks():
     calls = {"a": 0, "b": 0}
 
