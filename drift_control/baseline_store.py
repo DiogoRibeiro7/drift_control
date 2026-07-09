@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -5,11 +7,12 @@ import re
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 import pandas as pd
 
 _SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9._-]+$")
+_FORMAT_SUFFIXES: tuple[Literal["parquet", "csv"], ...] = ("parquet", "csv")
 
 
 def _validate_component(value: str, field: str) -> None:
@@ -20,6 +23,91 @@ def _validate_component(value: str, field: str) -> None:
             f"{field} may only contain letters, digits, '.', '_' and '-'; "
             f"got {value!r}"
         )
+
+
+def _file_extension(fmt: Literal["parquet", "csv"]) -> str:
+    return "parquet" if fmt == "parquet" else "csv"
+
+
+def _baseline_filename(name: str, version: str, fmt: Literal["parquet", "csv"]) -> str:
+    _validate_component(name, "name")
+    _validate_component(version, "version")
+    return f"{name}_v{version}.{_file_extension(fmt)}"
+
+
+def _metadata_payload(
+    *,
+    name: str,
+    version: str,
+    path: str,
+    fmt: Literal["parquet", "csv"],
+    row_count: int,
+    dataset_sha256: str,
+    owner: str | None,
+    training_job_id: str | None,
+) -> dict[str, Any]:
+    return {
+        "name": name,
+        "version": version,
+        "path": path,
+        "format": fmt,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "row_count": row_count,
+        "dataset_sha256": dataset_sha256,
+        "owner": owner,
+        "training_job_id": training_job_id,
+    }
+
+
+def _parquet_available() -> bool:
+    try:
+        import pyarrow  # type: ignore # noqa: F401
+
+        return True
+    except Exception:
+        try:
+            import fastparquet  # type: ignore # noqa: F401
+
+            return True
+        except Exception:
+            return False
+
+
+def _select_format(
+    requested: Literal["parquet", "csv"] | None,
+    default_format: Literal["parquet", "csv"],
+) -> Literal["parquet", "csv"]:
+    selected = requested or default_format
+    if selected == "parquet" and not _parquet_available():
+        return "csv"
+    return selected
+
+
+def _bytes_sha256(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _read_frame_from_bytes(payload: bytes, fmt: Literal["parquet", "csv"]) -> pd.DataFrame:
+    buffer = BytesIO(payload)
+    if fmt == "parquet":
+        return pd.read_parquet(buffer)
+    return pd.read_csv(buffer)
+
+
+def _write_frame_to_bytes(data: pd.DataFrame, fmt: Literal["parquet", "csv"]) -> bytes:
+    buffer = BytesIO()
+    if fmt == "parquet":
+        data.to_parquet(buffer, index=False)
+    else:
+        buffer.write(data.to_csv(index=False).encode("utf-8"))
+    return buffer.getvalue()
+
+
+def _parse_baseline_identifier(stem: str) -> tuple[str, str] | None:
+    if "_v" not in stem:
+        return None
+    name, version = stem.rsplit("_v", 1)
+    return name, version
 
 
 class BaselineStore(Protocol):
@@ -53,11 +141,10 @@ class LocalBaselineStore:
         os.makedirs(self.directory, exist_ok=True)
 
     def _path(self, name: str, version: str, fmt: Literal["parquet", "csv"] = "csv") -> str:
-        _validate_component(name, "name")
-        _validate_component(version, "version")
-        ext = "parquet" if fmt == "parquet" else "csv"
-        filename = f"{name}_v{version}.{ext}"
-        return os.path.join(self.directory, filename)
+        return os.path.join(self.directory, _baseline_filename(name, version, fmt))
+
+    def _meta_path(self, name: str, version: str, fmt: Literal["parquet", "csv"] = "csv") -> str:
+        return self._path(name, version, fmt=fmt) + ".meta.json"
 
     @staticmethod
     def _file_sha256(path: str) -> str:
@@ -67,30 +154,11 @@ class LocalBaselineStore:
                 h.update(chunk)
         return h.hexdigest()
 
-    def _meta_path(self, name: str, version: str, fmt: Literal["parquet", "csv"] = "csv") -> str:
-        return self._path(name, version, fmt=fmt) + ".meta.json"
-
-    @staticmethod
-    def _parquet_available() -> bool:
-        try:
-            import pyarrow  # type: ignore # noqa: F401
-
-            return True
-        except Exception:
-            try:
-                import fastparquet  # type: ignore # noqa: F401
-
-                return True
-            except Exception:
-                return False
-
     def _resolve_existing_path(self, name: str, version: str) -> tuple[str, Literal["parquet", "csv"]]:
-        p_parquet = self._path(name, version, fmt="parquet")
-        p_csv = self._path(name, version, fmt="csv")
-        if os.path.exists(p_parquet):
-            return p_parquet, "parquet"
-        if os.path.exists(p_csv):
-            return p_csv, "csv"
+        for fmt in _FORMAT_SUFFIXES:
+            path = self._path(name, version, fmt=fmt)
+            if os.path.exists(path):
+                return path, fmt
         raise FileNotFoundError(f"Baseline {name} v{version} not found")
 
     def save(
@@ -102,25 +170,22 @@ class LocalBaselineStore:
         training_job_id: str | None = None,
         fmt: Literal["parquet", "csv"] | None = None,
     ) -> str:
-        selected = fmt or self.default_format
-        if selected == "parquet" and not self._parquet_available():
-            selected = "csv"
+        selected = _select_format(fmt, self.default_format)
         path = self._path(name, version, fmt=selected)
         if selected == "parquet":
             data.to_parquet(path, index=False)
         else:
             data.to_csv(path, index=False)
-        meta = {
-            "name": name,
-            "version": version,
-            "path": path,
-            "format": selected,
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-            "row_count": int(len(data)),
-            "dataset_sha256": self._file_sha256(path),
-            "owner": owner,
-            "training_job_id": training_job_id,
-        }
+        meta = _metadata_payload(
+            name=name,
+            version=version,
+            path=path,
+            fmt=selected,
+            row_count=int(len(data)),
+            dataset_sha256=self._file_sha256(path),
+            owner=owner,
+            training_job_id=training_job_id,
+        )
         with open(self._meta_path(name, version, fmt=selected), "w", encoding="utf-8") as f:
             json.dump(meta, f)
         return path
@@ -142,33 +207,31 @@ class LocalBaselineStore:
 
     def list(self, name: str | None = None) -> list[str]:
         out: list[str] = []
-        for p in list(Path(self.directory).glob("*_v*.csv")) + list(Path(self.directory).glob("*_v*.parquet")):
-            stem = p.stem
-            if "_v" not in stem:
-                continue
-            n, v = stem.rsplit("_v", 1)
-            if name is not None and n != name:
-                continue
-            out.append(f"{n}@{v}")
+        root = Path(self.directory)
+        for fmt in _FORMAT_SUFFIXES:
+            for path in root.glob(f"*_v*.{_file_extension(fmt)}"):
+                identifier = _parse_baseline_identifier(path.stem)
+                if identifier is None:
+                    continue
+                baseline_name, version = identifier
+                if name is not None and baseline_name != name:
+                    continue
+                out.append(f"{baseline_name}@{version}")
         return sorted(out)
 
     def metadata(self, name: str, version: str) -> dict:
-        meta_path_csv = self._meta_path(name, version, fmt="csv")
-        meta_path_parquet = self._meta_path(name, version, fmt="parquet")
-        meta_path = meta_path_parquet if os.path.exists(meta_path_parquet) else meta_path_csv
-        if not os.path.exists(meta_path):
-            raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
-        with open(meta_path, encoding="utf-8") as f:
-            return json.load(f)
+        for fmt in _FORMAT_SUFFIXES:
+            meta_path = self._meta_path(name, version, fmt=fmt)
+            if os.path.exists(meta_path):
+                with open(meta_path, encoding="utf-8") as f:
+                    return json.load(f)
+        raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
 
     def delete(self, name: str, version: str) -> None:
-        for fmt in ("csv", "parquet"):
-            path = self._path(name, version, fmt=fmt)
-            meta_path = self._meta_path(name, version, fmt=fmt)
-            if os.path.exists(path):
-                os.remove(path)
-            if os.path.exists(meta_path):
-                os.remove(meta_path)
+        for fmt in _FORMAT_SUFFIXES:
+            for path in (self._path(name, version, fmt=fmt), self._meta_path(name, version, fmt=fmt)):
+                if os.path.exists(path):
+                    os.remove(path)
 
 
 class S3BaselineStore:
@@ -194,30 +257,11 @@ class S3BaselineStore:
             self.s3_client = s3_client
 
     def _object_key(self, name: str, version: str, fmt: Literal["parquet", "csv"] = "csv") -> str:
-        _validate_component(name, "name")
-        _validate_component(version, "version")
-        ext = "parquet" if fmt == "parquet" else "csv"
-        base = f"{name}_v{version}.{ext}"
-        return f"{self.prefix}/{base}" if self.prefix else base
+        filename = _baseline_filename(name, version, fmt)
+        return f"{self.prefix}/{filename}" if self.prefix else filename
 
     def _meta_key(self, name: str, version: str, fmt: Literal["parquet", "csv"] = "csv") -> str:
         return self._object_key(name, version, fmt=fmt) + ".meta.json"
-
-    @staticmethod
-    def _parquet_available() -> bool:
-        try:
-            import pyarrow  # type: ignore # noqa: F401
-            return True
-        except Exception:
-            try:
-                import fastparquet  # type: ignore # noqa: F401
-                return True
-            except Exception:
-                return False
-
-    @staticmethod
-    def _bytes_sha256(payload: bytes) -> str:
-        return hashlib.sha256(payload).hexdigest()
 
     def _read_object_bytes(self, key: str) -> bytes:
         obj = self.s3_client.get_object(Bucket=self.bucket, Key=key)
@@ -231,12 +275,10 @@ class S3BaselineStore:
             return False
 
     def _resolve_existing_key(self, name: str, version: str) -> tuple[str, Literal["parquet", "csv"]]:
-        k_parquet = self._object_key(name, version, fmt="parquet")
-        k_csv = self._object_key(name, version, fmt="csv")
-        if self._exists(k_parquet):
-            return k_parquet, "parquet"
-        if self._exists(k_csv):
-            return k_csv, "csv"
+        for fmt in _FORMAT_SUFFIXES:
+            key = self._object_key(name, version, fmt=fmt)
+            if self._exists(key):
+                return key, fmt
         raise FileNotFoundError(f"Baseline {name} v{version} not found")
 
     def save(
@@ -248,35 +290,27 @@ class S3BaselineStore:
         training_job_id: str | None = None,
         fmt: Literal["parquet", "csv"] | None = None,
     ) -> str:
-        selected = fmt or self.default_format
-        if selected == "parquet" and not self._parquet_available():
-            selected = "csv"
+        selected = _select_format(fmt, self.default_format)
         key = self._object_key(name, version, fmt=selected)
-        buf = BytesIO()
-        if selected == "parquet":
-            data.to_parquet(buf, index=False)
-        else:
-            csv_text = data.to_csv(index=False)
-            buf.write(csv_text.encode("utf-8"))
-        payload = buf.getvalue()
+        payload = _write_frame_to_bytes(data, selected)
         self.s3_client.put_object(Bucket=self.bucket, Key=key, Body=payload)
-        meta = {
-            "name": name,
-            "version": version,
-            "path": f"s3://{self.bucket}/{key}",
-            "format": selected,
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-            "row_count": int(len(data)),
-            "dataset_sha256": self._bytes_sha256(payload),
-            "owner": owner,
-            "training_job_id": training_job_id,
-        }
+        path = f"s3://{self.bucket}/{key}"
+        meta = _metadata_payload(
+            name=name,
+            version=version,
+            path=path,
+            fmt=selected,
+            row_count=int(len(data)),
+            dataset_sha256=_bytes_sha256(payload),
+            owner=owner,
+            training_job_id=training_job_id,
+        )
         self.s3_client.put_object(
             Bucket=self.bucket,
             Key=self._meta_key(name, version, fmt=selected),
             Body=json.dumps(meta).encode("utf-8"),
         )
-        return meta["path"]
+        return path
 
     def load(self, name: str, version: str, verify_integrity: bool = True) -> pd.DataFrame:
         key, resolved_fmt = self._resolve_existing_key(name, version)
@@ -284,16 +318,13 @@ class S3BaselineStore:
         if verify_integrity:
             meta = self.metadata(name, version)
             expected = str(meta.get("dataset_sha256", ""))
-            actual = self._bytes_sha256(payload)
+            actual = _bytes_sha256(payload)
             if expected and expected != actual:
                 raise ValueError(
                     f"Integrity check failed for baseline {name} v{version}: "
                     f"expected {expected}, got {actual}"
                 )
-        buf = BytesIO(payload)
-        if resolved_fmt == "parquet":
-            return pd.read_parquet(buf)
-        return pd.read_csv(buf)
+        return _read_frame_from_bytes(payload, resolved_fmt)
 
     def list(self, name: str | None = None) -> list[str]:
         prefix = f"{self.prefix}/" if self.prefix else ""
@@ -305,31 +336,31 @@ class S3BaselineStore:
                 if key.endswith(".meta.json"):
                     continue
                 stem = key.split("/")[-1]
-                if stem.endswith(".csv"):
-                    stem = stem[:-4]
-                elif stem.endswith(".parquet"):
-                    stem = stem[:-8]
+                for fmt in _FORMAT_SUFFIXES:
+                    suffix = f".{_file_extension(fmt)}"
+                    if stem.endswith(suffix):
+                        stem = stem[: -len(suffix)]
+                        break
                 else:
                     continue
-                if "_v" not in stem:
+                identifier = _parse_baseline_identifier(stem)
+                if identifier is None:
                     continue
-                n, v = stem.rsplit("_v", 1)
-                if name is not None and n != name:
+                baseline_name, version = identifier
+                if name is not None and baseline_name != name:
                     continue
-                out.append(f"{n}@{v}")
+                out.append(f"{baseline_name}@{version}")
         return sorted(out)
 
     def metadata(self, name: str, version: str) -> dict:
-        mk_parquet = self._meta_key(name, version, fmt="parquet")
-        mk_csv = self._meta_key(name, version, fmt="csv")
-        key = mk_parquet if self._exists(mk_parquet) else mk_csv
-        if not self._exists(key):
-            raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
-        return json.loads(self._read_object_bytes(key).decode("utf-8"))
+        for fmt in _FORMAT_SUFFIXES:
+            key = self._meta_key(name, version, fmt=fmt)
+            if self._exists(key):
+                return json.loads(self._read_object_bytes(key).decode("utf-8"))
+        raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
 
     def delete(self, name: str, version: str) -> None:
-        for fmt in ("csv", "parquet"):
+        for fmt in _FORMAT_SUFFIXES:
             for key in (self._object_key(name, version, fmt=fmt), self._meta_key(name, version, fmt=fmt)):
                 if self._exists(key):
                     self.s3_client.delete_object(Bucket=self.bucket, Key=key)
-

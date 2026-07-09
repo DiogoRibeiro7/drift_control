@@ -1,165 +1,158 @@
-"""Command-line entry point for drift checks between two CSV files."""
+"""Command-line entry points for drift-control."""
+
+from __future__ import annotations
 
 import json
-import time
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import nullcontext
-from typing import Any, NoReturn
 
 import click
-import pandas as pd
 
-from .baseline_manager import BaselineManager
-from .baseline_store import BaselineStore, LocalBaselineStore, S3BaselineStore
-from .benchmark import SyntheticDriftBenchmark
-from .config import DriftCheckConfig
-from .drift_report import HtmlDriftReport
-from .ensemble_drift_detector import EnsembleDriftDetector
-from .multiple_testing import adjust_pvalues
+from ._cli_app import run_benchmark_report, run_check, run_report_command, write_output_file
+from .baseline_store import LocalBaselineStore, S3BaselineStore
 from .telemetry import DriftTelemetry
-from .unified_drift_detector import UnifiedDriftDetector
-from .validation import (
-    coerce_categorical_series,
-    coerce_numeric_frame,
-    coerce_numeric_series,
-    validate_matching_columns,
-)
-
-CLI_JSON_SCHEMA_VERSION = "1.0"
 
 
 @click.command()
-@click.option('--baseline', type=click.Path(exists=True), required=False, help='Baseline CSV file')
+@click.option("--baseline", type=click.Path(exists=True), required=False, help="Baseline CSV file")
 @click.option(
-    '--baseline-version',
+    "--baseline-version",
     default=None,
-    help='Versioned baseline id in the form name@version (loaded via BaselineManager).',
+    help="Versioned baseline id in the form name@version (loaded via BaselineManager).",
 )
 @click.option(
-    '--baseline-dir',
-    default='baselines',
+    "--baseline-dir",
+    default="baselines",
     show_default=True,
-    help='Baseline local storage directory for --baseline-version.',
+    help="Baseline local storage directory for --baseline-version.",
 )
 @click.option(
-    '--baseline-store',
-    type=click.Choice(['local', 's3']),
-    default='local',
+    "--baseline-store",
+    type=click.Choice(["local", "s3"]),
+    default="local",
     show_default=True,
-    help='Baseline backend for --baseline-version.',
+    help="Baseline backend for --baseline-version.",
+)
+@click.option("--baseline-bucket", default=None, help="Bucket name for --baseline-store s3.")
+@click.option(
+    "--baseline-prefix",
+    default="baselines",
+    show_default=True,
+    help="Object prefix for the s3 baseline store.",
+)
+@click.option("--current", type=click.Path(exists=True), required=True, help="Current CSV file")
+@click.option(
+    "--method",
+    type=click.Choice(
+        [
+            "psi",
+            "ks",
+            "mmd",
+            "c2st",
+            "energy",
+            "cvm",
+            "js",
+            "wasserstein",
+            "chi2cat",
+            "tvdcat",
+            "datetime",
+            "ensemble",
+        ]
+    ),
+    default="psi",
+    help="Drift detection method",
 )
 @click.option(
-    '--baseline-bucket',
+    "--threshold",
+    type=float,
     default=None,
-    help='Bucket name for --baseline-store s3.',
+    help=(
+        "Override the detector threshold (PSI: drift if score > threshold; "
+        "JS/TVDCAT: drift if score > threshold; "
+        "KS/CVM/MMD/C2ST/Energy/Wasserstein/CHI2CAT: drift if p-value < threshold). "
+        "Uses the method default if omitted."
+    ),
 )
 @click.option(
-    '--baseline-prefix',
-    default='baselines',
+    "--psi-strategy",
+    type=click.Choice(["quantile", "uniform", "kll"]),
+    default="quantile",
     show_default=True,
-    help='Object prefix for the s3 baseline store.',
-)
-@click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
-@click.option('--method', type=click.Choice(['psi', 'ks', 'mmd', 'c2st', 'energy', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'datetime', 'ensemble']), default='psi', help='Drift detection method')
-@click.option('--threshold', type=float, default=None,
-              help='Override the detector threshold (PSI: drift if score > threshold; '
-                   'JS/TVDCAT: drift if score > threshold; KS/CVM/MMD/C2ST/Energy/Wasserstein/CHI2CAT: drift if p-value < threshold). Uses the method default if omitted.')
-@click.option(
-    '--psi-strategy',
-    type=click.Choice(['quantile', 'uniform', 'kll']),
-    default='quantile',
-    show_default=True,
-    help='PSI binning strategy.',
+    help="PSI binning strategy.",
 )
 @click.option(
-    '--psi-sketch-size',
+    "--psi-sketch-size",
     type=int,
     default=200,
     show_default=True,
-    help='KLL sketch size for --psi-strategy kll.',
+    help="KLL sketch size for --psi-strategy kll.",
 )
 @click.option(
-    '--psi-random-state',
+    "--psi-random-state",
     type=int,
     default=42,
     show_default=True,
-    help='Random seed for PSI KLL sketch compaction.',
+    help="Random seed for PSI KLL sketch compaction.",
 )
 @click.option(
-    '--ensemble-methods',
-    default='psi,ks,cvm,js',
+    "--ensemble-methods",
+    default="psi,ks,cvm,js",
     help="Comma-separated methods for ensemble mode (subset of psi,ks,cvm,js,wasserstein).",
 )
 @click.option(
-    '--vote-mode',
-    type=click.Choice(['majority', 'any', 'all', 'stacking']),
-    default='majority',
-    help='Voting mode for ensemble method.',
+    "--vote-mode",
+    type=click.Choice(["majority", "any", "all", "stacking"]),
+    default="majority",
+    help="Voting mode for ensemble method.",
 )
+@click.option("--min-votes", type=int, default=None, help="Override votes required in ensemble mode.")
 @click.option(
-    '--min-votes',
-    type=int,
-    default=None,
-    help='Override votes required in ensemble mode.',
-)
-@click.option(
-    '--stack-threshold',
+    "--stack-threshold",
     type=float,
     default=0.5,
     show_default=True,
-    help='Decision threshold for ensemble stacking mode in [0,1].',
+    help="Decision threshold for ensemble stacking mode in [0,1].",
 )
 @click.option(
-    '--correction',
-    type=click.Choice(['none', 'bonferroni', 'bh']),
-    default='none',
+    "--correction",
+    type=click.Choice(["none", "bonferroni", "bh"]),
+    default="none",
     show_default=True,
-    help='Optional multiple-testing correction across columns.',
+    help="Optional multiple-testing correction across columns.",
 )
-@click.option('--output-json', 'output_json', is_flag=True,
-              help='Emit a single JSON object instead of one line per column.')
-@click.option('--mlflow', 'use_mlflow', is_flag=True, help='Log metrics to MLflow')
+@click.option("--output-json", "output_json", is_flag=True, help="Emit a single JSON object instead of one line per column.")
+@click.option("--mlflow", "use_mlflow", is_flag=True, help="Log metrics to MLflow")
 @click.option(
-    '--config',
-    'config_path',
+    "--config",
+    "config_path",
     type=click.Path(exists=True),
     default=None,
-    help='Load detector config from JSON/TOML/YAML file.',
+    help="Load detector config from JSON/TOML/YAML file.",
 )
+@click.option("--columns", default=None, help="Comma-separated subset of columns to score.")
 @click.option(
-    '--columns',
-    default=None,
-    help='Comma-separated subset of columns to score.',
-)
-@click.option(
-    '--jobs',
+    "--jobs",
     type=int,
     default=1,
     show_default=True,
-    help='Parallel workers for per-column scoring on univariate/categorical methods.',
+    help="Parallel workers for per-column scoring on univariate/categorical methods.",
 )
+@click.option("--fail-on-drift", is_flag=True, help="Exit with non-zero status if drift is detected.")
 @click.option(
-    '--fail-on-drift',
-    is_flag=True,
-    help='Exit with non-zero status if drift is detected.',
-)
-@click.option(
-    '--html-report',
+    "--html-report",
     type=click.Path(),
     default=None,
-    help='Optional output path for self-contained HTML drift report.',
+    help="Optional output path for self-contained HTML drift report.",
 )
 @click.option(
-    '--markdown-report',
+    "--markdown-report",
     type=click.Path(),
     default=None,
-    help='Optional output path for markdown top-drifting table.',
+    help="Optional output path for markdown top-drifting table.",
 )
 @click.option(
-    '--report-top-n',
+    "--report-top-n",
     type=int,
     default=None,
-    help='Optional row limit for markdown top-drifting report.',
+    help="Optional row limit for markdown top-drifting report.",
 )
 def check(
     baseline: str | None,
@@ -190,266 +183,81 @@ def check(
     report_top_n: int | None,
 ) -> None:
     """Run a drift check between two CSV files."""
-    telemetry = DriftTelemetry(namespace="drift_control.cli")
-    started = time.perf_counter()
-    span_ctx = nullcontext()
-    start_span = getattr(telemetry, "start_span", None)
-    if callable(start_span):
-        span_ctx = start_span("drift_control.cli.check", {"component": "cli", "method": method})
+    payload, report = run_check(
+        baseline=baseline,
+        baseline_version=baseline_version,
+        baseline_dir=baseline_dir,
+        baseline_store=baseline_store,
+        baseline_bucket=baseline_bucket,
+        baseline_prefix=baseline_prefix,
+        current=current,
+        method=method,
+        threshold=threshold,
+        psi_strategy=psi_strategy,
+        psi_sketch_size=psi_sketch_size,
+        psi_random_state=psi_random_state,
+        ensemble_methods=ensemble_methods,
+        vote_mode=vote_mode,
+        min_votes=min_votes,
+        stack_threshold=stack_threshold,
+        correction=correction,
+        config_path=config_path,
+        columns=columns,
+        jobs=jobs,
+        telemetry=DriftTelemetry(namespace="drift_control.cli"),
+        baseline_store_factory=LocalBaselineStore,
+        s3_store_factory=S3BaselineStore,
+    )
+    _emit_check_output(payload, output_json)
 
-    def _raise_click(message: str, stage: str) -> NoReturn:
-        telemetry.record_error({"component": "cli", "stage": stage, "method": method})
-        raise click.ClickException(message)
+    if html_report is not None:
+        report.render(html_report)
+    if markdown_report is not None:
+        report.render_markdown(markdown_report, limit=report_top_n)
 
-    with span_ctx:
-        try:
-            if config_path is not None:
-                cfg = DriftCheckConfig.from_file(config_path)
-            else:
-                cfg = DriftCheckConfig.from_cli(
-                    method=method,
-                    threshold=threshold,
-                    correction=correction,
-                    ensemble_methods=ensemble_methods,
-                    vote_mode=vote_mode,
-                    min_votes=min_votes,
-                    stack_threshold=stack_threshold,
-                )
-        except ValueError as exc:
-            _raise_click(str(exc), "config")
+    if use_mlflow:
+        _log_mlflow_metrics(payload["columns"])
+    if fail_on_drift and any(
+        bool(column_payload.get("drift"))
+        for column_payload in payload["columns"].values()
+        if isinstance(column_payload, dict)
+    ):
+        raise click.ClickException("Drift detected and --fail-on-drift is enabled.")
 
-        if baseline is None and baseline_version is None:
-            _raise_click("One of --baseline or --baseline-version is required.", "baseline")
-        if baseline is not None and baseline_version is not None:
-            _raise_click("Use either --baseline or --baseline-version, not both.", "baseline")
-        if baseline_version is not None:
-            if "@" not in baseline_version:
-                _raise_click("--baseline-version must be in the form name@version.", "baseline")
-            name, version = baseline_version.split("@", 1)
-            try:
-                store: BaselineStore
-                if baseline_store == "local":
-                    store = LocalBaselineStore(directory=baseline_dir)
-                else:
-                    if not baseline_bucket:
-                        _raise_click("--baseline-bucket is required for --baseline-store s3.", "baseline")
-                    store = S3BaselineStore(bucket=baseline_bucket, prefix=baseline_prefix)
-                base_df = BaselineManager(directory=baseline_dir, store=store).load_baseline(name, version)
-            except Exception as exc:
-                _raise_click(f"Failed to load baseline version '{baseline_version}': {exc}", "baseline")
-        else:
-            assert baseline is not None
-            base_df = pd.read_csv(baseline)
-        cur_df = pd.read_csv(current)
-        try:
-            validate_matching_columns(base_df, cur_df)
-        except ValueError as exc:
-            _raise_click(str(exc), "schema")
-        base_cols = set(base_df.columns)
-        if columns is not None:
-            selected = [c.strip() for c in columns.split(",") if c.strip()]
-            unknown = [c for c in selected if c not in base_cols]
-            if unknown:
-                _raise_click(f"Unknown column(s) in --columns: {unknown}", "columns")
-            base_cols = set(selected)
-        if jobs < 1:
-            _raise_click("--jobs must be >= 1.", "jobs")
 
-        ensemble_detector: EnsembleDriftDetector | None = None
-        unified_detector: UnifiedDriftDetector | None = None
-        if cfg.method == 'ensemble':
-            try:
-                ensemble_detector = EnsembleDriftDetector(
-                    methods=cfg.ensemble.methods,
-                    vote_mode=cfg.ensemble.vote_mode,
-                    min_votes=cfg.ensemble.min_votes,
-                    correction=cfg.correction,
-                    stack_threshold=cfg.ensemble.stack_threshold,
-                )
-            except ValueError as exc:
-                _raise_click(str(exc), "ensemble_init")
-            effective_threshold = None
-        else:
-            method_kwargs: dict[str, Any] = {}
-            if cfg.threshold is not None:
-                if cfg.method in {'psi', 'js', 'tvdcat'}:
-                    method_kwargs['threshold'] = cfg.threshold
-                else:
-                    method_kwargs['alpha'] = cfg.threshold
-            if cfg.method == 'psi':
-                method_kwargs['strategy'] = psi_strategy
-                method_kwargs['sketch_size'] = psi_sketch_size
-                method_kwargs['random_state'] = psi_random_state
-            unified_detector = UnifiedDriftDetector(method=cfg.method, **method_kwargs)
-            effective_threshold = unified_detector.threshold
-
-        results: dict[str, dict[str, Any]] = {}
-        if cfg.method in {'psi', 'ks', 'cvm', 'js', 'wasserstein', 'chi2cat', 'tvdcat', 'datetime'}:
-            assert unified_detector is not None
-            ordered_cols = sorted(base_cols)
-
-            def _score_col(col: str) -> tuple[str, dict[str, Any]]:
-                try:
-                    if cfg.method in {'chi2cat', 'tvdcat'}:
-                        base_col, cur_col = coerce_categorical_series(
-                            base_df[col], cur_df[col], column_name=col, method_name=cfg.method
-                        )
-                    elif cfg.method == 'datetime':
-                        base_col = pd.to_datetime(base_df[col], errors='coerce', utc=True)
-                        cur_col = pd.to_datetime(cur_df[col], errors='coerce', utc=True)
-                        if base_col.isna().all() or cur_col.isna().all():
-                            _raise_click(
-                                f"Column '{col}' must contain valid datetime values for method 'datetime'.",
-                                "column_validation",
-                            )
-                    else:
-                        base_col, cur_col = coerce_numeric_series(
-                            base_df[col], cur_df[col], column_name=col, method_name=cfg.method
-                        )
-                except ValueError as exc:
-                    _raise_click(str(exc), "column_validation")
-
-                outcome = unified_detector.detect_drift(base_col, cur_col)
-                payload: dict[str, object] = {'score': float(outcome.score), 'drift': bool(outcome.drift)}
-                if outcome.p_value is not None:
-                    payload['p_value'] = float(outcome.p_value)
-                return col, payload
-
-            if jobs == 1:
-                scored = [_score_col(c) for c in ordered_cols]
-            else:
-                with ThreadPoolExecutor(max_workers=jobs) as ex:
-                    scored = list(ex.map(_score_col, ordered_cols))
-
-            for col, payload in scored:
-                results[col] = payload
-                if not output_json:
-                    click.echo(f"{col}: {float(payload['score']):.4f} (drift={bool(payload['drift'])})")
-            if cfg.correction != 'none':
-                pvalue_items: list[tuple[str, float]] = []
-                for c, col_payload in results.items():
-                    p_val = col_payload.get('p_value')
-                    if isinstance(p_val, (int, float)):
-                        pvalue_items.append((c, float(p_val)))
-                pvalue_cols = [c for c, _ in pvalue_items]
-                raw = [p for _, p in pvalue_items]
-                adj = adjust_pvalues(raw, method=cfg.correction)
-                for c, p_adj in zip(pvalue_cols, adj, strict=False):
-                    results[c]['p_value'] = float(p_adj)
-                    threshold_used = (
-                        float(effective_threshold) if effective_threshold is not None else 0.05
-                    )
-                    results[c]['drift'] = bool(p_adj < threshold_used)
-        elif cfg.method in {'mmd', 'c2st', 'energy'}:
-            assert unified_detector is not None
-            try:
-                base_num = coerce_numeric_frame(base_df, method_name=cfg.method)
-                cur_num = coerce_numeric_frame(cur_df, method_name=cfg.method)
-            except ValueError as exc:
-                _raise_click(str(exc), "frame_validation")
-            outcome = unified_detector.detect_drift(base_num.values, cur_num.values)
-            results['dataset'] = {
-                'score': float(outcome.score),
-                'p_value': float(outcome.p_value) if outcome.p_value is not None else None,
-                'drift': bool(outcome.drift),
-            }
-            if not output_json:
-                if cfg.method == 'mmd':
-                    score_name = 'mmd2'
-                elif cfg.method == 'c2st':
-                    score_name = 'roc_auc'
-                else:
-                    score_name = 'energy_distance'
-                click.echo(
-                    f"dataset: {score_name}={outcome.score:.6f}, p_value={outcome.p_value:.6f} "
-                    f"(drift={outcome.drift})"
-                )
-        else:
-            assert ensemble_detector is not None
-            try:
-                base_num = coerce_numeric_frame(base_df, method_name='ensemble')
-                cur_num = coerce_numeric_frame(cur_df, method_name='ensemble')
-            except ValueError as exc:
-                _raise_click(str(exc), "frame_validation")
-            ensemble_res = ensemble_detector.detect_drift(base_num, cur_num)
-            for col, col_res in ensemble_res.items():
-                results[col] = {
-                    'score': float(col_res.votes),
-                    'drift': bool(col_res.drift_detected),
-                    'votes': col_res.votes,
-                    'required_votes': col_res.required_votes,
-                }
-                if not output_json:
-                    click.echo(
-                        f"{col}: votes={col_res.votes}/{col_res.required_votes} "
-                        f"(drift={col_res.drift_detected})"
-                    )
-
-        if output_json:
-            json_payload: dict[str, Any] = {
-                'schema_version': CLI_JSON_SCHEMA_VERSION,
-                'method': cfg.method,
-                'threshold': None if effective_threshold is None else float(effective_threshold),
-                'correction': cfg.correction,
-                'columns': results,
-            }
-            if cfg.method == 'ensemble':
-                json_payload['ensemble'] = {
-                    'methods': ensemble_detector.methods if ensemble_detector is not None else [],
-                    'vote_mode': ensemble_detector.vote_mode if ensemble_detector is not None else None,
-                    'min_votes': ensemble_detector.min_votes if ensemble_detector is not None else None,
-                    'stack_threshold': (
-                        ensemble_detector.stack_threshold if ensemble_detector is not None else None
-                    ),
-                }
-            click.echo(json.dumps(json_payload))
-
-        report = HtmlDriftReport(method=cfg.method, columns=results, correction=cfg.correction)
-        if html_report is not None:
-            report.render(html_report)
-        if markdown_report is not None:
-            report.render_markdown(markdown_report, limit=report_top_n)
-
-        if use_mlflow:
-            try:
-                import mlflow
-            except ImportError:
-                _raise_click('MLflow logging requested but mlflow is not installed.', "mlflow")
-            active_run = mlflow.active_run()
-            run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()
-            with run_ctx:
-                for col, metric_payload in results.items():
-                    score = metric_payload.get('score')
-                    if isinstance(score, (int, float)):
-                        mlflow.log_metric(col, float(score))
-
-        if fail_on_drift:
-            any_drift = any(
-                bool(payload.get("drift"))
-                for payload in results.values()
-                if isinstance(payload, dict)
+def _emit_check_output(payload: dict[str, object], output_json: bool) -> None:
+    if output_json:
+        click.echo(json.dumps(payload))
+        return
+    for name, column_payload in payload["columns"].items():  # type: ignore[index]
+        if not isinstance(column_payload, dict):
+            continue
+        if "votes" in column_payload:
+            click.echo(
+                f"{name}: votes={column_payload['votes']}/{column_payload['required_votes']} "
+                f"(drift={column_payload['drift']})"
             )
-            if any_drift:
-                raise click.ClickException("Drift detected and --fail-on-drift is enabled.")
-
-        drift_flags = [
-            bool(payload.get("drift"))
-            for payload in results.values()
-            if isinstance(payload.get("drift"), bool)
-        ]
-        if drift_flags:
-            telemetry.record_drift_rate(
-                float(sum(drift_flags) / len(drift_flags)),
-                {"component": "cli", "method": cfg.method},
+        elif name == "dataset" and "p_value" in column_payload:
+            click.echo(
+                f"dataset: score={float(column_payload['score']):.6f}, "
+                f"p_value={float(column_payload['p_value']):.6f} "
+                f"(drift={column_payload['drift']})"
             )
-        telemetry.record_latency(
-            (time.perf_counter() - started) * 1000.0,
-            {"component": "cli", "method": cfg.method},
-        )
+        else:
+            click.echo(f"{name}: {float(column_payload['score']):.4f} (drift={bool(column_payload['drift'])})")
 
 
-if __name__ == '__main__':
-    check()
+def _log_mlflow_metrics(results: dict[str, object]) -> None:
+    try:
+        import mlflow
+    except ImportError as exc:
+        raise click.ClickException("MLflow logging requested but mlflow is not installed.") from exc
+    active_run = mlflow.active_run()
+    run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()
+    with run_ctx:
+        for name, metric_payload in results.items():
+            if isinstance(metric_payload, dict) and isinstance(metric_payload.get("score"), (int, float)):
+                mlflow.log_metric(name, float(metric_payload["score"]))
 
 
 @click.command(name="benchmark")
@@ -468,12 +276,7 @@ if __name__ == '__main__':
     show_default=True,
     help="Benchmark output format.",
 )
-@click.option(
-    "--output-path",
-    type=click.Path(),
-    default=None,
-    help="Optional report file path (.json or .csv).",
-)
+@click.option("--output-path", type=click.Path(), default=None, help="Optional report file path (.json or .csv).")
 def benchmark_report(
     methods: str,
     sample_size: int,
@@ -483,83 +286,49 @@ def benchmark_report(
     output_path: str | None,
 ) -> None:
     """Run synthetic drift benchmark scenarios and emit a report."""
-    selected_methods = [m.strip() for m in methods.split(",") if m.strip()]
-    bench = SyntheticDriftBenchmark(
-        methods=selected_methods,
+    content = run_benchmark_report(
+        methods=methods,
         sample_size=sample_size,
         n_trials=n_trials,
         random_seed=random_seed,
+        output_format=output_format,
         telemetry=DriftTelemetry(namespace="drift_control.benchmark"),
     )
-    results = bench.run()
-
-    rows: list[dict[str, object]] = [
-        {
-            "method": r.method,
-            "scenario": r.scenario,
-            "n_trials": r.n_trials,
-            "expected_drift": r.expected_drift,
-            "drift_rate": r.drift_rate,
-            "avg_score": r.avg_score,
-            "avg_latency_ms": r.avg_latency_ms,
-        }
-        for r in results
-    ]
-
-    if output_format == "json":
-        payload: dict[str, object] = {
-            "schema_version": "1.0",
-            "benchmark_type": "synthetic_drift",
-            "methods": selected_methods,
-            "sample_size": sample_size,
-            "n_trials": n_trials,
-            "random_seed": random_seed,
-            "results": rows,
-        }
-        content = json.dumps(payload)
-    else:
-        csv_df = pd.DataFrame(rows)
-        content = csv_df.to_csv(index=False)
-
     if output_path is not None:
-        with open(output_path, "w", encoding="utf-8", newline="") as f:
-            f.write(content)
-
+        write_output_file(output_path, content)
     click.echo(content)
 
 
 @click.command()
-@click.option('--baseline', type=click.Path(exists=True), required=True, help='Baseline CSV file')
-@click.option('--current', type=click.Path(exists=True), required=True, help='Current CSV file')
+@click.option("--baseline", type=click.Path(exists=True), required=True, help="Baseline CSV file")
+@click.option("--current", type=click.Path(exists=True), required=True, help="Current CSV file")
 @click.option(
-    '--numeric-method',
-    type=click.Choice(['ks', 'psi', 'js']),
-    default='ks',
+    "--numeric-method",
+    type=click.Choice(["ks", "psi", "js"]),
+    default="ks",
     show_default=True,
-    help='Test for numeric columns (categorical columns always use chi-square).',
+    help="Test for numeric columns (categorical columns always use chi-square).",
 )
-@click.option('--alpha', type=float, default=0.05, show_default=True,
-              help='Significance level for p-value methods.')
-@click.option('--threshold', type=float, default=None,
-              help='Threshold for psi/js numeric methods (else the method default).')
-@click.option('--bins', type=int, default=10, show_default=True, help='Bins for psi/js.')
+@click.option("--alpha", type=float, default=0.05, show_default=True, help="Significance level for p-value methods.")
+@click.option("--threshold", type=float, default=None, help="Threshold for psi/js numeric methods (else the method default).")
+@click.option("--bins", type=int, default=10, show_default=True, help="Bins for psi/js.")
 @click.option(
-    '--correction',
-    type=click.Choice(['none', 'bonferroni', 'bh']),
-    default='bh',
+    "--correction",
+    type=click.Choice(["none", "bonferroni", "bh"]),
+    default="bh",
     show_default=True,
-    help='Multiple-testing correction across the p-value columns.',
+    help="Multiple-testing correction across the p-value columns.",
 )
 @click.option(
-    '--format', 'output_format',
-    type=click.Choice(['json', 'markdown']),
-    default='json',
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "markdown"]),
+    default="json",
     show_default=True,
-    help='Report format.',
+    help="Report format.",
 )
-@click.option('--output', 'output_path', type=click.Path(), default=None,
-              help='Write the report to this file (otherwise stdout).')
-@click.option('--fail-on-drift', is_flag=True, help='Exit non-zero if any column drifts.')
+@click.option("--output", "output_path", type=click.Path(), default=None, help="Write the report to this file (otherwise stdout).")
+@click.option("--fail-on-drift", is_flag=True, help="Exit non-zero if any column drifts.")
 def report_command(
     baseline: str,
     current: str,
@@ -572,35 +341,23 @@ def report_command(
     output_path: str | None,
     fail_on_drift: bool,
 ) -> None:
-    """Feature-wise drift report over two CSVs using the structured detectors.
-
-    Routes each column to the appropriate test (numeric -> numeric-method,
-    categorical -> chi-square) and emits a DriftReport.
-    """
-    from .detectors import MixedTypeDriftDetector
-
-    base_df = pd.read_csv(baseline)
-    cur_df = pd.read_csv(current)
-    try:
-        report = (
-            MixedTypeDriftDetector(
-                numeric_method=numeric_method,
-                alpha=alpha,
-                threshold=threshold,
-                bins=bins,
-                correction=correction,
-            )
-            .fit(base_df)
-            .report(cur_df)
-        )
-    except Exception as exc:
-        raise click.ClickException(str(exc)) from exc
-
-    content = report.to_json() if output_format == "json" else report.to_markdown()
+    """Feature-wise drift report over two CSVs using the structured detectors."""
+    content, any_drift = run_report_command(
+        baseline=baseline,
+        current=current,
+        numeric_method=numeric_method,
+        alpha=alpha,
+        threshold=threshold,
+        bins=bins,
+        correction=correction,
+        output_format=output_format,
+    )
     if output_path is not None:
-        with open(output_path, "w", encoding="utf-8", newline="") as f:
-            f.write(content)
+        write_output_file(output_path, content)
     click.echo(content)
-
-    if fail_on_drift and report.any_drift:
+    if fail_on_drift and any_drift:
         raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    check()
