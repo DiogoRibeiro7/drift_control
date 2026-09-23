@@ -229,7 +229,10 @@ def _emit_check_output(payload: dict[str, object], output_json: bool) -> None:
     if output_json:
         click.echo(json.dumps(payload))
         return
-    for name, column_payload in payload["columns"].items():  # type: ignore[index]
+    columns = payload.get("columns")
+    if not isinstance(columns, dict):
+        return
+    for name, column_payload in columns.items():
         if not isinstance(column_payload, dict):
             continue
         if "votes" in column_payload:
