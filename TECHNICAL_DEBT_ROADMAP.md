@@ -11,10 +11,14 @@ against `DiogoRibeiro7/drift-or-shift`:
 - Dev dependencies are unpinned (`ruff = "*"`, `mypy = "*"`), so an upstream
   release can turn CI red without a line of our code changing.
 - `[tool.mypy] files` is an explicit allowlist of about six modules, while the
-  package ships `py.typed`. Most of ~9,000 lines is unchecked, and downstream
-  users are told our annotations are complete.
-- No coverage measurement anywhere, so it is not known what the 49 test files
-  actually reach.
+  package ships `py.typed`, so downstream users are told our annotations are
+  complete when most of the package is unchecked. Two measurements worth having
+  before scoping the work: mypy **already fails on main** with 3 errors inside
+  the allowlist, and run over the whole package it reports 18 errors across 8
+  of 64 files. Removing the allowlist is a tractable cleanup, not a rewrite.
+- No coverage measurement in CI. Measured locally it is 89% over 4,265
+  statements with 422 tests passing, so this is an enforcement gap rather than
+  a quality one: nothing stops it sliding, and nobody sees it move.
 - No formatter. `ruff` lints but nothing formats, and `E501` is disabled for
   `drift_control/*.py` and `tests/*.py` as "transitional".
 - No pre-commit, so nothing runs before a push.
@@ -65,10 +69,10 @@ Older items, still open:
 - [ ] Pin every dev dependency exactly, and add a test asserting the pins stay
       in step with any pre-commit hook versions.
 - [ ] Fix the `Repository` URL and reconcile the author/maintainer emails.
-- [ ] Add coverage measurement with a floor, covering `drift_control/` and
-      `scripts/`, and find out what the current number actually is.
-- [ ] Replace the mypy allowlist with the whole package. Expect this to surface
-      real errors; the allowlist is why they are invisible.
+- [ ] Add coverage measurement to CI with a floor just under the current 89%,
+      covering `drift_control/` and `scripts/`.
+- [ ] Fix the 3 mypy errors currently failing inside the allowlist, then replace
+      the allowlist with the whole package and fix the remaining 15.
 - [ ] Add a formatter and a pre-commit config, then remove the transitional
       `E501` exemptions.
 - [ ] Add CodeQL, a dependency audit, and workflow linting.
