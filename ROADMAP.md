@@ -17,6 +17,20 @@ The current repository already includes several useful building blocks:
 
 The roadmap below treats those capabilities as proof that the project direction is valid, but proposes a cleaner long-term package architecture and release plan so the library can scale without growing into a flat module collection.
 
+Two things are missing as of September 2026, both tracked in
+`TECHNICAL_DEBT_ROADMAP.md`:
+
+- **Label shift.** The library detects distribution change but cannot correct a
+  prior shift. There is no match anywhere in the package for prior shift, logit
+  offset, or prevalence. That is the most common drift type in classification
+  and the one that needs no retraining, so a library named `drift_control`
+  arguably ought to handle it. See P5.
+- **Engineering infrastructure.** Dev dependencies are unpinned, mypy runs over
+  an allowlist of about six modules while the package ships `py.typed`, there is
+  no coverage measurement, no formatter, no pre-commit, no security scanning and
+  no release workflow. See P4. The sibling repository `drift-or-shift` has
+  working versions of all of these and can serve as a reference.
+
 ## Product goals
 
 - Detect data drift, concept drift, change points, prediction drift, and performance drift.
@@ -927,6 +941,16 @@ Engineering docs:
 - API docs with MkDocs or Sphinx
 - runnable notebooks
 - versioned releases with changelog discipline
+
+Present today: typing on public APIs, NumPy-first implementations, optional
+pandas and scikit-learn layers, pytest with hypothesis, synthetic generators,
+CI across 3.10-3.12, notebook validation, and a job that checks optional imports
+stay lazy.
+
+Not yet: formatting (ruff lints but nothing formats, and `E501` is waived for
+most files), coverage measurement of any kind, pinned dev tooling, a published
+docs site, and versioned releases -- there is no release workflow and
+`drift-control` is still unclaimed on PyPI.
 
 ## Recommended implementation order inside the current repository
 
