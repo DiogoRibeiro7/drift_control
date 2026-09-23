@@ -4,9 +4,31 @@ This document tracks the concrete work needed to evolve `drift-control` from a s
 
 ## Current Debt
 
-- Inconsistent interfaces across detectors (`score` semantics differ by method).
+The P0-P3 items below are done. What remains is engineering infrastructure
+rather than features, found in a September 2026 audit comparing this repository
+against `DiogoRibeiro7/drift-or-shift`:
+
+- Dev dependencies are unpinned (`ruff = "*"`, `mypy = "*"`), so an upstream
+  release can turn CI red without a line of our code changing.
+- `[tool.mypy] files` is an explicit allowlist of about six modules, while the
+  package ships `py.typed`. Most of ~9,000 lines is unchecked, and downstream
+  users are told our annotations are complete.
+- No coverage measurement anywhere, so it is not known what the 49 test files
+  actually reach.
+- No formatter. `ruff` lints but nothing formats, and `E501` is disabled for
+  `drift_control/*.py` and `tests/*.py` as "transitional".
+- No pre-commit, so nothing runs before a push.
+- No security scanning (CodeQL, dependency audit, workflow linting).
+- No release workflow or PyPI publishing; `drift-control` is unclaimed on PyPI.
+- `[project.urls] Repository` points at `.../drift-control`; the repository is
+  `drift_control`. That URL 404s and ships in the package metadata.
+- Author and maintainer emails differ from each other and from the ones used on
+  the sibling repository.
+- Classifiers advertise 3.10 and 3.11 only, while CI tests 3.12.
+
+Older items, still open:
+
 - Limited calibration controls exposed in CLI for advanced tests (e.g., MMD permutation count).
-- No standardized alerting sink contract (Slack/webhook adapters).
 - No benchmark suite for detector latency/throughput/false-positive rate across synthetic drifts.
 - Missing API docs automation and published docs site.
 
@@ -37,6 +59,46 @@ This document tracks the concrete work needed to evolve `drift-control` from a s
 - [x] Add vectorized/approximate kernels for large-batch MMD.
 - [x] Add chunked processing mode for out-of-memory datasets.
 - [x] Add GPU acceleration path (optional, e.g., CuPy) for kernel methods.
+
+## P4 - Engineering infrastructure
+
+- [ ] Pin every dev dependency exactly, and add a test asserting the pins stay
+      in step with any pre-commit hook versions.
+- [ ] Fix the `Repository` URL and reconcile the author/maintainer emails.
+- [ ] Add coverage measurement with a floor, covering `drift_control/` and
+      `scripts/`, and find out what the current number actually is.
+- [ ] Replace the mypy allowlist with the whole package. Expect this to surface
+      real errors; the allowlist is why they are invisible.
+- [ ] Add a formatter and a pre-commit config, then remove the transitional
+      `E501` exemptions.
+- [ ] Add CodeQL, a dependency audit, and workflow linting.
+- [ ] Add a tag-triggered release workflow using PyPI trusted publishing, and
+      claim `drift-control` on PyPI while it is still free.
+- [ ] Add CONTRIBUTING, SECURITY, CODE_OF_CONDUCT and CHANGELOG.
+- [ ] Align the classifiers with the versions CI actually tests.
+- [ ] Enable branch protection on `main` requiring the CI checks.
+
+`drift-or-shift` has working versions of all of these and can be used as a
+reference rather than starting from scratch.
+
+## P5 - Label shift
+
+The library detects distribution change but cannot correct a prior shift, which
+is both the most common drift type in classification and the one that needs no
+retraining. There is no match anywhere in the package for prior shift, logit
+offset, or prevalence.
+
+- [ ] Add prior/label-shift correction: the additive logit offset
+      `log(pi_test (1 - pi_train) / (pi_train (1 - pi_test)))` and a
+      cost-derived decision threshold.
+- [ ] Add effective sample size for reweighted data, which bounds how much a
+      class-weighting response actually costs.
+- [ ] Wire both into the adaptation policies, so "prior moved" becomes a
+      distinct response from "retrain".
+
+`drift-or-shift` has both (`shift.py`, `ess.py`, roughly 150 lines) with tests,
+and eleven experiments characterising when the correction works and when it
+does not. Port rather than reimplement.
 
 ## Definition of Done
 
