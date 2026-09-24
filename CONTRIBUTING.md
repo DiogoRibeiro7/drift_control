@@ -9,9 +9,10 @@ pip install poetry
 poetry install --with dev --extras "viz concept ml polars stream mlflow"
 ```
 
-`apache-airflow` is deliberately left out: the Airflow wrapper is tested
-through a faked module, and airflow's pins make a clean resolve slow and
-brittle.
+There is no `airflow` extra. The Airflow wrapper imports `airflow` lazily and
+is tested through a faked module, so nothing here needs a real Airflow
+install, and Airflow wants to be installed against its own constraints file
+rather than resolved as someone else's dependency.
 
 ## The development loop
 

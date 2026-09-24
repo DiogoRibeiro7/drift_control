@@ -51,9 +51,6 @@ mlflow = [
 stream = [
     "aiokafka",
 ]
-airflow = [
-    "apache-airflow",
-]
 ml = [
     "category_encoders",
 ]
@@ -71,7 +68,6 @@ full = [
     "river",
     "mlflow",
     "aiokafka",
-    "apache-airflow",
     "category_encoders",
     "polars",
 ]

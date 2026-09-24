@@ -47,3 +47,22 @@ CI audits dependencies on every push and weekly. The audit is split in two:
   on the weekly run rather than on every pull request, because they do not
   change from one change to the next and a standing red check teaches people to
   stop reading the column. Installing an extra means accepting that surface.
+
+### What the alert count on this repository means
+
+Dependabot reads `poetry.lock`, which pins every optional extra, so the alert
+count on the repository is not the risk of using drift-control. At the last
+count all 118 open alerts resolved to packages reachable only through an
+optional extra, and none to the core install, which is numpy, pandas,
+scikit-learn, scipy and click.
+
+Before assuming an alert affects users, check which root reaches the package.
+If it is reachable only from an extra, it affects the people who installed
+that extra, and the fix is usually to update that extra rather than to treat
+it as a defect in this package.
+
+There is no `airflow` extra, because Airflow expects to be installed against
+its own constraints file and pulling it in as a dependency of this package
+produced an unsupported install plus about a third of the alert count. The
+Airflow wrapper imports `airflow` lazily, so it works against whatever Airflow
+the scheduler environment already has.
