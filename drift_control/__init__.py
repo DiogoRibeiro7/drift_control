@@ -53,6 +53,9 @@ _ROOT_EXPORTS = _export_map(
     "drift_control.sklearn_adapter",
     ["DriftMonitor"],
 ) | _export_map(
+    "drift_control.multiple_testing",
+    ["adjust_pvalues"],
+) | _export_map(
     "drift_control.stream_monitor",
     ["StreamMonitor", "KafkaStreamMonitor"],
 ) | _export_map(
