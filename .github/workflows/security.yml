@@ -1,0 +1,122 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so newly disclosed advisories surface without waiting for a push.
+    - cron: "23 5 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: python
+          queries: security-and-quality
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:python"
+
+  audit-core:
+    name: Dependency audit (core install)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Audit what a plain `pip install drift-control` brings in
+        # This is the set users actually get, it is small, and it is clean
+        # today, so it is worth blocking on. --skip-editable drops this
+        # project itself, which is not on PyPI and can never be audited.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . pip-audit
+          python -m pip_audit --skip-editable --progress-spinner off
+
+  audit-extras:
+    name: Dependency audit (optional extras)
+    runs-on: ubuntu-latest
+    # Weekly and on demand, not on every pull request. The optional extras pull
+    # in mlflow, jupyter and friends, which carry well over a hundred known
+    # advisories between them at any given time. Those are real, but they are
+    # not this library's to fix and they do not change pull request to pull
+    # request, so running this here would put a permanent red check on every PR
+    # and teach people to ignore the column. audit-core is the per-PR gate;
+    # this is the standing watch on the wider surface.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Audit the locked environment with the CI extras
+        # Matches the test job. apache-airflow is left out for the reason
+        # given there.
+        run: |
+          python -m pip install --upgrade pip poetry
+          poetry install --with dev --extras "viz concept ml polars stream mlflow"
+          poetry run python -m pip install pip-audit
+          poetry run python -m pip_audit --skip-editable --progress-spinner off
+
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Audit the GitHub Actions workflows themselves
+        run: |
+          python -m pip install zizmor
+          # zizmor ships a binary, not an importable module.
+          zizmor --config .github/zizmor.yml --format sarif .github/workflows > zizmor.sarif
+
+      - name: Upload the report
+        if: always() && hashFiles('zizmor.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
+
+      - name: Fail if the audit reported findings
+        # zizmor exits 0 when asked for SARIF output even when it found
+        # problems, so gate on the report's contents rather than its status.
+        run: python tools/check_sarif.py zizmor.sarif

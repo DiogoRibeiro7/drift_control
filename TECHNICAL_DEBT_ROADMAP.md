@@ -59,21 +59,35 @@ Older items, still open:
 - [ ] Add a scheduled job that relocks the dev group and runs lint, types and
       tests against it, so upstream releases surface on a known day rather than
       the next time somebody happens to relock.
-- [ ] Fix the `Repository` URL and reconcile the author/maintainer emails.
+- [ ] Reconcile the author and maintainer emails, which differ from each
+      other. (The `Repository` URL is fixed.)
 - [x] Add coverage measurement to CI with a floor under the current figure.
 - [x] Replace the mypy allowlist with the whole package and fix the resulting
       errors.
 - [ ] Add a formatter and a pre-commit config, then remove the transitional
       `E501` exemptions.
-- [ ] Add CodeQL, a dependency audit, and workflow linting.
+- [x] Add CodeQL, a dependency audit, and workflow linting.
 - [ ] Add a tag-triggered release workflow using PyPI trusted publishing, and
       claim `drift-control` on PyPI while it is still free.
-- [ ] Add CONTRIBUTING, SECURITY, CODE_OF_CONDUCT and CHANGELOG.
-- [ ] Align the classifiers with the versions CI actually tests.
+- [x] Add CONTRIBUTING, SECURITY, CODE_OF_CONDUCT and CHANGELOG.
+- [x] Align the classifiers with the versions CI actually tests.
 - [ ] Enable branch protection on `main` requiring the CI checks.
 
 `drift-or-shift` has working versions of all of these and can be used as a
 reference rather than starting from scratch.
+
+### Dependency advisories, as of the first audit
+
+The core install is clean. The optional extras carry 127 known advisories
+across 13 packages (aiohttp, cryptography, gitpython, mlflow, pillow, tornado
+and others), almost all transitive through `mlflow` and the notebook tooling.
+
+The audit is therefore split: the core set gates CI, the extras are reported
+but do not block. Making the extras clean means moving `mlflow` and friends
+forward, which is worth doing deliberately rather than as a side effect of
+turning a job on.
+
+- [ ] Triage the extras advisories and relock what can move.
 
 ## P5 - Label shift
 

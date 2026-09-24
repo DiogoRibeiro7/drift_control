@@ -1,0 +1,15 @@
+# zizmor configuration.
+#
+# zizmor's default policy requires every action to be pinned to a commit hash.
+# We pin to tags for first-party actions published by GitHub and the PyPA,
+# because Dependabot tracks and bumps them here (see dependabot.yml) and tag
+# pins keep those updates reviewable. Hash pinning remains the stronger option
+# if this repository ever takes third-party actions.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "actions/*": ref-pin
+        "github/*": ref-pin
+        "pypa/*": ref-pin
+        "*": hash-pin
