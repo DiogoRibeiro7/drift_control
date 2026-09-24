@@ -62,12 +62,14 @@ jobs:
   audit-extras:
     name: Dependency audit (optional extras)
     runs-on: ubuntu-latest
-    # Advisory, not blocking. The optional extras pull in mlflow, jupyter and
-    # friends, which carry well over a hundred known advisories between them at
-    # any given time. Those are real, but they are not this library's to fix and
-    # they would keep the pipeline permanently red, which only teaches people to
-    # ignore it. The findings land in the job log; audit-core is the gate.
-    continue-on-error: true
+    # Weekly and on demand, not on every pull request. The optional extras pull
+    # in mlflow, jupyter and friends, which carry well over a hundred known
+    # advisories between them at any given time. Those are real, but they are
+    # not this library's to fix and they do not change pull request to pull
+    # request, so running this here would put a permanent red check on every PR
+    # and teach people to ignore the column. audit-core is the per-PR gate;
+    # this is the standing watch on the wider surface.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
         with:

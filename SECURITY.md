@@ -43,5 +43,7 @@ CI audits dependencies on every push and weekly. The audit is split in two:
 - **Core install** — what `pip install drift-control` brings in. This is
   gating; it must stay clean.
 - **Optional extras** — `mlflow`, `viz`, `stream` and friends. These carry a
-  large number of advisories from their own transitive trees, are reported but
-  not gating, and are the caller's risk to accept when installing an extra.
+  large number of advisories from their own transitive trees. They are audited
+  on the weekly run rather than on every pull request, because they do not
+  change from one change to the next and a standing red check teaches people to
+  stop reading the column. Installing an extra means accepting that surface.
