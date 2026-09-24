@@ -182,11 +182,18 @@ For a side-by-side capability mapping and migration checklist, see:
 
 ## Airflow wrapper
 
-Install with the airflow extra:
+Install drift-control into the environment your scheduler already runs in.
+There is no `airflow` extra: Airflow expects to be installed against its own
+constraints file for a given Python version, so pulling it in as a dependency
+of this package would give you an unsupported Airflow install.
 
 ```bash
-pip install "drift-control[airflow]"
+pip install drift-control
 ```
+
+The wrapper below imports `airflow` only when you call it, and raises a plain
+`ImportError` if it is not there, so drift-control does not need Airflow
+present to be imported.
 
 Create a task with the built-in wrapper:
 

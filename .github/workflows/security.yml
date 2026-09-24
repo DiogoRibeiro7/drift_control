@@ -80,8 +80,7 @@ jobs:
           python-version: "3.12"
 
       - name: Audit the locked environment with the CI extras
-        # Matches the test job. apache-airflow is left out for the reason
-        # given there.
+        # Matches the test job, which installs every extra.
         run: |
           python -m pip install --upgrade pip poetry
           poetry install --with dev --extras "viz concept ml polars stream mlflow"

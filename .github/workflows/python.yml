@@ -41,9 +41,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install with dev tooling + test-relevant extras
-        # apache-airflow is intentionally omitted: the Airflow wrapper is
-        # exercised through a faked module in the tests, and airflow's pins
-        # make a clean CI resolve slow and brittle.
+        # This is every extra there is. The Airflow wrapper needs no extra:
+        # it imports airflow lazily and the tests fake the module.
         run: |
           python -m pip install --upgrade pip poetry
           poetry install --with dev --extras "viz concept ml polars stream mlflow"
