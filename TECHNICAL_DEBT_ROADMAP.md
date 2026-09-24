@@ -8,17 +8,22 @@ The P0-P3 items below are done. What remains is engineering infrastructure
 rather than features, found in a September 2026 audit comparing this repository
 against `DiogoRibeiro7/drift-or-shift`:
 
-- Dev dependencies are unpinned (`ruff = "*"`, `mypy = "*"`), so an upstream
-  release can turn CI red without a line of our code changing.
+- ~~Dev dependencies are unpinned.~~ Incorrect, and withdrawn. The `"*"`
+  constraints in `pyproject.toml` are the allowed range; `poetry.lock` pins the
+  versions actually installed (ruff 0.15.15, mypy 2.1.0, pytest 9.0.3) and CI
+  installs from the lock. Dev tooling here is reproducible. What is worth
+  adding is a scheduled job that relocks and runs the suite, so an upstream
+  release is caught deliberately rather than whenever someone next relocks.
 - `[tool.mypy] files` is an explicit allowlist of about six modules, while the
   package ships `py.typed`, so downstream users are told our annotations are
   complete when most of the package is unchecked. Two measurements worth having
   before scoping the work: mypy **already fails on main** with 3 errors inside
   the allowlist, and run over the whole package it reports 18 errors across 8
   of 64 files. Removing the allowlist is a tractable cleanup, not a rewrite.
-- No coverage measurement in CI. Measured locally it is 89% over 4,265
-  statements with 422 tests passing, so this is an enforcement gap rather than
-  a quality one: nothing stops it sliding, and nobody sees it move.
+- ~~No coverage measurement in CI.~~ Added. 86.6% with branch coverage enabled
+  over 4,272 statements, 422 tests passing, floor set at 85%. (An earlier note
+  here said 89%; that was statement coverage only, without branches.) This was
+  an enforcement gap rather than a quality one.
 - No formatter. `ruff` lints but nothing formats, and `E501` is disabled for
   `drift_control/*.py` and `tests/*.py` as "transitional".
 - No pre-commit, so nothing runs before a push.
@@ -66,11 +71,11 @@ Older items, still open:
 
 ## P4 - Engineering infrastructure
 
-- [ ] Pin every dev dependency exactly, and add a test asserting the pins stay
-      in step with any pre-commit hook versions.
+- [ ] Add a scheduled job that relocks the dev group and runs lint, types and
+      tests against it, so upstream releases surface on a known day rather than
+      the next time somebody happens to relock.
 - [ ] Fix the `Repository` URL and reconcile the author/maintainer emails.
-- [ ] Add coverage measurement to CI with a floor just under the current 89%,
-      covering `drift_control/` and `scripts/`.
+- [x] Add coverage measurement to CI with a floor under the current figure.
 - [ ] Fix the 3 mypy errors currently failing inside the allowlist, then replace
       the allowlist with the whole package and fix the remaining 15.
 - [ ] Add a formatter and a pre-commit config, then remove the transitional
