@@ -16,16 +16,20 @@ from drift_control.ml_efficacy import MLEfficacyEvaluator
 
 def _binary_classification_frames():
     rng = np.random.default_rng(42)
-    df_prior = pd.DataFrame({
-        "x1": rng.normal(0, 1, 80),
-        "x2": rng.normal(0, 1, 80),
-        "y": rng.choice(["a", "b"], 80),
-    })
-    df_post = pd.DataFrame({
-        "x1": rng.normal(0.5, 1, 80),
-        "x2": rng.normal(0.5, 1, 80),
-        "y": rng.choice(["a", "b"], 80),
-    })
+    df_prior = pd.DataFrame(
+        {
+            "x1": rng.normal(0, 1, 80),
+            "x2": rng.normal(0, 1, 80),
+            "y": rng.choice(["a", "b"], 80),
+        }
+    )
+    df_post = pd.DataFrame(
+        {
+            "x1": rng.normal(0.5, 1, 80),
+            "x2": rng.normal(0.5, 1, 80),
+            "y": rng.choice(["a", "b"], 80),
+        }
+    )
     return df_prior, df_post
 
 
@@ -49,16 +53,20 @@ def test_compare_ml_efficacy_classification_binary():
 
 def test_compare_ml_efficacy_regression():
     rng = np.random.default_rng(0)
-    df_prior = pd.DataFrame({
-        "x1": rng.normal(0, 1, 60),
-        "x2": rng.normal(0, 1, 60),
-    })
+    df_prior = pd.DataFrame(
+        {
+            "x1": rng.normal(0, 1, 60),
+            "x2": rng.normal(0, 1, 60),
+        }
+    )
     df_prior["y"] = 2 * df_prior["x1"] - df_prior["x2"] + rng.normal(0, 0.1, 60)
 
-    df_post = pd.DataFrame({
-        "x1": rng.normal(0.5, 1, 60),
-        "x2": rng.normal(0.5, 1, 60),
-    })
+    df_post = pd.DataFrame(
+        {
+            "x1": rng.normal(0.5, 1, 60),
+            "x2": rng.normal(0.5, 1, 60),
+        }
+    )
     df_post["y"] = 2 * df_post["x1"] - df_post["x2"] + rng.normal(0, 0.1, 60)
 
     evaluator = MLEfficacyEvaluator(
@@ -86,16 +94,20 @@ def test_compare_ml_efficacy_regression():
 
 def test_compare_ml_efficacy_multiclass_emits_average_rows():
     rng = np.random.default_rng(7)
-    df_prior = pd.DataFrame({
-        "x1": rng.normal(0, 1, 120),
-        "x2": rng.normal(0, 1, 120),
-        "y": rng.choice(["a", "b", "c"], 120),
-    })
-    df_post = pd.DataFrame({
-        "x1": rng.normal(0.3, 1, 120),
-        "x2": rng.normal(0.3, 1, 120),
-        "y": rng.choice(["a", "b", "c"], 120),
-    })
+    df_prior = pd.DataFrame(
+        {
+            "x1": rng.normal(0, 1, 120),
+            "x2": rng.normal(0, 1, 120),
+            "y": rng.choice(["a", "b", "c"], 120),
+        }
+    )
+    df_post = pd.DataFrame(
+        {
+            "x1": rng.normal(0.3, 1, 120),
+            "x2": rng.normal(0.3, 1, 120),
+            "y": rng.choice(["a", "b", "c"], 120),
+        }
+    )
     evaluator = MLEfficacyEvaluator(
         df_prior, df_post, categorical_columns=["y"], numeric_columns=["x1", "x2"]
     )

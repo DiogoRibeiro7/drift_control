@@ -19,6 +19,7 @@ def _calibrated(n):
 
 # --- validation -------------------------------------------------------------
 
+
 def test_validation():
     with pytest.raises(ValidationError):
         CalibrationDriftMonitor(metric="logloss")
@@ -33,6 +34,7 @@ def test_current_value_is_none_before_any_updates():
 
 
 # --- detection --------------------------------------------------------------
+
 
 def test_detects_calibration_degradation_ece():
     mon = CalibrationDriftMonitor(metric="ece", window=2000, reference=0.03, min_increase=0.05)
@@ -62,6 +64,7 @@ def test_brier_metric():
 
 # --- reference capture + delayed labels -------------------------------------
 
+
 def test_auto_reference_capture():
     mon = CalibrationDriftMonitor(metric="brier", window=100)
     mon.update(np.ones(100, dtype=int), np.ones(100))  # perfect -> brier 0
@@ -82,6 +85,7 @@ def test_delayed_labels():
 
 
 # --- exposure ---------------------------------------------------------------
+
 
 def test_exposed_at_package_root():
     from drift_control import monitoring

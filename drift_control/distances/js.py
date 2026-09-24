@@ -22,17 +22,13 @@ def js_divergence(
     if pp.shape != qq.shape:
         raise ValidationError("p and q must have the same length")
     m = 0.5 * (pp + qq)
-    div = 0.5 * kl_divergence(pp, m, epsilon=epsilon) + 0.5 * kl_divergence(
-        qq, m, epsilon=epsilon
-    )
+    div = 0.5 * kl_divergence(pp, m, epsilon=epsilon) + 0.5 * kl_divergence(qq, m, epsilon=epsilon)
     if base is not None:
         div = div / float(np.log(base))
     return float(div)
 
 
-def js_distance(
-    p: ArrayLike, q: ArrayLike, *, base: float = 2.0, epsilon: float = 1e-12
-) -> float:
+def js_distance(p: ArrayLike, q: ArrayLike, *, base: float = 2.0, epsilon: float = 1e-12) -> float:
     """Jensen-Shannon distance: ``sqrt`` of the divergence; a metric.
 
     With ``base=2`` (default) the range is ``[0, 1]``.

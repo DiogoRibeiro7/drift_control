@@ -73,7 +73,9 @@ class ColumnFilterAlertSink:
 class LogAlertSink:
     """Log drift payloads to a named logger."""
 
-    def __init__(self, logger_name: str = "drift_control.alerts", level: int = logging.WARNING) -> None:
+    def __init__(
+        self, logger_name: str = "drift_control.alerts", level: int = logging.WARNING
+    ) -> None:
         self.logger = logging.getLogger(logger_name)
         self.level = level
 

@@ -19,10 +19,9 @@ RNG = np.random.default_rng(0)
 
 # --- run_online -------------------------------------------------------------
 
+
 def test_run_online_collects_drift_indices():
-    errors = np.concatenate(
-        [(RNG.random(300) < 0.1), (RNG.random(300) < 0.6)]
-    ).astype(float)
+    errors = np.concatenate([(RNG.random(300) < 0.1), (RNG.random(300) < 0.6)]).astype(float)
     points = run_online(DDM(min_samples=30), errors)
     assert points  # at least one drift
     assert any(p >= 300 for p in points)  # flagged in the degraded regime
@@ -42,6 +41,7 @@ def test_run_online_cusum_shift():
 
 
 # --- PELT -------------------------------------------------------------------
+
 
 def test_pelt_single_change():
     series = np.concatenate([RNG.normal(0, 0.3, 150), RNG.normal(3, 0.3, 150)])
@@ -88,6 +88,7 @@ def test_pelt_matches_binary_segmentation_on_clear_signal():
 
 
 # --- exposure ---------------------------------------------------------------
+
 
 def test_exposed_at_package_root():
     from drift_control import detectors

@@ -24,6 +24,7 @@ def _first_drift_index(detector, stream):
 
 # --- online control charts: contract ----------------------------------------
 
+
 @pytest.mark.parametrize("cls", [ShewhartChart, EWMAChart])
 def test_charts_are_online_detectors(cls):
     det = cls(warmup=10)
@@ -52,6 +53,7 @@ def test_chart_validation():
 
 # --- Shewhart ---------------------------------------------------------------
 
+
 def test_shewhart_flags_outlier_and_stable_is_quiet():
     rng = np.random.default_rng(1)
     det = ShewhartChart(control_limit=3.0, warmup=50)
@@ -73,6 +75,7 @@ def test_shewhart_explicit_baseline():
 
 # --- EWMA -------------------------------------------------------------------
 
+
 def test_ewma_detects_sustained_shift():
     rng = np.random.default_rng(2)
     det = EWMAChart(lam=0.2, control_limit=3.0, warmup=50)
@@ -92,6 +95,7 @@ def test_ewma_stable_stream_mostly_quiet():
 
 
 # --- binary segmentation ----------------------------------------------------
+
 
 def test_binseg_single_change_point():
     rng = np.random.default_rng(3)
@@ -133,6 +137,7 @@ def test_binseg_respects_max_breaks_and_min_size():
 
 # --- window-based -----------------------------------------------------------
 
+
 def test_window_based_locates_change():
     rng = np.random.default_rng(7)
     series = np.concatenate([rng.normal(0, 0.3, 150), rng.normal(3, 0.3, 150)])
@@ -148,6 +153,7 @@ def test_window_based_stable_series_quiet():
 
 
 # --- exposure ---------------------------------------------------------------
+
 
 def test_exposed_at_package_root():
     from drift_control import detectors

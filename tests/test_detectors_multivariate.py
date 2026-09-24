@@ -18,6 +18,7 @@ def _reconciles(r):
 
 # --- contract / validation --------------------------------------------------
 
+
 def test_is_a_base_detector():
     assert isinstance(MultivariateDriftDetector(), BaseDetector)
 
@@ -39,6 +40,7 @@ def test_feature_count_mismatch():
 
 # --- MMD --------------------------------------------------------------------
 
+
 def test_mmd_no_drift_and_drift():
     ref = RNG.normal(0, 1, (150, 3))
     det = MultivariateDriftDetector(method="mmd", n_permutations=100, random_state=1).fit(ref)
@@ -50,6 +52,7 @@ def test_mmd_no_drift_and_drift():
 
 
 # --- energy -----------------------------------------------------------------
+
 
 def test_energy_no_drift_and_drift():
     ref = RNG.normal(0, 1, (150, 3))
@@ -72,6 +75,7 @@ def test_energy_permutation_test_primitive():
 
 # --- determinism + integration ----------------------------------------------
 
+
 def test_deterministic_with_seed():
     ref = RNG.normal(0, 1, (80, 2))
     cur = RNG.normal(0.5, 1, (80, 2))
@@ -84,8 +88,10 @@ def test_flows_into_drift_report():
     from drift_control.monitoring import DriftReport
 
     ref = RNG.normal(0, 1, (120, 3))
-    result = MultivariateDriftDetector(method="energy", n_permutations=80).fit(ref).detect(
-        RNG.normal(2.0, 1, (120, 3))
+    result = (
+        MultivariateDriftDetector(method="energy", n_permutations=80)
+        .fit(ref)
+        .detect(RNG.normal(2.0, 1, (120, 3)))
     )
     report = DriftReport.from_results([result], names=["multivariate"])
     assert report.any_drift is True

@@ -103,7 +103,9 @@ from .telemetry import DriftTelemetry
     default="majority",
     help="Voting mode for ensemble method.",
 )
-@click.option("--min-votes", type=int, default=None, help="Override votes required in ensemble mode.")
+@click.option(
+    "--min-votes", type=int, default=None, help="Override votes required in ensemble mode."
+)
 @click.option(
     "--stack-threshold",
     type=float,
@@ -118,7 +120,12 @@ from .telemetry import DriftTelemetry
     show_default=True,
     help="Optional multiple-testing correction across columns.",
 )
-@click.option("--output-json", "output_json", is_flag=True, help="Emit a single JSON object instead of one line per column.")
+@click.option(
+    "--output-json",
+    "output_json",
+    is_flag=True,
+    help="Emit a single JSON object instead of one line per column.",
+)
 @click.option("--mlflow", "use_mlflow", is_flag=True, help="Log metrics to MLflow")
 @click.option(
     "--config",
@@ -135,7 +142,9 @@ from .telemetry import DriftTelemetry
     show_default=True,
     help="Parallel workers for per-column scoring on univariate/categorical methods.",
 )
-@click.option("--fail-on-drift", is_flag=True, help="Exit with non-zero status if drift is detected.")
+@click.option(
+    "--fail-on-drift", is_flag=True, help="Exit with non-zero status if drift is detected."
+)
 @click.option(
     "--html-report",
     type=click.Path(),
@@ -247,7 +256,10 @@ def _emit_check_output(payload: dict[str, object], output_json: bool) -> None:
                 f"(drift={column_payload['drift']})"
             )
         else:
-            click.echo(f"{name}: {float(column_payload['score']):.4f} (drift={bool(column_payload['drift'])})")
+            click.echo(
+                f"{name}: {float(column_payload['score']):.4f} "
+                f"(drift={bool(column_payload['drift'])})"
+            )
 
 
 def _log_mlflow_metrics(results: dict[str, object]) -> None:
@@ -259,7 +271,9 @@ def _log_mlflow_metrics(results: dict[str, object]) -> None:
     run_ctx = mlflow.start_run(nested=True) if active_run else mlflow.start_run()
     with run_ctx:
         for name, metric_payload in results.items():
-            if isinstance(metric_payload, dict) and isinstance(metric_payload.get("score"), (int, float)):
+            if isinstance(metric_payload, dict) and isinstance(
+                metric_payload.get("score"), (int, float)
+            ):
                 mlflow.log_metric(name, float(metric_payload["score"]))
 
 
@@ -279,7 +293,12 @@ def _log_mlflow_metrics(results: dict[str, object]) -> None:
     show_default=True,
     help="Benchmark output format.",
 )
-@click.option("--output-path", type=click.Path(), default=None, help="Optional report file path (.json or .csv).")
+@click.option(
+    "--output-path",
+    type=click.Path(),
+    default=None,
+    help="Optional report file path (.json or .csv).",
+)
 def benchmark_report(
     methods: str,
     sample_size: int,
@@ -312,8 +331,19 @@ def benchmark_report(
     show_default=True,
     help="Test for numeric columns (categorical columns always use chi-square).",
 )
-@click.option("--alpha", type=float, default=0.05, show_default=True, help="Significance level for p-value methods.")
-@click.option("--threshold", type=float, default=None, help="Threshold for psi/js numeric methods (else the method default).")
+@click.option(
+    "--alpha",
+    type=float,
+    default=0.05,
+    show_default=True,
+    help="Significance level for p-value methods.",
+)
+@click.option(
+    "--threshold",
+    type=float,
+    default=None,
+    help="Threshold for psi/js numeric methods (else the method default).",
+)
 @click.option("--bins", type=int, default=10, show_default=True, help="Bins for psi/js.")
 @click.option(
     "--correction",
@@ -330,7 +360,13 @@ def benchmark_report(
     show_default=True,
     help="Report format.",
 )
-@click.option("--output", "output_path", type=click.Path(), default=None, help="Write the report to this file (otherwise stdout).")
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(),
+    default=None,
+    help="Write the report to this file (otherwise stdout).",
+)
 @click.option("--fail-on-drift", is_flag=True, help="Exit non-zero if any column drifts.")
 def report_command(
     baseline: str,

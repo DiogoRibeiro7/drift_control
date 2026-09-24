@@ -35,6 +35,7 @@ def _ensemble(votes, vote):
 
 # --- contract / validation --------------------------------------------------
 
+
 def test_is_a_base_detector():
     assert isinstance(DetectorEnsemble([_Stub(True)]), BaseDetector)
 
@@ -50,12 +51,13 @@ def test_validation():
 
 # --- vote logic + reconciliation -------------------------------------------
 
+
 @pytest.mark.parametrize(
     "votes,vote,expected",
     [
         ([True, True, False], "any", True),
         ([False, False, False], "any", False),
-        ([True, True, False], "majority", True),   # 2/3
+        ([True, True, False], "majority", True),  # 2/3
         ([True, False, False], "majority", False),  # 1/3
         ([True, True, True], "all", True),
         ([True, True, False], "all", False),
@@ -78,6 +80,7 @@ def test_metadata_lists_members_with_names():
 
 # --- integration with real detectors ---------------------------------------
 
+
 def test_real_detectors_members():
     ref = RNG.normal(0, 1, 400)
     ensemble = DetectorEnsemble(
@@ -97,8 +100,10 @@ def test_flows_into_drift_report():
     from drift_control.monitoring import DriftReport
 
     ref = RNG.normal(0, 1, 300)
-    result = DetectorEnsemble([UnivariateDriftDetector(method="ks")]).fit(ref).detect(
-        RNG.normal(3.0, 1, 300)
+    result = (
+        DetectorEnsemble([UnivariateDriftDetector(method="ks")])
+        .fit(ref)
+        .detect(RNG.normal(3.0, 1, 300))
     )
     assert DriftReport.from_results([result], names=["ensemble"]).any_drift is True
 

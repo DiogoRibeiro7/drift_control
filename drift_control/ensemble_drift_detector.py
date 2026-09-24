@@ -127,12 +127,8 @@ class EnsembleDriftDetector:
     @staticmethod
     def _coerce_series(method: str, col: str, prior: Any, post: Any) -> tuple[Any, Any]:
         if method in {"chi2cat", "tvdcat"}:
-            return coerce_categorical_series(
-                prior, post, column_name=col, method_name="ensemble"
-            )
-        return coerce_numeric_series(
-            prior, post, column_name=col, method_name="ensemble"
-        )
+            return coerce_categorical_series(prior, post, column_name=col, method_name="ensemble")
+        return coerce_numeric_series(prior, post, column_name=col, method_name="ensemble")
 
     def _score_method(
         self,
@@ -253,8 +249,7 @@ class EnsembleDriftDetector:
             if method != "_stacking"
         )
         confidences = [
-            self._confidence(method_results[method], self._make(method))
-            for method in self.methods
+            self._confidence(method_results[method], self._make(method)) for method in self.methods
         ]
         pvalues = [
             (method, float(payload["p_value"]))

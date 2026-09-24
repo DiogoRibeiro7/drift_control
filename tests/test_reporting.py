@@ -10,19 +10,23 @@ from drift_control.monitoring import DriftReport, DriftReportItem
 
 
 def _threshold_result(*, drift, score, threshold, method="psi"):
-    return DriftResult(
-        method=method, drift=drift, score=score, threshold=threshold, comparator=">"
-    )
+    return DriftResult(method=method, drift=drift, score=score, threshold=threshold, comparator=">")
 
 
 def _pvalue_result(*, drift, p, alpha=0.05, method="ks"):
     return DriftResult(
-        method=method, drift=drift, score=p, threshold=alpha, comparator="<", p_value=p,
+        method=method,
+        drift=drift,
+        score=p,
+        threshold=alpha,
+        comparator="<",
+        p_value=p,
         metadata={"feature": f"col_{method}"},
     )
 
 
 # --- aggregation ------------------------------------------------------------
+
 
 def test_from_results_summary():
     results = [
@@ -73,6 +77,7 @@ def test_default_name_falls_back_to_check_index_when_missing():
 
 # --- severity scoring -------------------------------------------------------
 
+
 def test_severity_none_for_no_drift():
     report = DriftReport.from_results([_threshold_result(drift=False, score=0.1, threshold=0.2)])
     assert report.items[0].severity == "none"
@@ -89,8 +94,8 @@ def test_severity_threshold_scaling():
 
 def test_severity_pvalue_scaling():
     high = DriftReport.from_results([_pvalue_result(drift=True, p=0.001)])  # p/alpha=0.02
-    med = DriftReport.from_results([_pvalue_result(drift=True, p=0.02)])    # p/alpha=0.4
-    low = DriftReport.from_results([_pvalue_result(drift=True, p=0.04)])    # p/alpha=0.8
+    med = DriftReport.from_results([_pvalue_result(drift=True, p=0.02)])  # p/alpha=0.4
+    low = DriftReport.from_results([_pvalue_result(drift=True, p=0.04)])  # p/alpha=0.8
     assert high.items[0].severity == "high"
     assert med.items[0].severity == "medium"
     assert low.items[0].severity == "low"
@@ -99,12 +104,13 @@ def test_severity_pvalue_scaling():
 def test_max_severity_is_worst():
     results = [
         _threshold_result(drift=True, score=0.24, threshold=0.2),  # low
-        _threshold_result(drift=True, score=0.8, threshold=0.2),   # high
+        _threshold_result(drift=True, score=0.8, threshold=0.2),  # high
     ]
     assert DriftReport.from_results(results).max_severity == "high"
 
 
 # --- rendering --------------------------------------------------------------
+
 
 def test_to_json_is_valid_and_stable_schema():
     report = DriftReport.from_results([_threshold_result(drift=True, score=0.8, threshold=0.2)])
@@ -125,6 +131,7 @@ def test_to_markdown_has_table():
 
 
 # --- alert payload / notify -------------------------------------------------
+
 
 def test_alert_payload_and_notify():
     report = DriftReport.from_results(
@@ -154,10 +161,17 @@ def test_works_with_real_alert_sink():
 
 # --- item ------------------------------------------------------------------
 
+
 def test_report_item_to_dict():
     item = DriftReportItem(
-        name="f", method="ks", drift=True, severity="high",
-        score=0.01, threshold=0.05, comparator="<", p_value=0.01,
+        name="f",
+        method="ks",
+        drift=True,
+        severity="high",
+        score=0.01,
+        threshold=0.05,
+        comparator="<",
+        p_value=0.01,
     )
     d = item.to_dict()
     assert d["name"] == "f" and d["severity"] == "high"

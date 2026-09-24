@@ -69,9 +69,7 @@ def _maybe_add_confidence_signal(
     if current_proba is None or reference_confidence is None:
         return False
     current_confidence, current_entropy = _confidence_entropy(current_proba)
-    confidence_psi = population_stability_index(
-        reference_confidence, current_confidence, bins=bins
-    )
+    confidence_psi = population_stability_index(reference_confidence, current_confidence, bins=bins)
     confidence_drift = confidence_psi > psi_threshold
     metadata["confidence_psi"] = float(confidence_psi)
     metadata["mean_entropy"] = float(current_entropy.mean())
@@ -89,9 +87,7 @@ class PredictionDriftMonitor:
     distribution test, with the confidence signal in metadata.
     """
 
-    def __init__(
-        self, *, alpha: float = 0.05, psi_threshold: float = 0.2, bins: int = 10
-    ) -> None:
+    def __init__(self, *, alpha: float = 0.05, psi_threshold: float = 0.2, bins: int = 10) -> None:
         if not 0.0 < alpha < 1.0:
             raise ValidationError("alpha must be in (0, 1)")
         if psi_threshold <= 0.0:
@@ -112,9 +108,7 @@ class PredictionDriftMonitor:
         self._ref_conf = _confidence_entropy(proba)[0] if proba is not None else None
         return self
 
-    def detect(
-        self, predictions: ArrayLike, *, proba: ArrayLike | None = None
-    ) -> DriftResult:
+    def detect(self, predictions: ArrayLike, *, proba: ArrayLike | None = None) -> DriftResult:
         if self._ref_pred is None:
             raise NotFittedError("call fit() before detect()")
         cur: np.ndarray = np.asarray(predictions).ravel()

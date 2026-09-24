@@ -24,4 +24,3 @@ def create_airflow_drift_task(task_id: str, args: Sequence[str]) -> Any:
         python_callable=run_drift_check_cli,
         op_kwargs={"args": list(args)},
     )
-

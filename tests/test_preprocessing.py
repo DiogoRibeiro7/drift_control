@@ -15,6 +15,7 @@ from drift_control.preprocessing import (
 
 # --- coerce_observations ----------------------------------------------------
 
+
 def test_coerce_scalar_1d_2d_shapes():
     assert coerce_observations(3.0).shape == (1, 1)
     assert coerce_observations([1, 2, 3]).shape == (3, 1)
@@ -27,6 +28,7 @@ def test_coerce_rejects_3d():
 
 
 # --- validate_reference_current ---------------------------------------------
+
 
 def test_validate_coerces_1d_to_columns():
     pair = validate_reference_current([1, 2, 3], [4, 5, 6])
@@ -82,9 +84,7 @@ def test_inf_is_treated_as_missing():
 def test_feature_names_must_match_width():
     with pytest.raises(ValidationError, match="feature_names"):
         validate_reference_current(np.zeros((4, 2)), np.zeros((3, 2)), feature_names=["a"])
-    pair = validate_reference_current(
-        np.zeros((4, 2)), np.zeros((3, 2)), feature_names=["a", "b"]
-    )
+    pair = validate_reference_current(np.zeros((4, 2)), np.zeros((3, 2)), feature_names=["a", "b"])
     assert pair.feature_names == ["a", "b"]
 
 
@@ -94,6 +94,7 @@ def test_constant_feature_is_accepted():
 
 
 # --- SlidingWindow ----------------------------------------------------------
+
 
 def test_sliding_window_keeps_last_size_and_reports_full():
     w = SlidingWindow(size=3)
@@ -128,6 +129,7 @@ def test_sliding_window_requires_positive_size():
 
 # --- ExpandingWindow --------------------------------------------------------
 
+
 def test_expanding_window_grows_and_caps():
     w = ExpandingWindow()
     w.append([1, 2, 3])
@@ -141,6 +143,7 @@ def test_expanding_window_grows_and_caps():
 
 # --- TumblingWindow ---------------------------------------------------------
 
+
 def test_tumbling_window_resets_after_full():
     w = TumblingWindow(size=2)
     w.append([1, 2])
@@ -152,13 +155,11 @@ def test_tumbling_window_resets_after_full():
 
 # --- top-level exports ------------------------------------------------------
 
+
 def test_preprocessing_exposed_at_package_root():
     # Resolve both sides at call time so the assertion survives the package
     # reload performed by test_optional_imports (module-level refs would not).
     from drift_control import preprocessing
 
     assert drift_control.SlidingWindow is preprocessing.SlidingWindow
-    assert (
-        drift_control.validate_reference_current
-        is preprocessing.validate_reference_current
-    )
+    assert drift_control.validate_reference_current is preprocessing.validate_reference_current

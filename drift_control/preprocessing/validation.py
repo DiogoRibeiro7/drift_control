@@ -64,9 +64,7 @@ def _apply_missing_policy(
     if policy == "ignore":
         kept: np.ndarray = arr[finite.all(axis=1)]
         if kept.shape[0] == 0:
-            raise NotEnoughDataError(
-                f"every row of {name} contains missing values"
-            )
+            raise NotEnoughDataError(f"every row of {name} contains missing values")
         return kept
     # impute: fill each non-finite cell with the column mean of `reference`
     # (falling back to this array's own column means, then 0.0).
@@ -104,8 +102,7 @@ def validate_reference_current(
     cur = coerce_observations(current)
     if ref.shape[1] != cur.shape[1]:
         raise ValidationError(
-            f"feature count mismatch: reference has {ref.shape[1]}, "
-            f"current has {cur.shape[1]}"
+            f"feature count mismatch: reference has {ref.shape[1]}, current has {cur.shape[1]}"
         )
 
     ref = _apply_missing_policy(ref, "reference", missing)
@@ -127,9 +124,7 @@ def validate_reference_current(
             )
         names = list(feature_names)
 
-    return ValidatedPair(
-        reference=ref, current=cur, n_features=n_features, feature_names=names
-    )
+    return ValidatedPair(reference=ref, current=cur, n_features=n_features, feature_names=names)
 
 
 __all__ = [

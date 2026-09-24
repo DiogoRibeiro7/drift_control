@@ -25,59 +25,75 @@ def _export_map(module_name: str, names: list[str]) -> dict[str, str]:
     return {name: module_name for name in names}
 
 
-_ROOT_EXPORTS = _export_map(
-    "drift_control.result_schema",
-    ["DriftResult"],
-) | _export_map(
-    "drift_control.unified_drift_detector",
-    ["UnifiedDriftDetector"],
-) | _export_map(
-    "drift_control.config",
-    ["DriftCheckConfig", "EnsembleConfig"],
-) | _export_map(
-    "drift_control.telemetry",
-    ["DriftTelemetry"],
-) | _export_map(
-    "drift_control.drift_report",
-    ["DriftReport", "HtmlDriftReport"],
-) | _export_map(
-    "drift_control.monitoring",
-    ["DriftReportItem"],
-) | _export_map(
-    "drift_control.benchmark",
-    ["SyntheticDriftBenchmark", "BenchmarkResult"],
-) | _export_map(
-    "drift_control.ensemble_drift_detector",
-    ["EnsembleDriftDetector", "EnsembleColumnResult"],
-) | _export_map(
-    "drift_control.sklearn_adapter",
-    ["DriftMonitor"],
-) | _export_map(
-    "drift_control.multiple_testing",
-    ["adjust_pvalues"],
-) | _export_map(
-    "drift_control.stream_monitor",
-    ["StreamMonitor", "KafkaStreamMonitor"],
-) | _export_map(
-    "drift_control.visualization",
-    ["plot_psi", "plot_ks"],
-) | _export_map(
-    "drift_control.baseline_store",
-    ["BaselineStore", "LocalBaselineStore", "S3BaselineStore"],
-) | _export_map(
-    "drift_control.alert_sinks",
-    [
-        "AlertSink",
-        "CompositeAlertSink",
-        "ColumnFilterAlertSink",
-        "LogAlertSink",
-        "WebhookAlertSink",
-        "RetryingWebhookAlertSink",
-        "SlackWebhookAlertSink",
-    ],
-) | _export_map(
-    "drift_control.integrations.airflow",
-    ["create_airflow_drift_task"],
+_ROOT_EXPORTS = (
+    _export_map(
+        "drift_control.result_schema",
+        ["DriftResult"],
+    )
+    | _export_map(
+        "drift_control.unified_drift_detector",
+        ["UnifiedDriftDetector"],
+    )
+    | _export_map(
+        "drift_control.config",
+        ["DriftCheckConfig", "EnsembleConfig"],
+    )
+    | _export_map(
+        "drift_control.telemetry",
+        ["DriftTelemetry"],
+    )
+    | _export_map(
+        "drift_control.drift_report",
+        ["DriftReport", "HtmlDriftReport"],
+    )
+    | _export_map(
+        "drift_control.monitoring",
+        ["DriftReportItem"],
+    )
+    | _export_map(
+        "drift_control.benchmark",
+        ["SyntheticDriftBenchmark", "BenchmarkResult"],
+    )
+    | _export_map(
+        "drift_control.ensemble_drift_detector",
+        ["EnsembleDriftDetector", "EnsembleColumnResult"],
+    )
+    | _export_map(
+        "drift_control.sklearn_adapter",
+        ["DriftMonitor"],
+    )
+    | _export_map(
+        "drift_control.multiple_testing",
+        ["adjust_pvalues"],
+    )
+    | _export_map(
+        "drift_control.stream_monitor",
+        ["StreamMonitor", "KafkaStreamMonitor"],
+    )
+    | _export_map(
+        "drift_control.visualization",
+        ["plot_psi", "plot_ks"],
+    )
+    | _export_map(
+        "drift_control.baseline_store",
+        ["BaselineStore", "LocalBaselineStore", "S3BaselineStore"],
+    )
+    | _export_map(
+        "drift_control.alert_sinks",
+        [
+            "AlertSink",
+            "CompositeAlertSink",
+            "ColumnFilterAlertSink",
+            "LogAlertSink",
+            "WebhookAlertSink",
+            "RetryingWebhookAlertSink",
+            "SlackWebhookAlertSink",
+        ],
+    )
+    | _export_map(
+        "drift_control.integrations.airflow",
+        ["create_airflow_drift_task"],
+    )
 )
 
 _CORE_EXPORTS = _export_map(
@@ -190,9 +206,7 @@ def __getattr__(name: str) -> Any:
     try:
         module_name = _LAZY[name]
     except KeyError as exc:
-        raise AttributeError(
-            f"module 'drift_control' has no attribute {name!r}"
-        ) from exc
+        raise AttributeError(f"module 'drift_control' has no attribute {name!r}") from exc
     value = getattr(import_module(module_name), name)
     globals()[name] = value
     return value

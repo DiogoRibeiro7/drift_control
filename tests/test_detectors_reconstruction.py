@@ -19,6 +19,7 @@ def _manifold(n, noise):
 
 # --- contract ---------------------------------------------------------------
 
+
 def test_is_a_base_detector():
     assert isinstance(PCAReconstructionDriftDetector(), BaseDetector)
 
@@ -40,6 +41,7 @@ def test_invalid_alpha():
 
 
 # --- detection --------------------------------------------------------------
+
 
 def test_no_drift_same_manifold():
     ref = _manifold(400, 0.05)
@@ -69,10 +71,8 @@ def test_default_variance_components_runs_and_standardize():
 
 # --- exposure ---------------------------------------------------------------
 
+
 def test_exposed_at_package_root():
     from drift_control import detectors
 
-    assert (
-        drift_control.PCAReconstructionDriftDetector
-        is detectors.PCAReconstructionDriftDetector
-    )
+    assert drift_control.PCAReconstructionDriftDetector is detectors.PCAReconstructionDriftDetector

@@ -44,9 +44,7 @@ class DetectorEnsemble(BaseDetector):
         self.detectors = members
         self.vote = vote
         self.names = (
-            list(names)
-            if names is not None
-            else [f"detector_{i}" for i in range(len(members))]
+            list(names) if names is not None else [f"detector_{i}" for i in range(len(members))]
         )
 
     def fit(self, reference_data: ArrayLike) -> DetectorEnsemble:

@@ -30,9 +30,7 @@ def _probabilities(counts: np.ndarray) -> np.ndarray:
     return np.asarray(counts / total, dtype=float)
 
 
-def bin_edges(
-    reference: ArrayLike, *, bins: int = 10, strategy: str = "quantile"
-) -> np.ndarray:
+def bin_edges(reference: ArrayLike, *, bins: int = 10, strategy: str = "quantile") -> np.ndarray:
     """Bin edges fit on ``reference`` alone."""
     ref = as_1d(reference, "reference")
     bins = _validate_bins(bins)

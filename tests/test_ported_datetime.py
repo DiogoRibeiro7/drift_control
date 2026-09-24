@@ -33,8 +33,8 @@ def test_no_drift_same_cadence_and_hours():
 
 
 def test_detects_cadence_shift():
-    ref = _hourly("2024-01-01", 200, 60)        # one event per hour
-    fast = _hourly("2024-02-01", 200, 5)         # one per 5 min -> cadence drift
+    ref = _hourly("2024-01-01", 200, 60)  # one event per hour
+    fast = _hourly("2024-02-01", 200, 5)  # one per 5 min -> cadence drift
     det = DateTimeDriftDetector(threshold=0.2).fit(ref)
     out = det.detect(fast)
     assert out.drift is True

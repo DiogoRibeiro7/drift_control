@@ -34,9 +34,7 @@ class BaseWindow(ABC):
         if self._n_features is None:
             self._n_features = d
         elif d != self._n_features:
-            raise ValidationError(
-                f"window holds {self._n_features} feature(s) but got {d}"
-            )
+            raise ValidationError(f"window holds {self._n_features} feature(s) but got {d}")
         return rows
 
     def _empty(self) -> np.ndarray:

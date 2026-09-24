@@ -11,12 +11,15 @@ RNG = np.random.default_rng(0)
 
 
 def _reconciles(r: DriftResult) -> bool:
-    return (r.score < r.threshold) == r.drift if r.comparator == "<" else (
-        r.score > r.threshold
-    ) == r.drift
+    return (
+        (r.score < r.threshold) == r.drift
+        if r.comparator == "<"
+        else (r.score > r.threshold) == r.drift
+    )
 
 
 # --- CVM (numeric, p-value) -------------------------------------------------
+
 
 def test_cvm_no_drift_and_drift():
     det = UnivariateDriftDetector(method="cvm", alpha=0.05).fit(RNG.normal(0, 1, 500))
@@ -28,6 +31,7 @@ def test_cvm_no_drift_and_drift():
 
 
 # --- TVD (categorical, threshold) -------------------------------------------
+
 
 def test_total_variation_distance_primitive():
     assert total_variation_distance(["a", "a", "b"], ["a", "a", "b"]) == pytest.approx(0.0)

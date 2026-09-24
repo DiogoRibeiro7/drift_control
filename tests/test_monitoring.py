@@ -18,6 +18,7 @@ RNG = np.random.default_rng(0)
 
 # --- calibration ------------------------------------------------------------
 
+
 def test_brier_score_known_value():
     assert brier_score([1, 0], [1.0, 0.0]) == pytest.approx(0.0)
     assert brier_score([1, 0], [0.0, 1.0]) == pytest.approx(1.0)
@@ -44,6 +45,7 @@ def test_calibration_validation():
 
 
 # --- prediction drift -------------------------------------------------------
+
 
 def test_prediction_class_distribution_drift():
     ref = np.array(["a"] * 70 + ["b"] * 30)
@@ -83,9 +85,12 @@ def test_prediction_detect_before_fit():
 
 # --- performance drift ------------------------------------------------------
 
+
 def test_performance_classification_degradation():
     mon = PerformanceDriftMonitor(
-        task="classification", metrics=["accuracy"], window=100,
+        task="classification",
+        metrics=["accuracy"],
+        window=100,
         reference={"accuracy": 0.95},
     )
     # current window: 60% accuracy -> degraded vs 0.95 reference
@@ -122,7 +127,9 @@ def test_performance_regression_error_increase():
 
 def test_performance_delayed_labels():
     mon = PerformanceDriftMonitor(
-        task="classification", metrics=["accuracy"], window=10,
+        task="classification",
+        metrics=["accuracy"],
+        window=10,
         reference={"accuracy": 1.0},
     )
     for _ in range(6):
@@ -160,6 +167,7 @@ def test_performance_validation():
 
 
 # --- exposure ---------------------------------------------------------------
+
 
 def test_exposed_at_package_root():
     from drift_control import monitoring

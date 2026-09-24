@@ -30,6 +30,7 @@ RNG = np.random.default_rng(0)
 
 # --- PSI --------------------------------------------------------------------
 
+
 def test_psi_zero_for_identical():
     x = RNG.normal(size=1000)
     assert population_stability_index(x, x) == pytest.approx(0.0, abs=1e-9)
@@ -56,6 +57,7 @@ def test_bin_edges_constant_reference_falls_back_to_two_edges():
 
 
 # --- KL / JS ----------------------------------------------------------------
+
 
 def test_kl_zero_and_nonnegative():
     p = np.array([0.2, 0.3, 0.5])
@@ -92,6 +94,7 @@ def test_js_distance_is_unit_bounded():
 
 # --- KS ---------------------------------------------------------------------
 
+
 def test_ks_matches_scipy():
     a = RNG.normal(0, 1, 300)
     b = RNG.normal(0.5, 1, 300)
@@ -104,6 +107,7 @@ def test_ks_bounds():
 
 
 # --- chi-square -------------------------------------------------------------
+
 
 def test_chi2_zero_for_identical_proportions():
     ref = ["a", "a", "b", "c"] * 10
@@ -127,6 +131,7 @@ def test_chi2_matches_scipy_contingency():
 
 # --- Wasserstein ------------------------------------------------------------
 
+
 def test_wasserstein_matches_scipy_and_shift():
     a = RNG.normal(0, 1, 400)
     b = RNG.normal(0, 1, 400)
@@ -136,6 +141,7 @@ def test_wasserstein_matches_scipy_and_shift():
 
 
 # --- energy -----------------------------------------------------------------
+
 
 def test_energy_zero_for_identical_and_positive_for_shift():
     x = RNG.normal(0, 1, (200, 3))
@@ -149,6 +155,7 @@ def test_energy_rejects_feature_mismatch():
 
 
 # --- MMD --------------------------------------------------------------------
+
 
 def test_mmd_squared_small_for_same_large_for_shift():
     x = RNG.normal(0, 1, (150, 4))

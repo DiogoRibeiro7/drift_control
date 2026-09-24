@@ -49,7 +49,9 @@ def test_s3_store_save_load_list_metadata_delete():
     fake = _FakeS3Client()
     store = S3BaselineStore(bucket="my-bucket", prefix="baselines", s3_client=fake)
 
-    path = store.save(data, name="data", version="1", owner="alice", training_job_id="job-1", fmt="csv")
+    path = store.save(
+        data, name="data", version="1", owner="alice", training_job_id="job-1", fmt="csv"
+    )
     assert path == "s3://my-bucket/baselines/data_v1.csv"
 
     loaded = store.load("data", "1")

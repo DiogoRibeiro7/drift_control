@@ -59,4 +59,3 @@ from drift_control import UnifiedDriftDetector, DriftCheckConfig, DriftResult
 
 - `DriftResult` and CLI JSON schema are versioned/stable targets for integration.
 - New detector methods can be added without breaking existing method semantics.
-

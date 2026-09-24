@@ -20,6 +20,7 @@ from drift_control.result_schema import DriftResult as LegacyDriftResult
 
 # --- DriftResult bridge -----------------------------------------------------
 
+
 def test_core_result_is_the_single_canonical_type():
     assert DriftResult is LegacyDriftResult
 
@@ -51,6 +52,7 @@ def test_result_allows_optional_threshold_and_renders():
 
 
 # --- BaseDetector contract --------------------------------------------------
+
 
 class _DummyBatch(BaseDetector):
     def __init__(self) -> None:
@@ -99,6 +101,7 @@ def test_cannot_instantiate_incomplete_detector():
 
 # --- OnlineDetector + RetrainingPolicy contracts ----------------------------
 
+
 class _DummyOnline(OnlineDetector):
     def __init__(self) -> None:
         self.total = 0.0
@@ -132,6 +135,7 @@ def test_retraining_policy_consumes_result_and_metrics():
 
 # --- DetectorConfig ---------------------------------------------------------
 
+
 def test_detector_config_defaults_and_validation():
     cfg = DetectorConfig()
     assert cfg.alpha == 0.05 and cfg.random_state == 42
@@ -144,6 +148,7 @@ def test_detector_config_defaults_and_validation():
 
 # --- Exception hierarchy ----------------------------------------------------
 
+
 def test_validation_error_is_also_value_error():
     assert issubclass(ValidationError, ValueError)
     assert issubclass(ValidationError, DriftControlError)
@@ -152,6 +157,7 @@ def test_validation_error_is_also_value_error():
 
 
 # --- Top-level lazy exports -------------------------------------------------
+
 
 def test_core_symbols_exposed_at_package_root():
     # Resolve both sides at call time so the assertion survives the package

@@ -25,7 +25,8 @@ def _default_categorical_targets(
         return list(plot_categorical_columns)
     col_nunique = df_prior.nunique()
     return [
-        col for col in col_nunique.index
+        col
+        for col in col_nunique.index
         if col_nunique[col] <= max_cardinality and col in categorical_columns
     ]
 
@@ -69,21 +70,18 @@ def plot_categorical_to_numeric(
     logger.info(
         "Plotting categorical column(s): %s against numeric column(s): %s "
         "(categoricals with >20 unique values are skipped)",
-        plot_categorical_columns, plot_numeric_columns,
+        plot_categorical_columns,
+        plot_numeric_columns,
     )
 
-    plot_df[plot_categorical_columns] = (
-        plot_df[plot_categorical_columns].astype(str) + " "
-    )
+    plot_df[plot_categorical_columns] = plot_df[plot_categorical_columns].astype(str) + " "
 
     if categorical_on_y_axis:
         y_cols, x_cols = plot_categorical_columns, plot_numeric_columns
     else:
         y_cols, x_cols = plot_numeric_columns, plot_categorical_columns
 
-    g = sns.PairGrid(
-        data=plot_df, x_vars=x_cols, y_vars=y_cols, hue="_source", **grid_kws
-    )
+    g = sns.PairGrid(data=plot_df, x_vars=x_cols, y_vars=y_cols, hue="_source", **grid_kws)
     g.map(sns.violinplot, split=True, **plot_kws)
     g.add_legend()
     return g
@@ -152,7 +150,8 @@ def plot_categorical(
     logger.info("Plotting categorical column(s): %s", plot_categorical_columns)
 
     fig, ax = plt.subplots(
-        len(plot_categorical_columns), 1,
+        len(plot_categorical_columns),
+        1,
         figsize=(10, 5 * len(plot_categorical_columns)),
     )
 
@@ -160,20 +159,30 @@ def plot_categorical(
         _ax = ax if len(plot_categorical_columns) == 1 else ax[i]
 
         _p1 = (
-            df_prior[col].value_counts(normalize=True)
-            .rename("Proportion").sort_index().reset_index()
+            df_prior[col]
+            .value_counts(normalize=True)
+            .rename("Proportion")
+            .sort_index()
+            .reset_index()
         )
         _p2 = (
-            df_post[col].value_counts(normalize=True)
-            .rename("Proportion").sort_index().reset_index()
+            df_post[col]
+            .value_counts(normalize=True)
+            .rename("Proportion")
+            .sort_index()
+            .reset_index()
         )
         _p1["_source"] = "Prior"
         _p2["_source"] = "Post"
         _p = pd.concat([_p1, _p2])
 
         sns.barplot(
-            x=_p.index, y="Proportion", hue="_source",
-            data=_p, ax=_ax, **kwargs,
+            x=_p.index,
+            y="Proportion",
+            hue="_source",
+            data=_p,
+            ax=_ax,
+            **kwargs,
         )
         _ax.legend(loc="upper right", title="_source")
         _ax.set_xlabel(col)

@@ -20,8 +20,7 @@ def _validate_component(value: str, field: str) -> None:
         raise ValueError(f"{field} must be a non-empty string")
     if not _SAFE_COMPONENT.match(value):
         raise ValueError(
-            f"{field} may only contain letters, digits, '.', '_' and '-'; "
-            f"got {value!r}"
+            f"{field} may only contain letters, digits, '.', '_' and '-'; got {value!r}"
         )
 
 
@@ -154,7 +153,9 @@ class LocalBaselineStore:
                 h.update(chunk)
         return h.hexdigest()
 
-    def _resolve_existing_path(self, name: str, version: str) -> tuple[str, Literal["parquet", "csv"]]:
+    def _resolve_existing_path(
+        self, name: str, version: str
+    ) -> tuple[str, Literal["parquet", "csv"]]:
         for fmt in _FORMAT_SUFFIXES:
             path = self._path(name, version, fmt=fmt)
             if os.path.exists(path):
@@ -229,7 +230,10 @@ class LocalBaselineStore:
 
     def delete(self, name: str, version: str) -> None:
         for fmt in _FORMAT_SUFFIXES:
-            for path in (self._path(name, version, fmt=fmt), self._meta_path(name, version, fmt=fmt)):
+            for path in (
+                self._path(name, version, fmt=fmt),
+                self._meta_path(name, version, fmt=fmt),
+            ):
                 if os.path.exists(path):
                     os.remove(path)
 
@@ -274,7 +278,9 @@ class S3BaselineStore:
         except Exception:
             return False
 
-    def _resolve_existing_key(self, name: str, version: str) -> tuple[str, Literal["parquet", "csv"]]:
+    def _resolve_existing_key(
+        self, name: str, version: str
+    ) -> tuple[str, Literal["parquet", "csv"]]:
         for fmt in _FORMAT_SUFFIXES:
             key = self._object_key(name, version, fmt=fmt)
             if self._exists(key):
@@ -364,6 +370,9 @@ class S3BaselineStore:
 
     def delete(self, name: str, version: str) -> None:
         for fmt in _FORMAT_SUFFIXES:
-            for key in (self._object_key(name, version, fmt=fmt), self._meta_key(name, version, fmt=fmt)):
+            for key in (
+                self._object_key(name, version, fmt=fmt),
+                self._meta_key(name, version, fmt=fmt),
+            ):
                 if self._exists(key):
                     self.s3_client.delete_object(Bucket=self.bucket, Key=key)
