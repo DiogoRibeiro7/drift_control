@@ -139,7 +139,13 @@ build-backend = "poetry.core.masonry.api"
 # Optional extras are deliberately absent from the lint environment; importing
 # them is guarded at runtime, so a missing stub is not a finding.
 [[tool.mypy.overrides]]
-module = ["mlflow.*", "aiokafka.*"]
+module = [
+  "mlflow.*",
+  "aiokafka.*",
+  "plotly.*",
+  "seaborn.*",
+  "category_encoders.*",
+]
 ignore_missing_imports = true
 
 [tool.mypy]
@@ -151,49 +157,7 @@ disallow_incomplete_defs = true
 check_untyped_defs = true
 no_implicit_optional = true
 strict_equality = true
-files = [
-  "drift_control/_interop.py",
-  "drift_control/core/base.py",
-  "drift_control/core/config.py",
-  "drift_control/core/exceptions.py",
-  "drift_control/core/result.py",
-  "drift_control/core/types.py",
-  "drift_control/preprocessing/validation.py",
-  "drift_control/preprocessing/windows.py",
-  "drift_control/distances/_common.py",
-  "drift_control/distances/binning.py",
-  "drift_control/distances/psi.py",
-  "drift_control/distances/kl.py",
-  "drift_control/distances/js.py",
-  "drift_control/distances/ks.py",
-  "drift_control/distances/chi2.py",
-  "drift_control/distances/wasserstein.py",
-  "drift_control/distances/tvd.py",
-  "drift_control/distances/energy.py",
-  "drift_control/distances/mmd.py",
-  "drift_control/detectors/data_drift.py",
-  "drift_control/detectors/datetime_drift.py",
-  "drift_control/detectors/concept_drift.py",
-  "drift_control/detectors/change_point.py",
-  "drift_control/detectors/online.py",
-  "drift_control/detectors/reconstruction.py",
-  "drift_control/detectors/multivariate.py",
-  "drift_control/detectors/mixed_type.py",
-  "drift_control/detectors/ensemble.py",
-  "drift_control/monitoring/calibration.py",
-  "drift_control/monitoring/prediction_drift.py",
-  "drift_control/monitoring/performance_drift.py",
-  "drift_control/monitoring/reports.py",
-  "drift_control/adaptation/retraining.py",
-  "drift_control/adaptation/training_set.py",
-  "drift_control/adaptation/champion_challenger.py",
-  "drift_control/cli.py",
-  "drift_control/config.py",
-  "drift_control/ensemble_drift_detector.py",
-  "drift_control/result_schema.py",
-  "drift_control/unified_drift_detector.py",
-  "drift_control/validation.py",
-]
+files = ["drift_control"]
 exclude = [
   "^tests/",
 ]

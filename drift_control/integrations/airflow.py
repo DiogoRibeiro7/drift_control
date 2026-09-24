@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from drift_control.cli import check
 
@@ -12,7 +13,7 @@ def run_drift_check_cli(args: Sequence[str]) -> None:
     check.main(args=list(args), standalone_mode=False)
 
 
-def create_airflow_drift_task(task_id: str, args: Sequence[str]):
+def create_airflow_drift_task(task_id: str, args: Sequence[str]) -> Any:
     """Create an Airflow PythonOperator that runs drift-control CLI."""
     try:
         from airflow.operators.python import PythonOperator  # type: ignore

@@ -30,7 +30,7 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
         self.feature_names_in_: pd.Index | None = None
         self.n_features_in_: int | None = None
 
-    def fit(self, X: pd.DataFrame, y: Any = None):
+    def fit(self, X: pd.DataFrame, y: Any = None) -> "DriftMonitor":
         """Store the baseline dataset."""
         X_df = _coerce_frame(X, copy=True)
         self.baseline_ = X_df
@@ -69,7 +69,7 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
         X_df = self._check_input(X)
         return self._score_columns(X_df)
 
-    def transform(self, X: pd.DataFrame, y: Any = None):
+    def transform(self, X: pd.DataFrame, y: Any = None) -> pd.DataFrame:
         """Check drift against the baseline and return data unchanged.
 
         Side-effect: stores results on ``self.drift_results_``. Use

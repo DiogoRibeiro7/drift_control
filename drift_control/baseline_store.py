@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, cast
 
 import pandas as pd
 
@@ -224,7 +224,7 @@ class LocalBaselineStore:
             meta_path = self._meta_path(name, version, fmt=fmt)
             if os.path.exists(meta_path):
                 with open(meta_path, encoding="utf-8") as f:
-                    return json.load(f)
+                    return cast("dict[Any, Any]", json.load(f))
         raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
 
     def delete(self, name: str, version: str) -> None:
@@ -265,7 +265,7 @@ class S3BaselineStore:
 
     def _read_object_bytes(self, key: str) -> bytes:
         obj = self.s3_client.get_object(Bucket=self.bucket, Key=key)
-        return obj["Body"].read()
+        return cast(bytes, obj["Body"].read())
 
     def _exists(self, key: str) -> bool:
         try:
@@ -356,7 +356,10 @@ class S3BaselineStore:
         for fmt in _FORMAT_SUFFIXES:
             key = self._meta_key(name, version, fmt=fmt)
             if self._exists(key):
-                return json.loads(self._read_object_bytes(key).decode("utf-8"))
+                return cast(
+                    "dict[Any, Any]",
+                    json.loads(self._read_object_bytes(key).decode("utf-8")),
+                )
         raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
 
     def delete(self, name: str, version: str) -> None:

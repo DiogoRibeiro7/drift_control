@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
+from typing import Any, cast
 
 Attributes = Mapping[str, str | int | float | bool]
 
@@ -51,10 +52,12 @@ class DriftTelemetry:
         except Exception:
             # No-op mode when OpenTelemetry is not installed/configured.
             pass
-        self._latency_hist = state["latency_hist"]
-        self._drift_rate_hist = state["drift_rate_hist"]
-        self._error_counter = state["error_counter"]
-        self._tracer = state["tracer"]
+        # OpenTelemetry is optional, so these are either real instruments or
+        # None and mypy can only infer `object` from the mixed dict.
+        self._latency_hist: Any = state["latency_hist"]
+        self._drift_rate_hist: Any = state["drift_rate_hist"]
+        self._error_counter: Any = state["error_counter"]
+        self._tracer: Any = state["tracer"]
 
     def record_latency(self, value_ms: float, attributes: Attributes | None = None) -> None:
         if self._latency_hist is not None:
@@ -68,7 +71,10 @@ class DriftTelemetry:
         if self._error_counter is not None:
             self._error_counter.add(1, attributes=attributes)
 
-    def start_span(self, name: str, attributes: Attributes | None = None):
+    def start_span(
+        self, name: str, attributes: Attributes | None = None
+    ) -> AbstractContextManager[Any]:
         if self._tracer is None:
             return nullcontext()
-        return self._tracer.start_as_current_span(name, attributes=attributes)
+        span = self._tracer.start_as_current_span(name, attributes=attributes)
+        return cast("AbstractContextManager[Any]", span)
