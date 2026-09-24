@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -52,7 +52,11 @@ class DateTimeDriftDetector(BaseDetector):
     def _cadence_seconds(ts: pd.Series) -> np.ndarray:
         if len(ts) < 2:
             return np.array([0.0], dtype=float)
-        deltas = ts.diff().dropna().dt.total_seconds().to_numpy(dtype=float)
+        # `ts` holds datetimes, so `.diff()` yields timedeltas, but
+        # pandas-stubs types it as a float Series and rejects the `.dt`
+        # accessor. Naming the real type is better than silencing it.
+        gaps = cast("pd.Series[pd.Timedelta]", ts.diff().dropna())
+        deltas = gaps.dt.total_seconds().to_numpy(dtype=float)
         deltas = deltas[np.isfinite(deltas)]
         if deltas.size == 0:
             return np.array([0.0], dtype=float)

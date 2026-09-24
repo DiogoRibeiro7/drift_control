@@ -26,7 +26,8 @@ def _fallback_edges(reference: np.ndarray) -> np.ndarray:
 
 
 def _probabilities(counts: np.ndarray) -> np.ndarray:
-    return counts / max(counts.sum(), 1)
+    total = float(max(counts.sum(), 1))
+    return np.asarray(counts / total, dtype=float)
 
 
 def bin_edges(

@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 requires-python = ">=3.10"
@@ -32,8 +33,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/DiogoRibeiro7/drift-control"
-Documentation = "https://github.com/DiogoRibeiro7/drift-control/tree/main/docs"
+Repository = "https://github.com/DiogoRibeiro7/drift_control"
+Documentation = "https://github.com/DiogoRibeiro7/drift_control/tree/main/docs"
 
 [project.optional-dependencies]
 viz = [
@@ -88,6 +89,11 @@ ruff = "*"
 mypy = "*"
 nbval = "*"
 ipykernel = "*"
+# Without these mypy cannot check any pandas or yaml usage and reports
+# "Library stubs not installed" instead, which is most of why the
+# lint-typecheck job is red.
+pandas-stubs = "*"
+types-PyYAML = "*"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -112,6 +118,12 @@ select = ["E", "F", "I", "B", "UP"]
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+# Optional extras are deliberately absent from the lint environment; importing
+# them is guarded at runtime, so a missing stub is not a finding.
+[[tool.mypy.overrides]]
+module = ["mlflow.*", "aiokafka.*"]
+ignore_missing_imports = true
+
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
