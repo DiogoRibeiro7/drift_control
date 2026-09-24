@@ -136,18 +136,6 @@ select = ["E", "F", "I", "B", "UP"]
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
-# Optional extras are deliberately absent from the lint environment; importing
-# them is guarded at runtime, so a missing stub is not a finding.
-[[tool.mypy.overrides]]
-module = [
-  "mlflow.*",
-  "aiokafka.*",
-  "plotly.*",
-  "seaborn.*",
-  "category_encoders.*",
-]
-ignore_missing_imports = true
-
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
@@ -162,10 +150,32 @@ exclude = [
   "^tests/",
 ]
 
+# scipy and sklearn ship no stubs. The rest are optional dependencies that the
+# lint job deliberately does not install -- every import of them is guarded at
+# runtime -- so a missing stub there is not a finding. Keep this list in step
+# with [project.optional-dependencies], plus opentelemetry, which is optional
+# without being an extra.
 [[tool.mypy.overrides]]
 module = [
   "scipy",
   "scipy.*",
   "sklearn.*",
+  "aiokafka.*",
+  "airflow.*",
+  "category_encoders.*",
+  "matplotlib.*",
+  "mlflow.*",
+  "plotly.*",
+  "seaborn.*",
 ]
 ignore_missing_imports = true
+
+# opentelemetry arrives transitively with some extras and not with others, and
+# its `metrics` / `trace` namespaces expose their API dynamically, so mypy
+# reports attribute errors when it happens to be installed and nothing when it
+# is not. Skipping it makes the result the same either way, which matters more
+# than checking a guarded optional import.
+[[tool.mypy.overrides]]
+module = ["opentelemetry", "opentelemetry.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
