@@ -62,7 +62,9 @@ class MixedTypeDriftDetector(BaseDetector):
         self.correction = correction
         self.threshold: float | None
         if numeric_method in _THRESHOLD_DEFAULT:
-            self.threshold = float(threshold) if threshold is not None else _THRESHOLD_DEFAULT[numeric_method]
+            self.threshold = (
+                float(threshold) if threshold is not None else _THRESHOLD_DEFAULT[numeric_method]
+            )
         else:
             self.threshold = None
         self._reference: pd.DataFrame | None = None
@@ -169,9 +171,7 @@ class MixedTypeDriftDetector(BaseDetector):
             metadata={
                 "n_features": len(features),
                 "n_drifting": n_drifting,
-                "drifting_features": [
-                    f.metadata["feature"] for f in features if f.drift
-                ],
+                "drifting_features": [f.metadata["feature"] for f in features if f.drift],
                 "kinds": {f.metadata["feature"]: f.metadata["kind"] for f in features},
             },
         )

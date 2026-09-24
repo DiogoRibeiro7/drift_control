@@ -18,9 +18,7 @@ def rbf_kernel(a: np.ndarray, b: np.ndarray, gamma: float) -> np.ndarray:
     return out
 
 
-def median_bandwidth_gamma(
-    x: np.ndarray, y: np.ndarray, *, random_state: int = 42
-) -> float:
+def median_bandwidth_gamma(x: np.ndarray, y: np.ndarray, *, random_state: int = 42) -> float:
     """RBF ``gamma`` from the median heuristic on pooled pairwise distances."""
     z = np.vstack([x, y])
     if z.shape[1] == 0:

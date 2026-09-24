@@ -161,9 +161,7 @@ class UnifiedDriftDetector:
                 stacklevel=2,
             )
 
-    def _bootstrap_ci(
-        self, reference_data: Any, current_data: Any
-    ) -> tuple[float, float] | None:
+    def _bootstrap_ci(self, reference_data: Any, current_data: Any) -> tuple[float, float] | None:
         if self.ci_bootstrap_samples <= 0 or self.method not in _CI_METHODS:
             return None
         ref = np.asarray(reference_data, dtype=float).ravel()
@@ -186,24 +184,32 @@ class UnifiedDriftDetector:
         method = self.method
         metadata: dict[str, Any] = {}
         if method in _UNIVARIATE:
-            inner = UnivariateDriftDetector(
-                method=_UNIVARIATE[method],
-                alpha=self.alpha,
-                threshold=self.threshold if method in _THRESHOLD_DEFAULT else None,
-                bins=self.bins,
-                correction="none",
-            ).fit(reference_data).detect(current_data)
+            inner = (
+                UnivariateDriftDetector(
+                    method=_UNIVARIATE[method],
+                    alpha=self.alpha,
+                    threshold=self.threshold if method in _THRESHOLD_DEFAULT else None,
+                    bins=self.bins,
+                    correction="none",
+                )
+                .fit(reference_data)
+                .detect(current_data)
+            )
             score = inner.score
             drift = inner.drift
             p_value = inner.p_value
             threshold = self.threshold
         elif method in _MULTIVARIATE:
-            inner = MultivariateDriftDetector(
-                method=_MULTIVARIATE[method],
-                alpha=self.alpha,
-                n_permutations=self.n_permutations,
-                random_state=self.random_state,
-            ).fit(reference_data).detect(current_data)
+            inner = (
+                MultivariateDriftDetector(
+                    method=_MULTIVARIATE[method],
+                    alpha=self.alpha,
+                    n_permutations=self.n_permutations,
+                    random_state=self.random_state,
+                )
+                .fit(reference_data)
+                .detect(current_data)
+            )
             score = inner.score
             drift = inner.drift
             p_value = inner.p_value
@@ -220,8 +226,10 @@ class UnifiedDriftDetector:
             drift = score > threshold
             metadata = {"alpha": self.alpha, "calibrated_threshold": threshold}
         else:
-            inner = DateTimeDriftDetector(threshold=self.threshold).fit(reference_data).detect(
-                current_data
+            inner = (
+                DateTimeDriftDetector(threshold=self.threshold)
+                .fit(reference_data)
+                .detect(current_data)
             )
             score = inner.score
             drift = inner.drift

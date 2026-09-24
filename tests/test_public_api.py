@@ -12,31 +12,61 @@ import drift_control
 
 _NEW_ROOT_SYMBOLS = [
     # core
-    "BaseDetector", "OnlineDetector", "RetrainingPolicy", "DetectorConfig",
-    "DriftControlError", "ValidationError", "NotFittedError", "NotEnoughDataError",
+    "BaseDetector",
+    "OnlineDetector",
+    "RetrainingPolicy",
+    "DetectorConfig",
+    "DriftControlError",
+    "ValidationError",
+    "NotFittedError",
+    "NotEnoughDataError",
     # preprocessing
-    "validate_reference_current", "ValidatedPair", "coerce_observations",
-    "SlidingWindow", "ExpandingWindow", "TumblingWindow",
+    "validate_reference_current",
+    "ValidatedPair",
+    "coerce_observations",
+    "SlidingWindow",
+    "ExpandingWindow",
+    "TumblingWindow",
     # distances
-    "population_stability_index", "kl_divergence", "js_divergence", "js_distance",
-    "ks_statistic", "chi2_statistic", "wasserstein_distance", "energy_distance",
-    "mmd_squared", "mmd_permutation_test", "to_histograms",
+    "population_stability_index",
+    "kl_divergence",
+    "js_divergence",
+    "js_distance",
+    "ks_statistic",
+    "chi2_statistic",
+    "wasserstein_distance",
+    "energy_distance",
+    "mmd_squared",
+    "mmd_permutation_test",
+    "to_histograms",
     # detectors
-    "UnivariateDriftDetector", "DDM", "EDDM", "PageHinkley", "CUSUM",
-    "ShewhartChart", "EWMAChart", "SegmentationResult", "binary_segmentation",
-    "window_based_change_detection", "PCAReconstructionDriftDetector",
+    "UnivariateDriftDetector",
+    "DDM",
+    "EDDM",
+    "PageHinkley",
+    "CUSUM",
+    "ShewhartChart",
+    "EWMAChart",
+    "SegmentationResult",
+    "binary_segmentation",
+    "window_based_change_detection",
+    "PCAReconstructionDriftDetector",
     # monitoring
-    "PredictionDriftMonitor", "PerformanceDriftMonitor", "brier_score",
+    "PredictionDriftMonitor",
+    "PerformanceDriftMonitor",
+    "brier_score",
     "expected_calibration_error",
     # adaptation
-    "PeriodicRetrainingPolicy", "TriggerRetrainingPolicy", "select_sliding",
-    "select_expanding", "recency_weights", "ChampionChallengerEvaluator",
+    "PeriodicRetrainingPolicy",
+    "TriggerRetrainingPolicy",
+    "select_sliding",
+    "select_expanding",
+    "recency_weights",
+    "ChampionChallengerEvaluator",
     "ChampionChallengerResult",
 ]
 
-_SUBPACKAGES = [
-    "core", "preprocessing", "distances", "detectors", "monitoring", "adaptation"
-]
+_SUBPACKAGES = ["core", "preprocessing", "distances", "detectors", "monitoring", "adaptation"]
 
 
 def test_new_root_symbols_resolve():

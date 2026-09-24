@@ -41,7 +41,10 @@ def _c2st_permutation_test(
 
     def fit_auc(features: np.ndarray, target: np.ndarray) -> float:
         f_train, f_test, t_train, t_test = train_test_split(
-            features, target, test_size=test_size, random_state=random_state,
+            features,
+            target,
+            test_size=test_size,
+            random_state=random_state,
             stratify=target,
         )
         clf = LogisticRegression(max_iter=1000)

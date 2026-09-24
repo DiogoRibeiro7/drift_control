@@ -30,6 +30,14 @@ def test_c2st_validation():
 def test_c2st_deterministic():
     ref = RNG.normal(0, 1, (120, 3))
     cur = RNG.normal(0.8, 1, (120, 3))
-    a = MultivariateDriftDetector(method="c2st", n_permutations=50, random_state=7).fit(ref).detect(cur)
-    b = MultivariateDriftDetector(method="c2st", n_permutations=50, random_state=7).fit(ref).detect(cur)
+    a = (
+        MultivariateDriftDetector(method="c2st", n_permutations=50, random_state=7)
+        .fit(ref)
+        .detect(cur)
+    )
+    b = (
+        MultivariateDriftDetector(method="c2st", n_permutations=50, random_state=7)
+        .fit(ref)
+        .detect(cur)
+    )
     assert (a.score, a.p_value, a.threshold) == (b.score, b.p_value, b.threshold)

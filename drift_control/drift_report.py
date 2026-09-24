@@ -152,7 +152,7 @@ class HtmlDriftReport:
         if labels is not None and len(labels) != len(history):
             raise ValueError("labels length must match history length")
 
-        time_labels = labels or [f"t{i+1}" for i in range(len(history))]
+        time_labels = labels or [f"t{i + 1}" for i in range(len(history))]
         features, matrix, max_score = self._heatmap_matrix(history)
         head_cells = "".join(f"<th>{escape(label)}</th>" for label in time_labels)
         body_rows: list[str] = []
@@ -181,7 +181,7 @@ class HtmlDriftReport:
   <h1>{escape(title)}</h1>
   <table>
     <thead><tr><th>Feature \\ Time</th>{head_cells}</tr></thead>
-    <tbody>{''.join(body_rows)}</tbody>
+    <tbody>{"".join(body_rows)}</tbody>
   </table>
 </body>
 </html>"""

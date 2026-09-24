@@ -81,7 +81,9 @@ class ShewhartChart(OnlineDetector):
         if not self._ready:
             self._warmup_step(x)
             return DriftResult.new(
-                drift_detected=False, score=0.0, method="shewhart",
+                drift_detected=False,
+                score=0.0,
+                method="shewhart",
                 metadata={"warmup": True, "n": self.n},
             )
         score = abs(x - self.target)
@@ -146,7 +148,9 @@ class EWMAChart(OnlineDetector):
                 self.z = self.target
                 self._ready = True
             return DriftResult.new(
-                drift_detected=False, score=0.0, method="ewma",
+                drift_detected=False,
+                score=0.0,
+                method="ewma",
                 metadata={"warmup": True, "n": self.n},
             )
         self.z = self.lam * x + (1.0 - self.lam) * self.z
@@ -235,9 +239,7 @@ def binary_segmentation(
     accepted.sort(key=lambda t: t[0])
     points = [s for s, _ in accepted]
     scores = [g for _, g in accepted]
-    return SegmentationResult(
-        change_points=points, n_segments=len(points) + 1, scores=scores
-    )
+    return SegmentationResult(change_points=points, n_segments=len(points) + 1, scores=scores)
 
 
 def pelt(
@@ -329,9 +331,7 @@ def window_based_change_detection(
             points.append(t)
             scores.append(stat)
             last = t
-    return SegmentationResult(
-        change_points=points, n_segments=len(points) + 1, scores=scores
-    )
+    return SegmentationResult(change_points=points, n_segments=len(points) + 1, scores=scores)
 
 
 __all__ = [

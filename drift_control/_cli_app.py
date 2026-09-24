@@ -367,9 +367,17 @@ def _score_results(
         )
     if cfg.method in {"mmd", "c2st", "energy"}:
         assert unified_detector is not None
-        return _score_dataset(base_df=base_df, cur_df=cur_df, method=cfg.method, detector=unified_detector, raise_click=raise_click)
+        return _score_dataset(
+            base_df=base_df,
+            cur_df=cur_df,
+            method=cfg.method,
+            detector=unified_detector,
+            raise_click=raise_click,
+        )
     assert ensemble_detector is not None
-    return _score_ensemble(base_df=base_df, cur_df=cur_df, detector=ensemble_detector, raise_click=raise_click)
+    return _score_ensemble(
+        base_df=base_df, cur_df=cur_df, detector=ensemble_detector, raise_click=raise_click
+    )
 
 
 def _score_columnwise(
@@ -409,7 +417,11 @@ def _score_columnwise(
             payload["p_value"] = float(outcome.p_value)
         return col, payload
 
-    scored = [_score_col(c) for c in columns] if jobs == 1 else _score_columns_parallel(columns, _score_col, jobs)
+    scored = (
+        [_score_col(c) for c in columns]
+        if jobs == 1
+        else _score_columns_parallel(columns, _score_col, jobs)
+    )
     results = {col: payload for col, payload in scored}
     if cfg.correction != "none":
         _apply_correction(results, cfg.correction, float(detector.threshold))

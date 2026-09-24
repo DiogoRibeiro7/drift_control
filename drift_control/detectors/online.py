@@ -14,11 +14,7 @@ def run_online(detector: OnlineDetector, values: Iterable[float]) -> list[int]:
     online detectors restart their own statistics after signalling, so a single
     pass detects multiple successive change points.
     """
-    return [
-        i
-        for i, value in enumerate(values)
-        if detector.update(float(value)).drift_detected
-    ]
+    return [i for i, value in enumerate(values) if detector.update(float(value)).drift_detected]
 
 
 __all__ = ["run_online"]

@@ -91,7 +91,9 @@ class _BaselineUpdater:
             return pd.concat(list(self._recent_batches), ignore_index=True)
         return self._update_ewma(normalized_baseline, normalized_batch)
 
-    def _align_columns(self, baseline: pd.DataFrame, batch: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def _align_columns(
+        self, baseline: pd.DataFrame, batch: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         if self._config.on_schema_change != "drop":
             return baseline, batch
         shared = [c for c in baseline.columns if c in batch.columns]
@@ -113,9 +115,7 @@ class _BaselineUpdater:
         self._rng_counter += 1
         old_part = baseline.sample(n=n_old, replace=(n_old > len(baseline)), random_state=rs)
         new_part = batch.sample(n=n_new, replace=(n_new > len(batch)), random_state=rs + 1)
-        return cast(
-            "pd.DataFrame", pd.concat([old_part, new_part], ignore_index=True)
-        )
+        return cast("pd.DataFrame", pd.concat([old_part, new_part], ignore_index=True))
 
 
 class _AdaptiveThresholdTracker:

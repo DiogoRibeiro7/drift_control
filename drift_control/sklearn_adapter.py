@@ -43,9 +43,7 @@ class DriftMonitor(BaseEstimator, TransformerMixin):
             raise ValueError("Call fit before scoring drift")
         X_df = _coerce_frame(X)
         if self.n_features_in_ != len(X_df.columns):
-            raise ValueError(
-                f"Expected {self.n_features_in_} features, got {len(X_df.columns)}."
-            )
+            raise ValueError(f"Expected {self.n_features_in_} features, got {len(X_df.columns)}.")
         if self.feature_names_in_ is None:
             raise ValueError("Missing fit schema metadata.")
         if list(X_df.columns) != list(self.feature_names_in_):

@@ -95,6 +95,7 @@ ipykernel = "*"
 pandas-stubs = "*"
 types-PyYAML = "*"
 pytest-cov = "*"
+pre-commit = "*"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -126,11 +127,10 @@ extend-exclude = ["*.ipynb"]
 select = ["E", "F", "I", "B", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-# Transitional: the flat legacy modules and tests tolerate over-length lines
-# while they are migrated; the structured subpackages (drift_control/<pkg>/...)
-# still enforce the 100-char limit.
-"drift_control/*.py" = ["E501"]
-"tests/*.py" = ["E501"]
+# The long lines here are CSS and HTML inside a triple-quoted template, where a
+# noqa comment would land in the rendered output and splitting them hurts
+# readability. Everything else is kept in range by the formatter.
+"drift_control/drift_report.py" = ["E501"]
 
 
 [build-system]

@@ -18,6 +18,7 @@ def _first_drift_index(detector, stream):
 
 # --- contract ---------------------------------------------------------------
 
+
 @pytest.mark.parametrize("cls", [DDM, EDDM, PageHinkley, CUSUM])
 def test_are_online_detectors(cls):
     det = cls()
@@ -45,9 +46,10 @@ def test_construction_validation():
 
 # --- DDM --------------------------------------------------------------------
 
+
 def test_ddm_flags_drift_when_error_rate_jumps():
     rng = np.random.default_rng(0)
-    stable = (rng.random(300) < 0.1).astype(float)   # ~10% errors
+    stable = (rng.random(300) < 0.1).astype(float)  # ~10% errors
     degraded = (rng.random(300) < 0.6).astype(float)  # ~60% errors
     det = DDM(min_samples=30)
     # no drift during the stable regime
@@ -70,6 +72,7 @@ def test_ddm_exposes_warning_zone():
 
 # --- EDDM -------------------------------------------------------------------
 
+
 def test_eddm_flags_when_error_spacing_collapses():
     # Regularly-spaced errors establish a large baseline distance; then the
     # spacing collapses, which is exactly what EDDM is designed to catch.
@@ -91,6 +94,7 @@ def test_eddm_never_drifts_without_errors():
 
 # --- Page-Hinkley -----------------------------------------------------------
 
+
 def test_page_hinkley_detects_upward_shift():
     rng = np.random.default_rng(3)
     stable = rng.normal(0.0, 0.1, 300)
@@ -107,6 +111,7 @@ def test_page_hinkley_stable_stream_no_drift():
 
 
 # --- CUSUM ------------------------------------------------------------------
+
 
 def test_cusum_detects_shift_and_reconciles():
     rng = np.random.default_rng(5)
@@ -134,6 +139,7 @@ def test_cusum_direction_decrease():
 
 
 # --- determinism + exposure -------------------------------------------------
+
 
 def test_deterministic_given_same_stream():
     stream = [0.0, 1.0, 0.0, 1.0, 1.0, 1.0] * 20

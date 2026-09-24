@@ -2,7 +2,9 @@ from drift_control.benchmark import SyntheticDriftBenchmark
 
 
 def test_benchmark_returns_results_for_each_method_and_scenario():
-    bench = SyntheticDriftBenchmark(methods=["ks", "psi"], sample_size=80, n_trials=4, random_seed=0)
+    bench = SyntheticDriftBenchmark(
+        methods=["ks", "psi"], sample_size=80, n_trials=4, random_seed=0
+    )
     results = bench.run()
 
     # 2 methods x 4 default scenarios
@@ -25,8 +27,8 @@ def test_benchmark_no_drift_has_lower_detection_than_mean_shift_for_ks():
 
 def test_benchmark_default_methods_include_c2st():
     bench = SyntheticDriftBenchmark(sample_size=30, n_trials=1, random_seed=0)
-    assert 'c2st' in bench.methods
-    assert 'energy' in bench.methods
+    assert "c2st" in bench.methods
+    assert "energy" in bench.methods
 
 
 class _SpyTelemetry:
@@ -62,7 +64,7 @@ class _SpyTelemetry:
 
 def test_benchmark_emits_telemetry_calls():
     spy = _SpyTelemetry()
-    bench = SyntheticDriftBenchmark(methods=['ks'], sample_size=40, n_trials=2, telemetry=spy)
+    bench = SyntheticDriftBenchmark(methods=["ks"], sample_size=40, n_trials=2, telemetry=spy)
     results = bench.run()
     assert len(results) == 4
     assert spy.latency_calls > 0
@@ -73,5 +75,5 @@ def test_benchmark_emits_telemetry_calls():
 
 def test_benchmark_default_methods_include_categorical_detectors():
     bench = SyntheticDriftBenchmark(sample_size=30, n_trials=1, random_seed=0)
-    assert 'chi2cat' in bench.methods
-    assert 'tvdcat' in bench.methods
+    assert "chi2cat" in bench.methods
+    assert "tvdcat" in bench.methods

@@ -46,8 +46,12 @@ def test_structured_online_detectors_are_pure_python_driftresult():
     # The recommendation rests on these returning a DriftResult with no river dep.
     from drift_control.core import DriftResult
 
-    for cls in (drift_control.DDM, drift_control.EDDM, drift_control.PageHinkley,
-                drift_control.CUSUM):
+    for cls in (
+        drift_control.DDM,
+        drift_control.EDDM,
+        drift_control.PageHinkley,
+        drift_control.CUSUM,
+    ):
         result = cls().update(1.0)
         assert isinstance(result, DriftResult)
 
@@ -56,8 +60,6 @@ def test_univariate_detector_returns_driftresult():
     from drift_control.core import DriftResult
 
     out = (
-        drift_control.UnivariateDriftDetector(method="ks")
-        .fit(np.zeros(50))
-        .detect(np.ones(50) * 5)
+        drift_control.UnivariateDriftDetector(method="ks").fit(np.zeros(50)).detect(np.ones(50) * 5)
     )
     assert isinstance(out, DriftResult)

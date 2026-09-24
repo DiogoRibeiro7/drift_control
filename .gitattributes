@@ -1,0 +1,12 @@
+# Normalise line endings so Windows and Linux checkouts agree, and the
+# mixed-line-ending hook stops rewriting files on every run.
+* text=auto eol=lf
+
+# Binary assets must never be normalised.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.whl binary

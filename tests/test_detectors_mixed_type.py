@@ -35,6 +35,7 @@ def _drifted(n=500):
 
 # --- contract / validation --------------------------------------------------
 
+
 def test_is_a_base_detector():
     assert isinstance(MixedTypeDriftDetector(), BaseDetector)
 
@@ -51,6 +52,7 @@ def test_validation():
 
 
 # --- routing + detection ----------------------------------------------------
+
 
 def test_routes_columns_by_dtype():
     det = MixedTypeDriftDetector().fit(_ref())
@@ -89,6 +91,7 @@ def test_aggregate_and_report():
 
 
 # --- options ----------------------------------------------------------------
+
 
 def test_psi_numeric_method_threshold_path():
     det = MixedTypeDriftDetector(numeric_method="psi", threshold=0.2).fit(_ref())

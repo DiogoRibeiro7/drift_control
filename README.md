@@ -122,4 +122,3 @@ pip install "drift-control[notebooks]"
 ## License
 
 MIT. See [LICENSE](LICENSE).
-

@@ -28,6 +28,7 @@ class _TupleDetector:
 
 # --- score_pair dispatch ----------------------------------------------------
 
+
 def test_score_pair_dispatches_tuple_and_core():
     ref = RNG.normal(0, 1, 300)
     cur = RNG.normal(3, 1, 300)
@@ -51,6 +52,7 @@ def test_score_pair_normalizes_legacy_detector_outputs():
 
 # --- StreamMonitor ----------------------------------------------------------
 
+
 def test_stream_monitor_with_core_detector():
     mon = StreamMonitor(detector=UnivariateDriftDetector(method="ks"))
     mon.set_baseline(_frame(0.0))
@@ -68,6 +70,7 @@ def test_stream_monitor_default_detector_works():
 
 
 # --- sklearn DriftMonitor ---------------------------------------------------
+
 
 def test_sklearn_monitor_with_core_detector():
     monitor = DriftMonitor(detector=UnivariateDriftDetector(method="ks"))

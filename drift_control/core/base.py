@@ -40,9 +40,7 @@ class BaseDetector(ABC):
         Batch-only detectors do not support this and raise
         :class:`NotImplementedError`.
         """
-        raise NotImplementedError(
-            f"{type(self).__name__} does not support streaming update()"
-        )
+        raise NotImplementedError(f"{type(self).__name__} does not support streaming update()")
 
     def reset(self) -> None:
         """Clear any fitted/accumulated state.

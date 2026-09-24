@@ -92,17 +92,13 @@ class _MassiveScaleConfig:
     random_seed_offset: int
 
 
-def _scenario_no_drift(
-    rng: np.random.Generator, n: int
-) -> tuple[np.ndarray, np.ndarray, bool]:
+def _scenario_no_drift(rng: np.random.Generator, n: int) -> tuple[np.ndarray, np.ndarray, bool]:
     ref = rng.normal(loc=0.0, scale=1.0, size=n)
     cur = rng.normal(loc=0.0, scale=1.0, size=n)
     return ref, cur, False
 
 
-def _scenario_mean_shift(
-    rng: np.random.Generator, n: int
-) -> tuple[np.ndarray, np.ndarray, bool]:
+def _scenario_mean_shift(rng: np.random.Generator, n: int) -> tuple[np.ndarray, np.ndarray, bool]:
     ref = rng.normal(loc=0.0, scale=1.0, size=n)
     cur = rng.normal(loc=0.8, scale=1.0, size=n)
     return ref, cur, True
@@ -116,26 +112,20 @@ def _scenario_variance_shift(
     return ref, cur, True
 
 
-def _scenario_tail_shift(
-    rng: np.random.Generator, n: int
-) -> tuple[np.ndarray, np.ndarray, bool]:
+def _scenario_tail_shift(rng: np.random.Generator, n: int) -> tuple[np.ndarray, np.ndarray, bool]:
     ref = rng.normal(loc=0.0, scale=1.0, size=n)
     cur = rng.standard_t(df=3, size=n)
     return ref, cur, True
 
 
-def _scenario_cat_no_drift(
-    rng: np.random.Generator, n: int
-) -> tuple[np.ndarray, np.ndarray, bool]:
+def _scenario_cat_no_drift(rng: np.random.Generator, n: int) -> tuple[np.ndarray, np.ndarray, bool]:
     categories = np.array(["a", "b", "c"])
     ref = rng.choice(categories, size=n, p=[0.4, 0.4, 0.2])
     cur = rng.choice(categories, size=n, p=[0.4, 0.4, 0.2])
     return ref, cur, False
 
 
-def _scenario_cat_shift(
-    rng: np.random.Generator, n: int
-) -> tuple[np.ndarray, np.ndarray, bool]:
+def _scenario_cat_shift(rng: np.random.Generator, n: int) -> tuple[np.ndarray, np.ndarray, bool]:
     categories = np.array(["a", "b", "c"])
     ref = rng.choice(categories, size=n, p=[0.5, 0.4, 0.1])
     cur = rng.choice(categories, size=n, p=[0.1, 0.3, 0.6])
@@ -456,7 +446,9 @@ class SyntheticDriftBenchmark:
         ):
             for method in self.methods:
                 detector = self._detector_for_method(method)
-                for scenario_name, scenario_fn in _selected_scenarios(method, selected_scenarios).items():
+                for scenario_name, scenario_fn in _selected_scenarios(
+                    method, selected_scenarios
+                ).items():
                     with _telemetry_span(
                         self.telemetry,
                         "drift_control.benchmark.scenario",
@@ -486,7 +478,11 @@ class SyntheticDriftBenchmark:
                         if self.telemetry is not None:
                             self.telemetry.record_drift_rate(
                                 summary.drift_rate,
-                                {"component": "benchmark", "method": method, "scenario": scenario_name},
+                                {
+                                    "component": "benchmark",
+                                    "method": method,
+                                    "scenario": scenario_name,
+                                },
                             )
         return results
 
@@ -667,7 +663,9 @@ class SyntheticDriftBenchmark:
         delta = float(abs(float(ref_res.score) - massive_score))
         throughput = float(config.effective_rows / max(elapsed, 1e-9))
         n_chunks = int(np.ceil(config.effective_rows / config.chunk_rows))
-        within_tol = bool(delta <= config.score_tolerance) and (bool(ref_res.drift) == massive_res_drift)
+        within_tol = bool(delta <= config.score_tolerance) and (
+            bool(ref_res.drift) == massive_res_drift
+        )
         return MassiveScaleBenchmarkResult(
             method=method,
             effective_rows=config.effective_rows,

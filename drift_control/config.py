@@ -106,7 +106,9 @@ def _ensemble_from_mapping(raw: Any) -> EnsembleConfig:
         raise ValueError("ensemble.methods must be a list")
     methods = [str(method) for method in methods_raw]
     vote_mode = str(ensemble_raw.get("vote_mode", "majority"))
-    min_votes = int(ensemble_raw["min_votes"]) if ensemble_raw.get("min_votes") is not None else None
+    min_votes = (
+        int(ensemble_raw["min_votes"]) if ensemble_raw.get("min_votes") is not None else None
+    )
     stack_threshold = float(ensemble_raw.get("stack_threshold", 0.5))
     return _build_ensemble_config(
         methods=methods,
@@ -196,9 +198,7 @@ class DriftCheckConfig:
     @staticmethod
     def _from_mapping(raw: dict[str, Any]) -> DriftCheckConfig:
         method = str(raw.get("method", "psi"))
-        threshold = (
-            float(raw["threshold"]) if raw.get("threshold") is not None else None
-        )
+        threshold = float(raw["threshold"]) if raw.get("threshold") is not None else None
         correction = str(raw.get("correction", "none"))
         ensemble = _ensemble_from_mapping(raw.get("ensemble", {}))
         return DriftCheckConfig(

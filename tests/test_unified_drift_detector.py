@@ -116,40 +116,39 @@ def test_unified_raises_below_two_samples():
         detector.detect_drift([1], [1, 2, 3])
 
 
-
 def test_unified_c2st_multivariate():
     rng = np.random.default_rng(0)
     ref = rng.normal(0, 1, size=(120, 3))
     cur = rng.normal(0.9, 1, size=(120, 3))
-    detector = UnifiedDriftDetector(method='c2st', alpha=0.05, n_permutations=60)
+    detector = UnifiedDriftDetector(method="c2st", alpha=0.05, n_permutations=60)
     out = detector.detect_drift(ref, cur)
-    assert out.method == 'c2st'
+    assert out.method == "c2st"
     assert out.p_value is not None
-    assert 'calibrated_threshold' in out.metadata
+    assert "calibrated_threshold" in out.metadata
 
 
 def test_unified_energy_multivariate():
     rng = np.random.default_rng(0)
     ref = rng.normal(0, 1, size=(120, 3))
     cur = rng.normal(0.9, 1, size=(120, 3))
-    detector = UnifiedDriftDetector(method='energy', alpha=0.05, n_permutations=60, random_state=7)
+    detector = UnifiedDriftDetector(method="energy", alpha=0.05, n_permutations=60, random_state=7)
     out = detector.detect_drift(ref, cur)
-    assert out.method == 'energy'
+    assert out.method == "energy"
     assert out.p_value is not None
-    assert 'calibrated_threshold' in out.metadata
+    assert "calibrated_threshold" in out.metadata
 
 
 def test_unified_chi2cat():
-    detector = UnifiedDriftDetector(method='chi2cat', alpha=0.05)
-    out = detector.detect_drift(['a', 'a', 'b', 'c'], ['c', 'c', 'c', 'b'])
-    assert out.method == 'chi2cat'
+    detector = UnifiedDriftDetector(method="chi2cat", alpha=0.05)
+    out = detector.detect_drift(["a", "a", "b", "c"], ["c", "c", "c", "b"])
+    assert out.method == "chi2cat"
     assert out.p_value is not None
 
 
 def test_unified_tvdcat():
-    detector = UnifiedDriftDetector(method='tvdcat', threshold=0.1)
-    out = detector.detect_drift(['a', 'a', 'b', 'c'], ['c', 'c', 'c', 'b'])
-    assert out.method == 'tvdcat'
+    detector = UnifiedDriftDetector(method="tvdcat", threshold=0.1)
+    out = detector.detect_drift(["a", "a", "b", "c"], ["c", "c", "c", "b"])
+    assert out.method == "tvdcat"
     assert out.p_value is None
 
 
@@ -308,10 +307,20 @@ def test_unified_accepts_columnar_like_input():
 
 def test_unified_datetime_method():
     ref = np.array(
-        ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T02:00:00Z", "2026-01-01T03:00:00Z"]
+        [
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T01:00:00Z",
+            "2026-01-01T02:00:00Z",
+            "2026-01-01T03:00:00Z",
+        ]
     )
     cur = np.array(
-        ["2026-01-02T10:00:00Z", "2026-01-02T11:00:00Z", "2026-01-02T12:00:00Z", "2026-01-02T13:00:00Z"]
+        [
+            "2026-01-02T10:00:00Z",
+            "2026-01-02T11:00:00Z",
+            "2026-01-02T12:00:00Z",
+            "2026-01-02T13:00:00Z",
+        ]
     )
     detector = UnifiedDriftDetector(method="datetime", threshold=0.01)
     out = detector.detect_drift(ref, cur)

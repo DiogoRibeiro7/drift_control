@@ -27,12 +27,14 @@ def _drift():
 
 # --- contract ---------------------------------------------------------------
 
+
 @pytest.mark.parametrize("policy", [PeriodicRetrainingPolicy(period=2), TriggerRetrainingPolicy()])
 def test_are_retraining_policies(policy):
     assert isinstance(policy, RetrainingPolicy)
 
 
 # --- periodic ---------------------------------------------------------------
+
 
 def test_periodic_fires_every_period():
     p = PeriodicRetrainingPolicy(period=3)
@@ -50,6 +52,7 @@ def test_periodic_validation_and_reset():
 
 
 # --- trigger: drift events --------------------------------------------------
+
 
 def test_trigger_fires_after_required_drift_events():
     p = TriggerRetrainingPolicy(required_drift_events=3)
@@ -70,6 +73,7 @@ def test_trigger_cooldown_suppresses():
 
 # --- trigger: metric drop ---------------------------------------------------
 
+
 def test_trigger_on_metric_drop_with_autobaseline():
     p = TriggerRetrainingPolicy(
         required_drift_events=1000,  # so drift never triggers
@@ -78,7 +82,7 @@ def test_trigger_on_metric_drop_with_autobaseline():
     )
     assert p.should_retrain(_no_drift(), {"accuracy": 0.9}) is False  # baseline captured
     assert p.should_retrain(_no_drift(), {"accuracy": 0.85}) is False  # drop 0.05 < 0.1
-    assert p.should_retrain(_no_drift(), {"accuracy": 0.75}) is True   # drop 0.15 >= 0.1
+    assert p.should_retrain(_no_drift(), {"accuracy": 0.75}) is True  # drop 0.15 >= 0.1
 
 
 def test_trigger_metric_path_ignores_missing_metric_values():
@@ -116,6 +120,7 @@ def test_trigger_validation():
 
 # --- training-set selectors -------------------------------------------------
 
+
 def test_select_sliding_keeps_recent():
     X = np.arange(20).reshape(10, 2)
     y = np.arange(10)
@@ -152,10 +157,11 @@ def test_selector_validation():
 
 # --- champion-challenger ----------------------------------------------------
 
+
 def test_champion_challenger_promotes_better():
     y = np.array([0, 1, 0, 1, 0, 1])
-    champ = np.array([0, 1, 0, 0, 0, 0])      # 4/6 correct
-    chall = np.array([0, 1, 0, 1, 0, 1])      # 6/6 correct
+    champ = np.array([0, 1, 0, 0, 0, 0])  # 4/6 correct
+    chall = np.array([0, 1, 0, 1, 0, 1])  # 6/6 correct
     res = ChampionChallengerEvaluator(min_improvement=0.1).evaluate(y, champ, chall)
     assert isinstance(res, ChampionChallengerResult)
     assert res.promote is True
@@ -164,8 +170,8 @@ def test_champion_challenger_promotes_better():
 
 def test_champion_challenger_keeps_champion_when_marginal():
     y = np.array([0, 1, 0, 1])
-    champ = np.array([0, 1, 0, 1])   # perfect
-    chall = np.array([0, 1, 0, 0])   # worse
+    champ = np.array([0, 1, 0, 1])  # perfect
+    chall = np.array([0, 1, 0, 0])  # worse
     res = ChampionChallengerEvaluator().evaluate(y, champ, chall)
     assert res.promote is False
 
@@ -175,8 +181,8 @@ def test_champion_challenger_custom_metric_lower_better():
         return float(np.mean(np.abs(yt - yp)))
 
     y = np.array([1.0, 2.0, 3.0])
-    champ = np.array([2.0, 3.0, 4.0])   # mae 1.0
-    chall = np.array([1.0, 2.0, 3.5])   # mae ~0.17
+    champ = np.array([2.0, 3.0, 4.0])  # mae 1.0
+    chall = np.array([1.0, 2.0, 3.5])  # mae ~0.17
     res = ChampionChallengerEvaluator(metric_fn=mae, higher_is_better=False).evaluate(
         y, champ, chall
     )
@@ -193,6 +199,7 @@ def test_champion_challenger_validation():
 
 
 # --- exposure ---------------------------------------------------------------
+
 
 def test_exposed_at_package_root():
     from drift_control import adaptation

@@ -175,8 +175,7 @@ class UnivariateDriftDetector(BaseDetector):
         n_features = self._reference.shape[1]
         if cur.shape[1] != n_features:
             raise ValidationError(
-                f"feature count mismatch: reference has {n_features}, "
-                f"current has {cur.shape[1]}"
+                f"feature count mismatch: reference has {n_features}, current has {cur.shape[1]}"
             )
 
         scores: list[float] = []
@@ -233,9 +232,7 @@ class UnivariateDriftDetector(BaseDetector):
             "n_drifting": n_drifting,
             "correction": self.correction,
             "features": [f.metadata.get("feature") for f in features],
-            "drifting_features": [
-                f.metadata.get("feature") for f in features if f.drift
-            ],
+            "drifting_features": [f.metadata.get("feature") for f in features if f.drift],
         }
         if self.method in _PVALUE_METHODS:
             agg_score = min((f.score for f in features), default=1.0)

@@ -137,8 +137,8 @@ def calculate_drift(
             result = calculate_numeric_drift(df_prior[col], df_post[col], steps=steps)
             if result is None:
                 logger.warning(
-                    "Skipping numeric column %r: needs >= 2 non-null values in both "
-                    "datasets", col,
+                    "Skipping numeric column %r: needs >= 2 non-null values in both datasets",
+                    col,
                 )
                 continue
             num_res[col] = result
@@ -152,8 +152,8 @@ def calculate_drift(
                 result = num_futures[col].result()
                 if result is None:
                     logger.warning(
-                        "Skipping numeric column %r: needs >= 2 non-null values in both "
-                        "datasets", col,
+                        "Skipping numeric column %r: needs >= 2 non-null values in both datasets",
+                        col,
                     )
                     continue
                 num_res[col] = result

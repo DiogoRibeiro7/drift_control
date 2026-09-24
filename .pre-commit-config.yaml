@@ -1,0 +1,51 @@
+# Hook versions are kept in step with poetry.lock. When you relock ruff or
+# mypy, bump the matching rev here, or the hooks and CI stop checking the same
+# thing.
+default_language_version:
+  python: python3
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        # Notebooks are JSON but carry their own schema; nbval validates them.
+        exclude: ^notebooks/
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: debug-statements
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.15
+    hooks:
+      - id: ruff-check
+        args: ["--fix", "--exit-non-zero-on-fix"]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.1.0
+    hooks:
+      - id: mypy
+        # Run over the project config rather than the staged-file list, so the
+        # result matches the lint-typecheck job. The dependencies here mirror
+        # what that job installs: the dev group, without the optional extras.
+        pass_filenames: false
+        args: []
+        # Pinned to match poetry.lock. numpy is held below 2.4 because its
+        # newer stubs use PEP 695 `type` statements, which mypy only parses at
+        # python_version 3.12+, and this project targets 3.10. click is a
+        # runtime dependency the isolated hook environment would not otherwise
+        # install.
+        additional_dependencies:
+          - click==8.4.1
+          - numpy==2.3.1
+          - pandas-stubs==2.3.3.260113
+          - types-PyYAML==6.0.12.20260906

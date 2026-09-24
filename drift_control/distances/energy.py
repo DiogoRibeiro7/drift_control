@@ -27,9 +27,7 @@ def energy_distance(reference: ArrayLike, current: ArrayLike) -> float:
     x = as_2d(reference, "reference")
     y = as_2d(current, "current")
     if x.shape[1] != y.shape[1]:
-        raise ValidationError(
-            "reference and current must have the same number of features"
-        )
+        raise ValidationError("reference and current must have the same number of features")
     return _energy_statistic(x, y)
 
 
@@ -52,9 +50,7 @@ def energy_permutation_test(
     x = as_2d(reference, "reference")
     y = as_2d(current, "current")
     if x.shape[1] != y.shape[1]:
-        raise ValidationError(
-            "reference and current must have the same number of features"
-        )
+        raise ValidationError("reference and current must have the same number of features")
     if x.shape[0] < 2 or y.shape[0] < 2:
         raise ValidationError("energy test requires at least 2 samples per side")
 

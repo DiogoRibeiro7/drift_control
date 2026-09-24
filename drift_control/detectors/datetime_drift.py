@@ -87,9 +87,7 @@ class DateTimeDriftDetector(BaseDetector):
 
         ref_median = float(np.median(self._ref_cadence))
         cadence_scale = ref_median + 1e-9
-        cadence_score = float(
-            np.median(np.abs(cur_cadence - ref_median)) / cadence_scale
-        )
+        cadence_score = float(np.median(np.abs(cur_cadence - ref_median)) / cadence_scale)
 
         hour_score = float(jensenshannon(self._ref_hours, self._hour_distribution(cur_ts)))
 

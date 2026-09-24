@@ -60,9 +60,7 @@ def brier_score(y_true: ArrayLike, proba: ArrayLike) -> float:
     return float(np.mean((p - y) ** 2))
 
 
-def expected_calibration_error(
-    y_true: ArrayLike, proba: ArrayLike, *, n_bins: int = 10
-) -> float:
+def expected_calibration_error(y_true: ArrayLike, proba: ArrayLike, *, n_bins: int = 10) -> float:
     """Expected Calibration Error: bin-weighted gap between confidence and accuracy."""
     if n_bins < 1:
         raise ValidationError("n_bins must be >= 1")
@@ -154,9 +152,7 @@ class CalibrationDriftMonitor:
 
     def detect(self) -> DriftResult:
         if self.reference is None:
-            raise NotFittedError(
-                "no reference; pass reference= or fill a full window first"
-            )
+            raise NotFittedError("no reference; pass reference= or fill a full window first")
         current = self.current_value()
         assert current is not None
         threshold = self.reference + self.min_increase

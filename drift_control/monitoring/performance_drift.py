@@ -41,13 +41,9 @@ def _classification_metrics(
     if "accuracy" in metrics:
         out["accuracy"] = float(accuracy_score(y_true, y_pred))
     if "precision" in metrics:
-        out["precision"] = float(
-            precision_score(y_true, y_pred, average="macro", zero_division=0)
-        )
+        out["precision"] = float(precision_score(y_true, y_pred, average="macro", zero_division=0))
     if "recall" in metrics:
-        out["recall"] = float(
-            recall_score(y_true, y_pred, average="macro", zero_division=0)
-        )
+        out["recall"] = float(recall_score(y_true, y_pred, average="macro", zero_division=0))
     if "f1" in metrics:
         out["f1"] = float(f1_score(y_true, y_pred, average="macro", zero_division=0))
     if "auc" in metrics:
@@ -125,8 +121,7 @@ class PerformanceDriftMonitor:
         bad = [m for m in chosen if m not in allowed]
         if bad:
             raise ValidationError(
-                f"metrics {bad} are not valid for task '{task}'; "
-                f"choose from {sorted(allowed)}"
+                f"metrics {bad} are not valid for task '{task}'; choose from {sorted(allowed)}"
             )
         self.task = task
         self.metrics = chosen

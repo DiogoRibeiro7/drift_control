@@ -19,6 +19,7 @@ def _reconciles(r: DriftResult) -> bool:
 
 # --- construction / contract ------------------------------------------------
 
+
 def test_is_a_base_detector():
     assert isinstance(UnivariateDriftDetector(), BaseDetector)
 
@@ -46,6 +47,7 @@ def test_detect_before_fit_raises():
 
 # --- KS (p-value) -----------------------------------------------------------
 
+
 def test_ks_no_drift_same_distribution():
     ref = RNG.normal(0, 1, 500)
     det = UnivariateDriftDetector(method="ks", alpha=0.05).fit(ref)
@@ -69,6 +71,7 @@ def test_ks_detects_variance_shift():
 
 # --- PSI / JS (threshold) ---------------------------------------------------
 
+
 def test_psi_threshold_method_reconciles():
     det = UnivariateDriftDetector(method="psi", threshold=0.2).fit(RNG.normal(0, 1, 2000))
     no = det.detect(RNG.normal(0, 1, 2000))
@@ -85,14 +88,13 @@ def test_js_default_threshold():
 
 
 def test_wasserstein_with_threshold():
-    det = UnivariateDriftDetector(method="wasserstein", threshold=1.0).fit(
-        RNG.normal(0, 1, 1000)
-    )
+    det = UnivariateDriftDetector(method="wasserstein", threshold=1.0).fit(RNG.normal(0, 1, 1000))
     assert det.detect(RNG.normal(0, 1, 1000)).drift is False
     assert det.detect(RNG.normal(5.0, 1, 1000)).drift is True
 
 
 # --- chi-square (categorical) -----------------------------------------------
+
 
 def test_chi2_categorical_drift():
     ref = np.array(["a"] * 60 + ["b"] * 40)
@@ -108,6 +110,7 @@ def test_chi2_identical_no_drift():
 
 
 # --- multivariate / feature-wise -------------------------------------------
+
 
 def test_feature_wise_results_and_covariate_shift():
     ref = RNG.normal(0, 1, (600, 3))
@@ -132,6 +135,7 @@ def test_feature_count_mismatch():
 
 
 # --- multiple-testing correction --------------------------------------------
+
 
 def test_bh_correction_controls_false_positives():
     # 30 null features: BH should flag far fewer than the uncorrected count.
@@ -158,6 +162,7 @@ def test_correction_still_catches_real_drift():
 
 # --- small samples ----------------------------------------------------------
 
+
 def test_small_sample_runs():
     det = UnivariateDriftDetector(method="ks").fit([0.0, 1.0, 2.0])
     result = det.detect([0.0, 1.0, 2.0])
@@ -165,6 +170,7 @@ def test_small_sample_runs():
 
 
 # --- exposure ---------------------------------------------------------------
+
 
 def test_exposed_at_package_root():
     from drift_control import detectors
