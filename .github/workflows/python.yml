@@ -37,7 +37,7 @@ jobs:
           python -m pip install --upgrade pip poetry
           poetry install --with dev --extras "viz concept ml polars stream mlflow"
       - name: Run tests
-        run: poetry run pytest -q
+        run: poetry run pytest -q --cov --cov-report=term-missing
 
   notebooks:
     runs-on: ubuntu-latest

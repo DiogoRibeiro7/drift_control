@@ -94,9 +94,27 @@ ipykernel = "*"
 # lint-typecheck job is red.
 pandas-stubs = "*"
 types-PyYAML = "*"
+pytest-cov = "*"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["drift_control"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# A floor, not a target. Measured at 89% when this was added; set below that so
+# ordinary churn does not fail the build, while a real regression does.
+fail_under = 85
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    'if __name__ == "__main__":',
+]
 
 [tool.ruff]
 line-length = 100

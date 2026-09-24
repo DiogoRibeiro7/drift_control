@@ -25,11 +25,11 @@ Two things are missing as of September 2026, both tracked in
   offset, or prevalence. That is the most common drift type in classification
   and the one that needs no retraining, so a library named `drift_control`
   arguably ought to handle it. See P5.
-- **Engineering infrastructure.** Dev dependencies are unpinned, mypy runs over
-  an allowlist of about six modules while the package ships `py.typed`, coverage
-  is not measured in CI, and there is no formatter, pre-commit, security
-  scanning or release workflow. The code itself is in good shape -- 422 tests,
-  89% coverage when measured, 18 mypy errors across the whole package -- so this
+- **Engineering infrastructure.** mypy runs over an allowlist of about six
+  modules while the package ships `py.typed`, and there is no formatter,
+  pre-commit, security scanning or release workflow. Dev tooling is pinned
+  through `poetry.lock`, so that part is fine. The code itself is in good shape -- 422 tests,
+  87% branch coverage now enforced in CI, mypy clean on the checked subset -- so this
   is about enforcement rather than quality. See P4. The sibling repository `drift-or-shift` has
   working versions of all of these and can serve as a reference.
 
