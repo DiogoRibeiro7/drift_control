@@ -18,10 +18,10 @@ def _adjust_bh(pvalues: Sequence[float]) -> list[float]:
     adjusted_by_rank = [0.0] * m
     previous = 1.0
     for rank in range(m, 0, -1):
-        index, pvalue = indexed[rank - 1]
-        adjusted = min(previous, pvalue * m / rank)
-        adjusted_by_rank[rank - 1] = adjusted
-        previous = adjusted
+        _, pvalue = indexed[rank - 1]
+        step = min(previous, pvalue * m / rank)
+        adjusted_by_rank[rank - 1] = step
+        previous = step
 
     adjusted = [0.0] * m
     for sorted_index, (original_index, _) in enumerate(indexed):

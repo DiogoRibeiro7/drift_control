@@ -16,10 +16,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .core.types import ArrayLike
+
 logger = logging.getLogger(__name__)
 
 
-def _default_regressor():
+def _default_regressor() -> Any:
     from sklearn.ensemble import RandomForestRegressor
     from sklearn.model_selection import RandomizedSearchCV
 
@@ -36,7 +38,7 @@ def _default_regressor():
     )
 
 
-def _default_classifier():
+def _default_classifier() -> Any:
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.model_selection import RandomizedSearchCV
 
@@ -53,8 +55,15 @@ def _default_classifier():
     )
 
 
-def _rmse(targets: np.ndarray, predictions: np.ndarray) -> float:
-    return float(np.sqrt(np.mean((predictions - targets) ** 2)))
+# Accepts Series as well as arrays: callers pass both. Kept local rather
+# than widening core.types.ArrayLike, which 25 modules depend on.
+_RmseInput = ArrayLike | pd.Series
+
+
+def _rmse(targets: _RmseInput, predictions: _RmseInput) -> float:
+    target_arr = np.asarray(targets, dtype=float)
+    prediction_arr = np.asarray(predictions, dtype=float)
+    return float(np.sqrt(np.mean((prediction_arr - target_arr) ** 2)))
 
 
 @dataclass(frozen=True)
@@ -257,8 +266,8 @@ class MLEfficacyEvaluator:
         high_cardinality_columns: list | None = None,
         OHE_columns_cutoff: int = 5,
         train_size: float = 0.7,
-        model_prior=None,
-        model_post=None,
+        model_prior: Any = None,
+        model_post: Any = None,
     ) -> pd.DataFrame:
         """Build prior/post models and return a per-class metric report."""
         _validate_evaluate_inputs(

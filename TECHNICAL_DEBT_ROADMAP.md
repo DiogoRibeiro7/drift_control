@@ -14,26 +14,11 @@ against `DiogoRibeiro7/drift-or-shift`:
   installs from the lock. Dev tooling here is reproducible. What is worth
   adding is a scheduled job that relocks and runs the suite, so an upstream
   release is caught deliberately rather than whenever someone next relocks.
-- `[tool.mypy] files` is an explicit allowlist of about six modules, while the
-  package ships `py.typed`, so downstream users are told our annotations are
-  complete when most of the package is unchecked. Two measurements worth having
-  before scoping the work: mypy **already fails on main** with 3 errors inside
-  the allowlist, and run over the whole package it reports 18 errors across 8
-  of 64 files. Removing the allowlist is a tractable cleanup, not a rewrite.
-- ~~No coverage measurement in CI.~~ Added. 86.6% with branch coverage enabled
-  over 4,272 statements, 422 tests passing, floor set at 85%. (An earlier note
-  here said 89%; that was statement coverage only, without branches.) This was
-  an enforcement gap rather than a quality one.
-- No formatter. `ruff` lints but nothing formats, and `E501` is disabled for
-  `drift_control/*.py` and `tests/*.py` as "transitional".
-- No pre-commit, so nothing runs before a push.
-- No security scanning (CodeQL, dependency audit, workflow linting).
-- No release workflow or PyPI publishing; `drift-control` is unclaimed on PyPI.
-- `[project.urls] Repository` points at `.../drift-control`; the repository is
-  `drift_control`. That URL 404s and ships in the package metadata.
-- Author and maintainer emails differ from each other and from the ones used on
-  the sibling repository.
-- Classifiers advertise 3.10 and 3.11 only, while CI tests 3.12.
+- ~~`[tool.mypy] files` is an explicit allowlist.~~ Replaced. mypy now checks
+  the whole package, so a new module is checked by default instead of being
+  silently skipped. The allowlist covered 41 of 64 files; the 23 it excluded
+  included `stream_monitor.py` and `ml_efficacy.py`, two of the largest
+  modules. Switching surfaced 35 errors, all now fixed.
 
 Older items, still open:
 
@@ -76,8 +61,8 @@ Older items, still open:
       the next time somebody happens to relock.
 - [ ] Fix the `Repository` URL and reconcile the author/maintainer emails.
 - [x] Add coverage measurement to CI with a floor under the current figure.
-- [ ] Fix the 3 mypy errors currently failing inside the allowlist, then replace
-      the allowlist with the whole package and fix the remaining 15.
+- [x] Replace the mypy allowlist with the whole package and fix the resulting
+      errors.
 - [ ] Add a formatter and a pre-commit config, then remove the transitional
       `E501` exemptions.
 - [ ] Add CodeQL, a dependency audit, and workflow linting.

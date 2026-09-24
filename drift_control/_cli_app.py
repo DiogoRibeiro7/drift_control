@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from typing import Any, NoReturn
@@ -218,7 +219,7 @@ def _load_baseline_frame(
     baseline_prefix: str,
     baseline_store_factory: Any,
     s3_store_factory: Any,
-    raise_click: Any,
+    raise_click: Callable[[str, str], NoReturn],
 ) -> pd.DataFrame:
     if baseline is None and baseline_version is None:
         raise_click("One of --baseline or --baseline-version is required.", "baseline")

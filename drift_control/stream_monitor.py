@@ -13,7 +13,7 @@ from collections import deque
 from collections.abc import AsyncIterable, Callable
 from dataclasses import dataclass
 from io import StringIO
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import pandas as pd
 
@@ -62,15 +62,15 @@ class _BatchNormalizer:
                 raise ValueError(f"Batch contains unknown columns: {extra}")
             if missing:
                 raise ValueError(f"Batch is missing baseline columns: {missing}")
-            return batch.loc[:, baseline.columns]
+            return cast("pd.DataFrame", batch.loc[:, baseline.columns])
         if self.mode == "ignore":
             if missing:
                 raise ValueError(f"Batch is missing baseline columns: {missing}")
-            return batch.loc[:, baseline.columns]
+            return cast("pd.DataFrame", batch.loc[:, baseline.columns])
         shared = [c for c in baseline.columns if c in batch.columns]
         if not shared:
             raise ValueError("Batch has no shared columns with baseline.")
-        return batch.loc[:, shared]
+        return cast("pd.DataFrame", batch.loc[:, shared])
 
 
 class _BaselineUpdater:
@@ -97,12 +97,15 @@ class _BaselineUpdater:
         shared = [c for c in baseline.columns if c in batch.columns]
         if not shared:
             raise ValueError("Batch has no shared columns with baseline.")
-        return baseline.loc[:, shared].copy(), batch.loc[:, shared]
+        return (
+            baseline.loc[:, shared].copy(),
+            cast("pd.DataFrame", batch.loc[:, shared]),
+        )
 
     def _update_ewma(self, baseline: pd.DataFrame, batch: pd.DataFrame) -> pd.DataFrame:
         n_total = len(baseline)
         if n_total == 0:
-            return batch.copy()
+            return cast("pd.DataFrame", batch.copy())
         n_new = int(round(n_total * self._config.ewma_alpha))
         n_new = max(1, min(n_total, n_new))
         n_old = n_total - n_new
@@ -110,7 +113,9 @@ class _BaselineUpdater:
         self._rng_counter += 1
         old_part = baseline.sample(n=n_old, replace=(n_old > len(baseline)), random_state=rs)
         new_part = batch.sample(n=n_new, replace=(n_new > len(batch)), random_state=rs + 1)
-        return pd.concat([old_part, new_part], ignore_index=True)
+        return cast(
+            "pd.DataFrame", pd.concat([old_part, new_part], ignore_index=True)
+        )
 
 
 class _AdaptiveThresholdTracker:
@@ -222,9 +227,11 @@ class StreamMonitor:
         if min_threshold_samples < 5:
             raise ValueError("min_threshold_samples must be >= 5")
         return _MonitorConfig(
-            on_schema_change=on_schema_change,
+            # Both were checked against their literal sets just above; mypy
+            # cannot narrow str through a set-membership test.
+            on_schema_change=cast(SchemaMode, on_schema_change),
             window_size=window_size,
-            baseline_strategy=baseline_strategy,
+            baseline_strategy=cast(BaselineStrategy, baseline_strategy),
             sliding_window_batches=sliding_window_batches,
             ewma_alpha=ewma_alpha,
             random_state=random_state,
@@ -371,12 +378,13 @@ class KafkaStreamMonitor:
 
     async def monitor(self) -> AsyncIterable[dict[str, dict[str, Any]]]:
         """Yield drift results for each Kafka message."""
-        if self._consumer is None:
-            self._consumer = self._consumer_factory()
-        await self._consumer.start()
+        consumer = self._consumer
+        if consumer is None:
+            consumer = self._consumer = self._consumer_factory()
+        await consumer.start()
         window: list[pd.DataFrame] = []
         try:
-            async for msg in self._consumer:
+            async for msg in consumer:
                 batch = _read_json_frame(msg.value.decode())
                 window.append(batch)
                 if len(window) >= self._monitor.window_size:
@@ -384,4 +392,4 @@ class KafkaStreamMonitor:
             if window:
                 yield await self._monitor._flush_window(window)
         finally:
-            await self._consumer.stop()
+            await consumer.stop()

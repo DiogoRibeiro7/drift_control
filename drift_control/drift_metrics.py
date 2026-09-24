@@ -124,12 +124,12 @@ def calculate_drift(
             cat_res[col] = calculate_categorical_drift(df_prior[col], df_post[col])
     else:
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futures = {
+            cat_futures = {
                 col: ex.submit(calculate_categorical_drift, df_prior[col], df_post[col])
                 for col in cat_cols
             }
             for col in cat_cols:
-                cat_res[col] = futures[col].result()
+                cat_res[col] = cat_futures[col].result()
 
     num_res: dict[str, dict[str, float]] = {}
     if max_workers == 1 or len(num_cols) <= 1:
@@ -144,12 +144,12 @@ def calculate_drift(
             num_res[col] = result
     else:
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futures = {
+            num_futures = {
                 col: ex.submit(calculate_numeric_drift, df_prior[col], df_post[col], steps)
                 for col in num_cols
             }
             for col in num_cols:
-                result = futures[col].result()
+                result = num_futures[col].result()
                 if result is None:
                     logger.warning(
                         "Skipping numeric column %r: needs >= 2 non-null values in both "
