@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Literal, Protocol, cast
 
 import pandas as pd
+from dataexcept import DataLoadingError, FileWriteError
 
 _SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9._-]+$")
 _FORMAT_SUFFIXES: tuple[Literal["parquet", "csv"], ...] = ("parquet", "csv")
@@ -173,22 +174,33 @@ class LocalBaselineStore:
     ) -> str:
         selected = _select_format(fmt, self.default_format)
         path = self._path(name, version, fmt=selected)
-        if selected == "parquet":
-            data.to_parquet(path, index=False)
-        else:
-            data.to_csv(path, index=False)
+        try:
+            if selected == "parquet":
+                data.to_parquet(path, index=False)
+            else:
+                data.to_csv(path, index=False)
+        except OSError as exc:
+            raise FileWriteError(path, original=exc) from exc
+        try:
+            digest = self._file_sha256(path)
+        except OSError as exc:
+            raise DataLoadingError(path, exc) from exc
         meta = _metadata_payload(
             name=name,
             version=version,
             path=path,
             fmt=selected,
             row_count=int(len(data)),
-            dataset_sha256=self._file_sha256(path),
+            dataset_sha256=digest,
             owner=owner,
             training_job_id=training_job_id,
         )
-        with open(self._meta_path(name, version, fmt=selected), "w", encoding="utf-8") as f:
-            json.dump(meta, f)
+        meta_path = self._meta_path(name, version, fmt=selected)
+        try:
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(meta, f)
+        except OSError as exc:
+            raise FileWriteError(meta_path, original=exc) from exc
         return path
 
     def load(self, name: str, version: str, verify_integrity: bool = True) -> pd.DataFrame:
@@ -196,15 +208,22 @@ class LocalBaselineStore:
         if verify_integrity:
             meta = self.metadata(name, version)
             expected = str(meta.get("dataset_sha256", ""))
-            actual = self._file_sha256(path)
+            try:
+                actual = self._file_sha256(path)
+            except OSError as exc:
+                raise DataLoadingError(path, exc) from exc
             if expected and expected != actual:
                 raise ValueError(
                     f"Integrity check failed for baseline {name} v{version}: "
                     f"expected {expected}, got {actual}"
                 )
-        if resolved_fmt == "parquet":
-            return pd.read_parquet(path)
-        return pd.read_csv(path)
+        try:
+            if resolved_fmt == "parquet":
+                return pd.read_parquet(path)
+            return pd.read_csv(path)
+        except (OSError, ValueError) as exc:
+            # Pandas uses ValueError for empty or malformed tabular input.
+            raise DataLoadingError(path, exc) from exc
 
     def list(self, name: str | None = None) -> list[str]:
         out: list[str] = []
@@ -224,8 +243,11 @@ class LocalBaselineStore:
         for fmt in _FORMAT_SUFFIXES:
             meta_path = self._meta_path(name, version, fmt=fmt)
             if os.path.exists(meta_path):
-                with open(meta_path, encoding="utf-8") as f:
-                    return cast("dict[Any, Any]", json.load(f))
+                try:
+                    with open(meta_path, encoding="utf-8") as f:
+                        return cast("dict[Any, Any]", json.load(f))
+                except (OSError, ValueError) as exc:
+                    raise DataLoadingError(meta_path, exc) from exc
         raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
 
     def delete(self, name: str, version: str) -> None:

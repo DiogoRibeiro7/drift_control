@@ -251,19 +251,6 @@ typing-extensions = ">=4.12"
 tz = ["tzdata"]
 
 [[package]]
-name = "aniso8601"
-version = "7.0.0"
-description = "A library for parsing ISO 8601 strings."
-optional = true
-python-versions = "*"
-groups = ["main"]
-markers = "python_version >= \"3.15\" and (extra == \"mlflow\" or extra == \"full\")"
-files = [
-    {file = "aniso8601-7.0.0-py2.py3-none-any.whl", hash = "sha256:d10a4bf949f619f719b227ef5386e31f49a2b6d453004b21f02661ccc8670c7b"},
-    {file = "aniso8601-7.0.0.tar.gz", hash = "sha256:513d2b6637b7853806ae79ffaca6f3e8754bdd547048f5ccc1420aec4b714f1e"},
-]
-
-[[package]]
 name = "annotated-doc"
 version = "0.0.4"
 description = "Document parameters, class attributes, return types, and variables inline, with Annotated."
@@ -560,7 +547,7 @@ files = [
     {file = "cffi-2.0.0-cp39-cp39-win_amd64.whl", hash = "sha256:b882b3df248017dba09d6b16defe9b5c407fe32fc7c65a9c69798e6175601be9"},
     {file = "cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529"},
 ]
-markers = {main = "platform_python_implementation != \"PyPy\" and (extra == \"mlflow\" or extra == \"full\") or implementation_name == \"pypy\"", dev = "implementation_name == \"pypy\""}
+markers = {main = "(extra == \"mlflow\" or extra == \"full\") and platform_python_implementation != \"PyPy\" or implementation_name == \"pypy\"", dev = "implementation_name == \"pypy\""}
 
 [package.dependencies]
 pycparser = {version = "*", markers = "implementation_name != \"PyPy\""}
@@ -1081,6 +1068,21 @@ notebook = ["ipython (>=8,<10)", "ipywidgets (>=8,<9)"]
 openai = ["httpx", "langchain-openai", "openai"]
 
 [[package]]
+name = "dataexcept"
+version = "1.7.0"
+description = "A Python package providing structured, easily-extendable custom exception types."
+optional = false
+python-versions = "<3.15,>=3.10"
+groups = ["main"]
+files = [
+    {file = "dataexcept-1.7.0-py3-none-any.whl", hash = "sha256:2032f07de4305e638e16227ae421fc85cd53ab30aec3433d8362ddb8e327bb39"},
+    {file = "dataexcept-1.7.0.tar.gz", hash = "sha256:62f15f59b2d41d873a6f6260be4d75baf9ba730da53626080590095cc7579ef6"},
+]
+
+[package.dependencies]
+tomli = {version = "*", markers = "python_version < \"3.11\""}
+
+[[package]]
 name = "debugpy"
 version = "1.8.21"
 description = "An implementation of the Debug Adapter Protocol for Python"
@@ -1281,28 +1283,12 @@ dotenv = ["python-dotenv"]
 
 [[package]]
 name = "flask-cors"
-version = "5.0.0"
-description = "A Flask extension adding a decorator for CORS support"
-optional = true
-python-versions = "*"
-groups = ["main"]
-markers = "python_version >= \"3.15\" and (extra == \"mlflow\" or extra == \"full\")"
-files = [
-    {file = "Flask_Cors-5.0.0-py2.py3-none-any.whl", hash = "sha256:b9e307d082a9261c100d8fb0ba909eec6a228ed1b60a8315fd85f783d61910bc"},
-    {file = "flask_cors-5.0.0.tar.gz", hash = "sha256:5aadb4b950c4e93745034594d9f3ea6591f734bb3662e16e255ffbf5e89c88ef"},
-]
-
-[package.dependencies]
-Flask = ">=0.9"
-
-[[package]]
-name = "flask-cors"
 version = "6.0.2"
 description = "A Flask extension simplifying CORS support"
 optional = true
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
-markers = "(extra == \"mlflow\" or extra == \"full\") and python_version < \"3.15\""
+markers = "extra == \"mlflow\" or extra == \"full\""
 files = [
     {file = "flask_cors-6.0.2-py3-none-any.whl", hash = "sha256:e57544d415dfd7da89a9564e1e3a9e515042df76e12130641ca6f3f2f03b699a"},
     {file = "flask_cors-6.0.2.tar.gz", hash = "sha256:6e118f3698249ae33e429760db98ce032a8bf9913638d085ca0f4c5534ad2423"},
@@ -1587,36 +1573,12 @@ urllib3 = ["packaging", "urllib3"]
 
 [[package]]
 name = "graphene"
-version = "2.1.9"
-description = "GraphQL Framework for Python"
-optional = true
-python-versions = "*"
-groups = ["main"]
-markers = "python_version >= \"3.15\" and (extra == \"mlflow\" or extra == \"full\")"
-files = [
-    {file = "graphene-2.1.9-py2.py3-none-any.whl", hash = "sha256:3d446eb1237c551052bc31155cf1a3a607053e4f58c9172b83a1b597beaa0868"},
-    {file = "graphene-2.1.9.tar.gz", hash = "sha256:b9f2850e064eebfee9a3ef4a1f8aa0742848d97652173ab44c82cc8a62b9ed93"},
-]
-
-[package.dependencies]
-aniso8601 = ">=3,<=7"
-graphql-core = ">=2.1,<3"
-graphql-relay = ">=2,<3"
-six = ">=1.10.0,<2"
-
-[package.extras]
-django = ["graphene-django"]
-sqlalchemy = ["graphene-sqlalchemy"]
-test = ["coveralls", "fastdiff (==0.2.0)", "iso8601", "mock", "promise", "pytest", "pytest-benchmark", "pytest-cov", "pytest-mock", "pytz", "six", "snapshottest"]
-
-[[package]]
-name = "graphene"
 version = "3.4.3"
 description = "GraphQL Framework for Python"
 optional = true
 python-versions = "*"
 groups = ["main"]
-markers = "(extra == \"mlflow\" or extra == \"full\") and python_version < \"3.15\""
+markers = "extra == \"mlflow\" or extra == \"full\""
 files = [
     {file = "graphene-3.4.3-py2.py3-none-any.whl", hash = "sha256:820db6289754c181007a150db1f7fff544b94142b556d12e3ebc777a7bf36c71"},
     {file = "graphene-3.4.3.tar.gz", hash = "sha256:2a3786948ce75fe7e078443d37f609cbe5bb36ad8d6b828740ad3b95ed1a0aaa"},
@@ -1634,56 +1596,16 @@ test = ["coveralls (>=3.3,<5)", "pytest (>=8,<9)", "pytest-asyncio (>=0.16,<2)",
 
 [[package]]
 name = "graphql-core"
-version = "2.3.2"
-description = "GraphQL implementation for Python"
-optional = true
-python-versions = "*"
-groups = ["main"]
-markers = "python_version >= \"3.15\" and (extra == \"mlflow\" or extra == \"full\")"
-files = [
-    {file = "graphql-core-2.3.2.tar.gz", hash = "sha256:aac46a9ac524c9855910c14c48fc5d60474def7f99fd10245e76608eba7af746"},
-    {file = "graphql_core-2.3.2-py2.py3-none-any.whl", hash = "sha256:44c9bac4514e5e30c5a595fac8e3c76c1975cae14db215e8174c7fe995825bad"},
-]
-
-[package.dependencies]
-promise = ">=2.3,<3"
-rx = ">=1.6,<2"
-six = ">=1.10.0"
-
-[package.extras]
-gevent = ["gevent (>=1.1)"]
-test = ["coveralls (==1.11.1)", "cython (==0.29.17)", "gevent (==1.5.0)", "pyannotate (==1.2.0)", "pytest (==4.6.10)", "pytest-benchmark (==3.2.3)", "pytest-cov (==2.8.1)", "pytest-django (==3.9.0)", "pytest-mock (==2.0.0)", "six (==1.14.0)"]
-
-[[package]]
-name = "graphql-core"
 version = "3.2.8"
 description = "GraphQL implementation for Python, a port of GraphQL.js, the JavaScript reference implementation for GraphQL."
 optional = true
 python-versions = "<4,>=3.7"
 groups = ["main"]
-markers = "(extra == \"mlflow\" or extra == \"full\") and python_version < \"3.15\""
+markers = "extra == \"mlflow\" or extra == \"full\""
 files = [
     {file = "graphql_core-3.2.8-py3-none-any.whl", hash = "sha256:cbee07bee1b3ed5e531723685369039f32ff815ef60166686e0162f540f1520c"},
     {file = "graphql_core-3.2.8.tar.gz", hash = "sha256:015457da5d996c924ddf57a43f4e959b0b94fb695b85ed4c29446e508ed65cf3"},
 ]
-
-[[package]]
-name = "graphql-relay"
-version = "2.0.1"
-description = "Relay implementation for Python"
-optional = true
-python-versions = "*"
-groups = ["main"]
-markers = "python_version >= \"3.15\" and (extra == \"mlflow\" or extra == \"full\")"
-files = [
-    {file = "graphql-relay-2.0.1.tar.gz", hash = "sha256:870b6b5304123a38a0b215a79eace021acce5a466bf40cd39fa18cb8528afabb"},
-    {file = "graphql_relay-2.0.1-py3-none-any.whl", hash = "sha256:ac514cb86db9a43014d7e73511d521137ac12cf0101b2eaa5f0a3da2e10d913d"},
-]
-
-[package.dependencies]
-graphql-core = ">=2.2,<3"
-promise = ">=2.2,<3"
-six = ">=1.12"
 
 [[package]]
 name = "graphql-relay"
@@ -1692,7 +1614,7 @@ description = "Relay library for graphql-core"
 optional = true
 python-versions = ">=3.6,<4"
 groups = ["main"]
-markers = "(extra == \"mlflow\" or extra == \"full\") and python_version < \"3.15\""
+markers = "extra == \"mlflow\" or extra == \"full\""
 files = [
     {file = "graphql-relay-3.2.0.tar.gz", hash = "sha256:1ff1c51298356e481a0be009ccdff249832ce53f30559c1338f22a0e0d17250c"},
     {file = "graphql_relay-3.2.0-py3-none-any.whl", hash = "sha256:c9b22bd28b170ba1fe674c74384a8ff30a76c8e26f88ac3aa1584dd3179953e5"},
@@ -1708,7 +1630,7 @@ description = "Lightweight in-process concurrent programming"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "(platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\") and (extra == \"mlflow\" or extra == \"full\")"
+markers = "(extra == \"mlflow\" or extra == \"full\") and (platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\")"
 files = [
     {file = "greenlet-3.5.1-cp310-cp310-macosx_11_0_universal2.whl", hash = "sha256:7eacb17a9d41538a2bc4912eba5ef13823c83cb69e4d141d0813debe7163187f"},
     {file = "greenlet-3.5.1-cp310-cp310-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e5cc9606aa5f4e0bde0d3bd502b44f743864c3ffa5cfa1011b1e30f5aa02366f"},
@@ -1802,7 +1724,7 @@ description = "WSGI HTTP Server for UNIX"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "platform_system != \"Windows\" and (extra == \"mlflow\" or extra == \"full\")"
+markers = "(extra == \"mlflow\" or extra == \"full\") and platform_system != \"Windows\""
 files = [
     {file = "gunicorn-26.0.0-py3-none-any.whl", hash = "sha256:40233d26a5f0d1872916188c276e21641155111c2853f0c2cd55260aec0d24fc"},
     {file = "gunicorn-26.0.0.tar.gz", hash = "sha256:ca9346f85e3a4aeeb64d491045c16b9a35647abd37ea15efe53080eb8b090baf"},
@@ -2952,10 +2874,7 @@ librt = {version = ">=0.11.0", markers = "platform_python_implementation != \"Py
 mypy_extensions = ">=1.0.0"
 pathspec = ">=1.0.0"
 tomli = {version = ">=1.1.0", markers = "python_version < \"3.11\""}
-typing_extensions = [
-    {version = ">=4.6.0", markers = "python_version < \"3.15\""},
-    {version = ">=4.14.0", markers = "python_version >= \"3.15\""},
-]
+typing_extensions = {version = ">=4.6.0", markers = "python_version < \"3.15\""}
 
 [package.extras]
 dmypy = ["psutil (>=4.0)"]
@@ -3027,33 +2946,11 @@ test = ["pep440", "pre-commit", "pytest", "testpath"]
 
 [[package]]
 name = "nbval"
-version = "0.9.6"
-description = "A py.test plugin to validate Jupyter notebooks"
-optional = false
-python-versions = "*"
-groups = ["main", "dev"]
-markers = "python_version >= \"3.15\""
-files = [
-    {file = "nbval-0.9.6-py2.py3-none-any.whl", hash = "sha256:4f9b780997d8942408853513f2c5ee6c1863de193559fc3f95e1c1cde8110439"},
-    {file = "nbval-0.9.6.tar.gz", hash = "sha256:cfefcd2ef66ee2d337d0b252c6bcec4023384eb32e8b9e5fcc3ac80ab8cd7d40"},
-]
-
-[package.dependencies]
-coverage = "*"
-ipykernel = "*"
-jupyter-client = "*"
-nbformat = "*"
-pytest = ">=2.8"
-six = "*"
-
-[[package]]
-name = "nbval"
 version = "0.11.0"
 description = "A py.test plugin to validate Jupyter notebooks"
 optional = false
 python-versions = ">=3.7, <4"
 groups = ["main", "dev"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "nbval-0.11.0-py2.py3-none-any.whl", hash = "sha256:307aecc866c9a1e8a13bb5bbb008a702bacfda2394dff6fe504a3108a58042a0"},
     {file = "nbval-0.11.0.tar.gz", hash = "sha256:77c95797607b0a968babd2597ee3494102d25c3ad37435debbdac0e46e379094"},
@@ -3771,24 +3668,6 @@ wcwidth = "*"
 tests = ["pytest", "pytest-cov", "pytest-lazy-fixtures"]
 
 [[package]]
-name = "promise"
-version = "2.3"
-description = "Promises/A+ implementation for Python"
-optional = true
-python-versions = "*"
-groups = ["main"]
-markers = "python_version >= \"3.15\" and (extra == \"mlflow\" or extra == \"full\")"
-files = [
-    {file = "promise-2.3.tar.gz", hash = "sha256:dfd18337c523ba4b6a58801c164c1904a9d4d1b1747c7d5dbf45b693a49d93d0"},
-]
-
-[package.dependencies]
-six = "*"
-
-[package.extras]
-test = ["coveralls", "futures", "mock", "pytest (>=2.7.3)", "pytest-benchmark", "pytest-cov"]
-
-[[package]]
 name = "prompt-toolkit"
 version = "3.0.52"
 description = "Library for building powerful interactive command lines in Python"
@@ -4119,7 +3998,7 @@ files = [
     {file = "pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992"},
     {file = "pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29"},
 ]
-markers = {main = "platform_python_implementation != \"PyPy\" and implementation_name != \"PyPy\" and (extra == \"mlflow\" or extra == \"full\") or implementation_name == \"pypy\"", dev = "implementation_name == \"pypy\""}
+markers = {main = "(extra == \"mlflow\" or extra == \"full\") and platform_python_implementation != \"PyPy\" and implementation_name != \"PyPy\" or implementation_name == \"pypy\"", dev = "implementation_name == \"pypy\""}
 
 [[package]]
 name = "pydantic"
@@ -4418,7 +4297,7 @@ description = "Python for Window Extensions"
 optional = true
 python-versions = "*"
 groups = ["main"]
-markers = "sys_platform == \"win32\" and (extra == \"mlflow\" or extra == \"full\")"
+markers = "(extra == \"mlflow\" or extra == \"full\") and sys_platform == \"win32\""
 files = [
     {file = "pywin32-311-cp310-cp310-win32.whl", hash = "sha256:d03ff496d2a0cd4a5893504789d4a15399133fe82517455e78bad62efbb7f0a3"},
     {file = "pywin32-311-cp310-cp310-win_amd64.whl", hash = "sha256:797c2772017851984b97180b0bebe4b620bb86328e8a884bb626156295a63b3b"},
@@ -4673,66 +4552,12 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<8)"]
 
 [[package]]
 name = "river"
-version = "0.19.0"
-description = "Online machine learning in Python"
-optional = true
-python-versions = ">=3.8.0"
-groups = ["main"]
-markers = "python_version >= \"3.15\" and (extra == \"concept\" or extra == \"full\")"
-files = [
-    {file = "river-0.19.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:4eee9a0281ce44dcdc9163acecc90f6646d4ac0a165c6f62262ef4539e4add99"},
-    {file = "river-0.19.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:b45082eadbd88474c65660c3fdab546baf2f081796744ee2cfc974a9e7f14ffa"},
-    {file = "river-0.19.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d7a8bb239dc45431f8d7cd705585aff870355e4310b52541c002fd42cc34c90a"},
-    {file = "river-0.19.0-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:dbf93003b655d492511e0592cf32f12be910170f029e868a3f5f0b6aa20c8cb7"},
-    {file = "river-0.19.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:45dbcb66061ddf06d18aec878dc97e17b2c3f6d57a571de4cab7eeef175d6bcc"},
-    {file = "river-0.19.0-cp310-cp310-win32.whl", hash = "sha256:50ebe33409b7866f78272be3dfaa9e4ba9c3c754883aa7d46c34fc94e37c9cd9"},
-    {file = "river-0.19.0-cp310-cp310-win_amd64.whl", hash = "sha256:c7b113c416e18ea8d6f8c906f973cae9f25a2191d6cb4cc63afed57194744b02"},
-    {file = "river-0.19.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:1cdc941cb4e79925bd674e8e805b14f00f4f534917e1a188b55a94b8c66c0206"},
-    {file = "river-0.19.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:0ebb541153ccdd0e94889de242f3033b9e61eb47a1affa569cd1a2e6b54b292a"},
-    {file = "river-0.19.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2b90214b73ea5b46d732a993eea361a2abb036013a93b09a43c5d7c810788a9c"},
-    {file = "river-0.19.0-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:eb5a87a6dd3d3a06e54f46311ee00c0cd90951408b98d06ab69b372a0fa0eebf"},
-    {file = "river-0.19.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:ea25f6086c5e2af6a38c6dcf8594a056ab217162ed31c2d1ea96b275568c5ccf"},
-    {file = "river-0.19.0-cp311-cp311-win32.whl", hash = "sha256:83cb8b2fad69d024ae4f41f36c8ad1617a4a6da202cbcf66736dae120c5ce02d"},
-    {file = "river-0.19.0-cp311-cp311-win_amd64.whl", hash = "sha256:ff253b9932b5ef99dda11f7b5161b08af9024b6cd907ff2245ce5f279f23bad9"},
-    {file = "river-0.19.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:a4f18822288460fc2f0a7eefdbea5d5cef62657de7b35be7068423735f95d360"},
-    {file = "river-0.19.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:55eb3bcba340e3a58899abb18997487c5d17e6695907f3648bcded2be67d5269"},
-    {file = "river-0.19.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bb80ee46e1dee9ec7074e9b05cd26ba4590bb0c8bf26ac11cc4643319696bb4e"},
-    {file = "river-0.19.0-cp38-cp38-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:1bbb2520f2bc8791ad347e986f8015a4cc25a30d33b88bf9d80d1d6809f94ab8"},
-    {file = "river-0.19.0-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:bd48ca82e7c3102e950b907fce61491aeeb8eb59bd2d8af0556d05f9665168ea"},
-    {file = "river-0.19.0-cp38-cp38-win32.whl", hash = "sha256:d82dbb885728e73bfb20583f0dc3ccd17a4fbbb94d6129c4f497f5aacd33d962"},
-    {file = "river-0.19.0-cp38-cp38-win_amd64.whl", hash = "sha256:aae1145b25d61bc89ef977138d739e7899699454dc113d3fad3824f912c471bc"},
-    {file = "river-0.19.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:bff8e575820a091539dc82a77707715133b2692e3a1950998c8ace25c56f094a"},
-    {file = "river-0.19.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:3d446800ddeb3d648f970c8874cf5941b5939d7052bd13d0483385e6b3d9fd28"},
-    {file = "river-0.19.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:989ccbe64135a68067e50224534702fb3fbceedc9b1a03d579cfe4e500eefb08"},
-    {file = "river-0.19.0-cp39-cp39-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:54f613bed3a45b53fb0cda7143fc617013c9fec3a05612cf1d0c7f7542c19165"},
-    {file = "river-0.19.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:b9d87cf3a357e6facae5e369bdd0d2caae22c5bd96c47ad2164a5453d1bbbce7"},
-    {file = "river-0.19.0-cp39-cp39-win32.whl", hash = "sha256:0f724499555ddfdfd2fae1e6fe5996fde4f36f59175f10481e010d4e02d609a1"},
-    {file = "river-0.19.0-cp39-cp39-win_amd64.whl", hash = "sha256:acf79c8b884f6e4d05d11f5548f87ba9d8b1bef6854d89dff3b99c68f9b0c597"},
-    {file = "river-0.19.0.tar.gz", hash = "sha256:6b2192e27636334dd29eb43d6c46a53f9d7eef38eb8479a0797412b7c8c46020"},
-]
-
-[package.dependencies]
-numpy = ">=1.25.2"
-pandas = ">=1.3"
-scipy = ">=1.5"
-
-[package.extras]
-benchmark = ["dominate (==2.7.0)", "numpy (>=1.25.2)", "pandas (>=1.3)", "river-torch (==0.1.2)", "scikit-learn (==1.1.2)", "scipy (==1.9.3)", "scipy (>=1.5)", "slugify (==0.0.1)", "torch (==1.13.0)", "vowpalwabbit (==9.6.0)", "watermark (==2.3.1)"]
-compat = ["numpy (>=1.25.2)", "pandas (>=1.3)", "scikit-learn", "scipy (>=1.5)", "sqlalchemy (>=2.0.0)", "vaex"]
-deep = ["deep-river"]
-dev = ["black (>=22.1.0)", "graphviz (>=0.10.1)", "gym (>=0.26.1)", "matplotlib (>=3.0.2)", "mypy (>=0.980)", "numpy (>=1.25.2)", "pandas (>=1.3)", "pre-commit (>=2.9.2)", "pytest (>=4.5.0)", "ruff (>=0.0.213)", "scikit-learn (>=1.0.1)", "scipy (>=1.5)", "sqlalchemy (>=2.0.0)", "sympy (>=1.10.1)"]
-docs = ["dominate", "flask", "ipykernel", "jupyter-client", "mike", "mkdocs", "mkdocs-awesome-pages-plugin", "mkdocs-charts-plugin", "mkdocs-material", "nbconvert", "numpy (>=1.25.2)", "numpydoc", "pandas (>=1.3)", "python-slugify", "scipy (>=1.5)", "spacy", "tabulate", "watermark"]
-extra = ["river-extra"]
-torch = ["river-torch"]
-
-[[package]]
-name = "river"
 version = "0.23.0"
 description = "Online machine learning in Python"
 optional = true
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
-markers = "(extra == \"concept\" or extra == \"full\") and python_version < \"3.15\""
+markers = "extra == \"concept\" or extra == \"full\""
 files = [
     {file = "river-0.23.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:a946adafae89329ce0a7ef73eff691e6fb6874b6c73e439ce11088f4bc8cfcab"},
     {file = "river-0.23.0-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:87203aab6787ad49485faeaa19b058082942d54c4c7b7786c9953c6a7df20282"},
@@ -5059,18 +4884,6 @@ files = [
     {file = "ruff-0.15.15-py3-none-win_amd64.whl", hash = "sha256:8df0323902e15e24bc4bf246da830573d3cf3352bd0b9a164eab335d111ff4a4"},
     {file = "ruff-0.15.15-py3-none-win_arm64.whl", hash = "sha256:3c8ceca6792f38196b8f589bc92eccd03eef286602da92e5dc05cc42ef6441b7"},
     {file = "ruff-0.15.15.tar.gz", hash = "sha256:b8dff018130b46d8e5bf0f926ef6b60cf871d6d5ae45fc9334e09632daa741d6"},
-]
-
-[[package]]
-name = "rx"
-version = "1.6.3"
-description = "Reactive Extensions (Rx) for Python"
-optional = true
-python-versions = "*"
-groups = ["main"]
-markers = "python_version >= \"3.15\" and (extra == \"mlflow\" or extra == \"full\")"
-files = [
-    {file = "Rx-1.6.3.tar.gz", hash = "sha256:ca71b65d0fc0603a3b5cfaa9e33f5ba81e4aae10a58491133595088d7734b2da"},
 ]
 
 [[package]]
@@ -5779,7 +5592,7 @@ description = "Waitress WSGI server"
 optional = true
 python-versions = ">=3.9.0"
 groups = ["main"]
-markers = "platform_system == \"Windows\" and (extra == \"mlflow\" or extra == \"full\")"
+markers = "(extra == \"mlflow\" or extra == \"full\") and platform_system == \"Windows\""
 files = [
     {file = "waitress-3.0.2-py3-none-any.whl", hash = "sha256:c56d67fd6e87c2ee598b76abdd4e96cfad1f24cacdea5078d382b1f9d7b5ed2e"},
     {file = "waitress-3.0.2.tar.gz", hash = "sha256:682aaaf2af0c44ada4abfb70ded36393f0e307f4ab9456a215ce0020baefc31f"},
@@ -5973,5 +5786,5 @@ viz = ["matplotlib", "plotly", "seaborn"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.10"
-content-hash = "5e5a4213aac34c7b7ba95c74c841cfaa784125c9cbda41450f001371c7a06499"
+python-versions = ">=3.10,<3.15"
+content-hash = "60ea6d1a125ad2fdf8b7a5ffdac9014a0c8dc979f7f621ee6d6d3deae53a0b6d"
