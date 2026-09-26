@@ -138,7 +138,10 @@ class LocalBaselineStore:
     ) -> None:
         self.directory = directory
         self.default_format = default_format
-        os.makedirs(self.directory, exist_ok=True)
+        try:
+            os.makedirs(self.directory, exist_ok=True)
+        except OSError as exc:
+            raise FileWriteError(os.fspath(self.directory), original=exc) from exc
 
     def _path(self, name: str, version: str, fmt: Literal["parquet", "csv"] = "csv") -> str:
         return os.path.join(self.directory, _baseline_filename(name, version, fmt))
@@ -221,7 +224,7 @@ class LocalBaselineStore:
             if resolved_fmt == "parquet":
                 return pd.read_parquet(path)
             return pd.read_csv(path)
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, UnicodeError) as exc:
             # Pandas uses ValueError for empty or malformed tabular input.
             raise DataLoadingError(path, exc) from exc
 
@@ -246,7 +249,7 @@ class LocalBaselineStore:
                 try:
                     with open(meta_path, encoding="utf-8") as f:
                         return cast("dict[Any, Any]", json.load(f))
-                except (OSError, ValueError) as exc:
+                except (OSError, ValueError, UnicodeError) as exc:
                     raise DataLoadingError(meta_path, exc) from exc
         raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
 
@@ -257,7 +260,10 @@ class LocalBaselineStore:
                 self._meta_path(name, version, fmt=fmt),
             ):
                 if os.path.exists(path):
-                    os.remove(path)
+                    try:
+                        os.remove(path)
+                    except OSError as exc:
+                        raise FileWriteError(path, original=exc) from exc
 
 
 class S3BaselineStore:
@@ -289,16 +295,30 @@ class S3BaselineStore:
     def _meta_key(self, name: str, version: str, fmt: Literal["parquet", "csv"] = "csv") -> str:
         return self._object_key(name, version, fmt=fmt) + ".meta.json"
 
+    def _uri(self, key: str) -> str:
+        """Identify an object in loading and writing errors."""
+        return f"s3://{self.bucket}/{key}"
+
     def _read_object_bytes(self, key: str) -> bytes:
-        obj = self.s3_client.get_object(Bucket=self.bucket, Key=key)
-        return cast(bytes, obj["Body"].read())
+        try:
+            obj = self.s3_client.get_object(Bucket=self.bucket, Key=key)
+            return cast(bytes, obj["Body"].read())
+        except Exception as exc:
+            raise DataLoadingError(self._uri(key), exc) from exc
 
     def _exists(self, key: str) -> bool:
         try:
             self.s3_client.head_object(Bucket=self.bucket, Key=key)
             return True
-        except Exception:
-            return False
+        except Exception as exc:
+            # A missing object is a normal lookup result. Access or network
+            # errors must not be mistaken for an unknown baseline version.
+            response = getattr(exc, "response", None)
+            error = response.get("Error") if isinstance(response, dict) else None
+            code = error.get("Code") if isinstance(error, dict) else None
+            if isinstance(exc, KeyError) or str(code) in {"404", "NoSuchKey", "NotFound"}:
+                return False
+            raise DataLoadingError(self._uri(key), exc) from exc
 
     def _resolve_existing_key(
         self, name: str, version: str
@@ -321,8 +341,11 @@ class S3BaselineStore:
         selected = _select_format(fmt, self.default_format)
         key = self._object_key(name, version, fmt=selected)
         payload = _write_frame_to_bytes(data, selected)
-        self.s3_client.put_object(Bucket=self.bucket, Key=key, Body=payload)
-        path = f"s3://{self.bucket}/{key}"
+        path = self._uri(key)
+        try:
+            self.s3_client.put_object(Bucket=self.bucket, Key=key, Body=payload)
+        except Exception as exc:
+            raise FileWriteError(path, original=exc) from exc
         meta = _metadata_payload(
             name=name,
             version=version,
@@ -333,11 +356,12 @@ class S3BaselineStore:
             owner=owner,
             training_job_id=training_job_id,
         )
-        self.s3_client.put_object(
-            Bucket=self.bucket,
-            Key=self._meta_key(name, version, fmt=selected),
-            Body=json.dumps(meta).encode("utf-8"),
-        )
+        meta_key = self._meta_key(name, version, fmt=selected)
+        meta_payload = json.dumps(meta).encode("utf-8")
+        try:
+            self.s3_client.put_object(Bucket=self.bucket, Key=meta_key, Body=meta_payload)
+        except Exception as exc:
+            raise FileWriteError(self._uri(meta_key), original=exc) from exc
         return path
 
     def load(self, name: str, version: str, verify_integrity: bool = True) -> pd.DataFrame:
@@ -352,42 +376,52 @@ class S3BaselineStore:
                     f"Integrity check failed for baseline {name} v{version}: "
                     f"expected {expected}, got {actual}"
                 )
-        return _read_frame_from_bytes(payload, resolved_fmt)
+        try:
+            return _read_frame_from_bytes(payload, resolved_fmt)
+        except (OSError, ValueError, UnicodeError) as exc:
+            raise DataLoadingError(self._uri(key), exc) from exc
 
     def list(self, name: str | None = None) -> list[str]:
         prefix = f"{self.prefix}/" if self.prefix else ""
-        paginator = self.s3_client.get_paginator("list_objects_v2")
         out: list[str] = []
-        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
-            for item in page.get("Contents", []):
-                key = item.get("Key", "")
-                if key.endswith(".meta.json"):
-                    continue
-                stem = key.split("/")[-1]
-                for fmt in _FORMAT_SUFFIXES:
-                    suffix = f".{_file_extension(fmt)}"
-                    if stem.endswith(suffix):
-                        stem = stem[: -len(suffix)]
-                        break
-                else:
-                    continue
-                identifier = _parse_baseline_identifier(stem)
-                if identifier is None:
-                    continue
-                baseline_name, version = identifier
-                if name is not None and baseline_name != name:
-                    continue
-                out.append(f"{baseline_name}@{version}")
+        try:
+            paginator = self.s3_client.get_paginator("list_objects_v2")
+            pages = paginator.paginate(Bucket=self.bucket, Prefix=prefix)
+            for page in pages:
+                for item in page.get("Contents", []):
+                    key = item.get("Key", "")
+                    if key.endswith(".meta.json"):
+                        continue
+                    stem = key.split("/")[-1]
+                    for fmt in _FORMAT_SUFFIXES:
+                        suffix = f".{_file_extension(fmt)}"
+                        if stem.endswith(suffix):
+                            stem = stem[: -len(suffix)]
+                            break
+                    else:
+                        continue
+                    identifier = _parse_baseline_identifier(stem)
+                    if identifier is None:
+                        continue
+                    baseline_name, version = identifier
+                    if name is not None and baseline_name != name:
+                        continue
+                    out.append(f"{baseline_name}@{version}")
+        except Exception as exc:
+            raise DataLoadingError(self._uri(prefix), exc) from exc
         return sorted(out)
 
     def metadata(self, name: str, version: str) -> dict:
         for fmt in _FORMAT_SUFFIXES:
             key = self._meta_key(name, version, fmt=fmt)
             if self._exists(key):
-                return cast(
-                    "dict[Any, Any]",
-                    json.loads(self._read_object_bytes(key).decode("utf-8")),
-                )
+                try:
+                    return cast(
+                        "dict[Any, Any]",
+                        json.loads(self._read_object_bytes(key).decode("utf-8")),
+                    )
+                except (UnicodeError, json.JSONDecodeError) as exc:
+                    raise DataLoadingError(self._uri(key), exc) from exc
         raise FileNotFoundError(f"Metadata for baseline {name} v{version} not found")
 
     def delete(self, name: str, version: str) -> None:
@@ -397,4 +431,7 @@ class S3BaselineStore:
                 self._meta_key(name, version, fmt=fmt),
             ):
                 if self._exists(key):
-                    self.s3_client.delete_object(Bucket=self.bucket, Key=key)
+                    try:
+                        self.s3_client.delete_object(Bucket=self.bucket, Key=key)
+                    except Exception as exc:
+                        raise FileWriteError(self._uri(key), original=exc) from exc
