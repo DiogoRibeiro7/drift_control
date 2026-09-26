@@ -75,14 +75,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@34294e92775c38c360002c805916432fc4a55e60 # v1
         with:
           python-version: "3.12"
+          poetry-version: "2.5.1"
+          install-deps: "false"
 
       - name: Audit the locked environment with the CI extras
         # Matches the test job, which installs every extra.
         run: |
-          python -m pip install --upgrade pip poetry
           poetry install --with dev --extras "viz concept ml polars stream mlflow"
           poetry run python -m pip install pip-audit
           poetry run python -m pip_audit --skip-editable --progress-spinner off
