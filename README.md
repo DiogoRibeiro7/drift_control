@@ -73,6 +73,11 @@ drift-control --baseline-version mydata@1 --baseline-store s3 --baseline-bucket 
 - `--baseline-store`: choose `local` (default) or `s3`
 - `--baseline-bucket`: required for `s3`
 
+When using `LocalBaselineStore` in Python, file read and CSV/Parquet parsing
+failures raise DataExcept's `DataLoadingError`; write failures raise
+`FileWriteError`. The underlying exception remains available as `__cause__`.
+Unknown baseline versions still raise `FileNotFoundError`.
+
 Feature-wise report over a mixed-type table (structured detectors → `DriftReport`):
 
 ```bash
