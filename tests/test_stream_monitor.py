@@ -1,10 +1,134 @@
 import asyncio
+import sys
+from types import ModuleType, SimpleNamespace
 
 import pandas as pd
 import pytest
+from dataexcept import BrokerConnectionError, DeserializationError, MessageConsumeError
 
 from drift_control.alert_sinks import ColumnFilterAlertSink, CompositeAlertSink
-from drift_control.stream_monitor import StreamMonitor
+from drift_control.stream_monitor import KafkaStreamMonitor, StreamMonitor
+
+
+class _FakeKafkaConsumer:
+    def __init__(self, payload: bytes | None = None, failure: Exception | None = None) -> None:
+        self.payload = payload
+        self.failure = failure
+        self.stopped = False
+        self.delivered = False
+
+    async def start(self) -> None:
+        return None
+
+    async def stop(self) -> None:
+        self.stopped = True
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self.failure is not None:
+            raise self.failure
+        if self.delivered:
+            raise StopAsyncIteration
+        self.delivered = True
+        return SimpleNamespace(value=self.payload)
+
+
+def _kafka_monitor(monkeypatch, consumer: _FakeKafkaConsumer) -> KafkaStreamMonitor:
+    module = ModuleType("aiokafka")
+    module.AIOKafkaConsumer = lambda *args, **kwargs: consumer
+    monkeypatch.setitem(sys.modules, "aiokafka", module)
+    return KafkaStreamMonitor(topic="drift-events")
+
+
+def test_kafka_malformed_message_retains_decoder_cause(monkeypatch):
+    consumer = _FakeKafkaConsumer(payload=b"{")
+    monitor = _kafka_monitor(monkeypatch, consumer)
+
+    async def drain() -> None:
+        async for _ in monitor.monitor():
+            pass
+
+    with pytest.raises(DeserializationError) as error:
+        asyncio.run(drain())
+
+    assert error.value.source == "Kafka topic drift-events"
+    assert isinstance(error.value.__cause__, ValueError)
+    assert consumer.stopped
+
+
+def test_kafka_invalid_utf8_retains_decoder_cause(monkeypatch):
+    monitor = _kafka_monitor(monkeypatch, _FakeKafkaConsumer(payload=b"\xff"))
+
+    async def drain() -> None:
+        async for _ in monitor.monitor():
+            pass
+
+    with pytest.raises(DeserializationError) as error:
+        asyncio.run(drain())
+
+    assert isinstance(error.value.__cause__, UnicodeError)
+
+
+def test_kafka_broker_iteration_failure_preserves_cause(monkeypatch):
+    failure = OSError("broker connection closed")
+    consumer = _FakeKafkaConsumer(failure=failure)
+    monitor = _kafka_monitor(monkeypatch, consumer)
+
+    async def drain() -> None:
+        async for _ in monitor.monitor():
+            pass
+
+    with pytest.raises(MessageConsumeError) as error:
+        asyncio.run(drain())
+
+    assert error.value.topic == "drift-events"
+    assert error.value.__cause__ is failure
+    assert consumer.stopped
+
+
+def test_kafka_start_failure_preserves_broker_cause(monkeypatch):
+    failure = OSError("broker unavailable")
+    consumer = _FakeKafkaConsumer()
+
+    async def fail_start() -> None:
+        raise failure
+
+    consumer.start = fail_start
+    monitor = _kafka_monitor(monkeypatch, consumer)
+
+    async def drain() -> None:
+        async for _ in monitor.monitor():
+            pass
+
+    with pytest.raises(BrokerConnectionError) as error:
+        asyncio.run(drain())
+
+    assert error.value.broker == "localhost:9092"
+    assert error.value.__cause__ is failure
+
+
+def test_kafka_stop_failure_preserves_broker_cause(monkeypatch):
+    failure = OSError("broker unavailable during stop")
+    consumer = _FakeKafkaConsumer()
+    consumer.delivered = True
+
+    async def fail_stop() -> None:
+        raise failure
+
+    consumer.stop = fail_stop
+    monitor = _kafka_monitor(monkeypatch, consumer)
+
+    async def drain() -> None:
+        async for _ in monitor.monitor():
+            pass
+
+    with pytest.raises(MessageConsumeError) as error:
+        asyncio.run(drain())
+
+    assert error.value.topic == "drift-events"
+    assert error.value.__cause__ is failure
 
 
 class _StubThresholdDetector:

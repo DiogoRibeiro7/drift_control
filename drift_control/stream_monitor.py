@@ -16,6 +16,7 @@ from io import StringIO
 from typing import Any, Literal, cast
 
 import pandas as pd
+from dataexcept import BrokerConnectionError, DeserializationError, MessageConsumeError
 
 from ._interop import score_pair
 from .alert_sinks import AlertSink
@@ -25,13 +26,32 @@ SchemaMode = Literal["strict", "ignore", "drop"]
 BaselineStrategy = Literal["fixed", "sliding", "ewma"]
 
 
-def _read_json_frame(payload: str) -> pd.DataFrame:
+def _read_json_frame(payload: str, *, source: str = "Kafka message") -> pd.DataFrame:
     """Parse a JSON-serialised DataFrame, wrapping the literal in StringIO.
 
     Passing a raw JSON string to ``pd.read_json`` is deprecated and will be
     removed in a future pandas release.
     """
-    return pd.read_json(StringIO(payload))
+    try:
+        return pd.read_json(StringIO(payload))
+    except (ValueError, TypeError) as exc:
+        raise DeserializationError(format="json", source=source, cause=exc) from exc
+
+
+async def _consume_messages(consumer: Any, topic: str, broker: str) -> AsyncIterable[Any]:
+    """Classify broker iteration errors without masking detector failures."""
+    try:
+        iterator = aiter(consumer)
+    except Exception as exc:
+        raise MessageConsumeError(topic, broker=broker, cause=exc) from exc
+    while True:
+        try:
+            message = await anext(iterator)
+        except StopAsyncIteration:
+            return
+        except Exception as exc:
+            raise MessageConsumeError(topic, broker=broker, cause=exc) from exc
+        yield message
 
 
 @dataclass(frozen=True)
@@ -370,6 +390,8 @@ class KafkaStreamMonitor:
         self._consumer_factory = lambda: AIOKafkaConsumer(
             topic, bootstrap_servers=bootstrap_servers
         )
+        self._topic = topic
+        self._broker = bootstrap_servers
         self._consumer = None
 
     def set_baseline(self, data: pd.DataFrame) -> None:
@@ -381,15 +403,26 @@ class KafkaStreamMonitor:
         consumer = self._consumer
         if consumer is None:
             consumer = self._consumer = self._consumer_factory()
-        await consumer.start()
+        try:
+            await consumer.start()
+        except Exception as exc:
+            raise BrokerConnectionError(self._broker, cause=exc) from exc
         window: list[pd.DataFrame] = []
         try:
-            async for msg in consumer:
-                batch = _read_json_frame(msg.value.decode())
+            async for msg in _consume_messages(consumer, self._topic, self._broker):
+                source = f"Kafka topic {self._topic}"
+                try:
+                    payload = msg.value.decode("utf-8")
+                except UnicodeError as exc:
+                    raise DeserializationError(format="json", source=source, cause=exc) from exc
+                batch = _read_json_frame(payload, source=source)
                 window.append(batch)
                 if len(window) >= self._monitor.window_size:
                     yield await self._monitor._flush_window(window)
             if window:
                 yield await self._monitor._flush_window(window)
         finally:
-            await consumer.stop()
+            try:
+                await consumer.stop()
+            except Exception as exc:
+                raise MessageConsumeError(self._topic, broker=self._broker, cause=exc) from exc

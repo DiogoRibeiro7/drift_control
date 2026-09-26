@@ -89,6 +89,9 @@ file or `s3://` object. Missing baseline versions retain `FileNotFoundError`,
 and failed integrity checks retain `ValueError`.
 Webhook transport failures raise `WebhookError`, preserve the network cause and
 redact private webhook URL paths. Retry exhaustion retains that typed error.
+The optional Kafka adapter raises `DeserializationError` for invalid JSON or
+text encoding, `BrokerConnectionError` when it cannot start, and
+`MessageConsumeError` for broker iteration or shutdown failures.
 
 Feature-wise report over a mixed-type table (structured detectors → `DriftReport`):
 
