@@ -11,13 +11,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@34294e92775c38c360002c805916432fc4a55e60 # v1
         with:
           python-version: '3.12'
+          poetry-version: '2.5.1'
+          install-deps: 'false'
       - name: Install package + dev tooling
-        run: |
-          python -m pip install --upgrade pip poetry
-          poetry install --with dev
+        run: poetry install --with dev
       - name: Ruff (lint)
         run: poetry run ruff check .
 
