@@ -55,13 +55,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@34294e92775c38c360002c805916432fc4a55e60 # v1
         with:
           python-version: '3.12'
+          poetry-version: '2.5.1'
+          install-deps: 'false'
       - name: Install package + dev tooling + plotting extras
-        run: |
-          python -m pip install --upgrade pip poetry
-          poetry install --with dev --extras "viz concept"
+        run: poetry install --with dev --extras "viz concept"
       - name: Validate showcase notebooks and tutorials
         # Both directories, enforced by tests/test_notebook_coverage.py. The
         # tutorials went unchecked for long enough to rot against the API.
