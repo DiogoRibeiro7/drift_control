@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from dataexcept import DataLoadingError
+
 SUPPORTED_METHODS = {
     "psi",
     "ks",
@@ -71,27 +73,40 @@ def _build_ensemble_config(
 
 
 def _load_config_mapping(path: str | Path) -> dict[str, Any]:
+    """Read a config file, distinguishing file failures from invalid settings."""
     file_path = Path(path)
     suffix = file_path.suffix.lower()
-    text = file_path.read_text(encoding="utf-8")
+    if suffix not in {".json", ".toml", ".yaml", ".yml"}:
+        raise ValueError("config file must be .json, .toml, .yaml, or .yml")
+    try:
+        text = file_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise DataLoadingError(str(file_path), exc) from exc
     if suffix == ".json":
-        raw = json.loads(text)
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise DataLoadingError(str(file_path), exc) from exc
     elif suffix == ".toml":
         try:
             import tomllib as _toml_loader  # type: ignore[import-not-found]
         except ModuleNotFoundError:  # pragma: no cover
             import tomli as _toml_loader  # type: ignore[import-not-found]
-        raw = _toml_loader.loads(text)
-    elif suffix in {".yaml", ".yml"}:
+        try:
+            raw = _toml_loader.loads(text)
+        except _toml_loader.TOMLDecodeError as exc:
+            raise DataLoadingError(str(file_path), exc) from exc
+    else:
         try:
             import yaml
         except ImportError as exc:
             raise ValueError(
                 "YAML config requires pyyaml. Install with: pip install pyyaml"
             ) from exc
-        raw = yaml.safe_load(text)
-    else:
-        raise ValueError("config file must be .json, .toml, .yaml, or .yml")
+        try:
+            raw = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise DataLoadingError(str(file_path), exc) from exc
     if not isinstance(raw, dict):
         raise ValueError("config file root must be a mapping/object")
     return raw

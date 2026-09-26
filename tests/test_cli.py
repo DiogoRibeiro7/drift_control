@@ -545,6 +545,22 @@ def test_cli_config_file_json(tmp_path):
     assert payload["threshold"] == 0.01
 
 
+def test_cli_malformed_config_is_reported_without_traceback(tmp_path):
+    current = tmp_path / "current.csv"
+    config = tmp_path / "invalid.json"
+    current.write_text("x\n1\n", encoding="utf-8")
+    config.write_text("{", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        check,
+        ["--current", str(current), "--config", str(config)],
+    )
+
+    assert result.exit_code != 0
+    assert "invalid.json" in result.output
+    assert "Traceback" not in result.output
+
+
 def test_cli_chi2cat_output_json(tmp_path):
     baseline = tmp_path / "b.csv"
     current = tmp_path / "c.csv"

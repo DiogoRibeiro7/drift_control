@@ -78,6 +78,10 @@ failures raise DataExcept's `DataLoadingError`; write failures raise
 `FileWriteError`. The underlying exception remains available as `__cause__`.
 Unknown baseline versions still raise `FileNotFoundError`.
 
+Unreadable or malformed JSON, TOML and YAML configuration files raise
+`DataLoadingError` with the file path and original cause. Valid files with
+unsupported settings still raise `ValueError`.
+
 Feature-wise report over a mixed-type table (structured detectors → `DriftReport`):
 
 ```bash

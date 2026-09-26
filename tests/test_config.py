@@ -1,8 +1,44 @@
 import json
 
 import pytest
+from dataexcept import DataLoadingError
 
 from drift_control.config import DriftCheckConfig, EnsembleConfig
+
+
+@pytest.mark.parametrize(
+    ("suffix", "content", "cause"),
+    [
+        (".json", "{", json.JSONDecodeError),
+        (".toml", "method = [", ValueError),
+        (".yaml", "method: [", Exception),
+    ],
+)
+def test_malformed_config_reports_source(tmp_path, suffix, content, cause):
+    if suffix == ".yaml":
+        yaml = pytest.importorskip("yaml")
+        cause = yaml.YAMLError
+    path = tmp_path / f"config{suffix}"
+    path.write_text(content, encoding="utf-8")
+
+    with pytest.raises(DataLoadingError, match=f"config{suffix}") as error:
+        DriftCheckConfig.from_file(path)
+
+    assert isinstance(error.value.__cause__, cause)
+
+
+def test_missing_config_reports_source(tmp_path):
+    path = tmp_path / "missing.json"
+    with pytest.raises(DataLoadingError, match="missing.json") as error:
+        DriftCheckConfig.from_file(path)
+    assert isinstance(error.value.__cause__, FileNotFoundError)
+
+
+def test_config_validation_remains_value_error(tmp_path):
+    path = tmp_path / "invalid.json"
+    path.write_text('{"method": "unknown"}', encoding="utf-8")
+    with pytest.raises(ValueError, match="unsupported method"):
+        DriftCheckConfig.from_file(path)
 
 
 def test_ensemble_config_rejects_unknown_method():

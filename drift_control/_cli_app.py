@@ -9,6 +9,7 @@ from typing import Any, NoReturn
 
 import click
 import pandas as pd
+from dataexcept import DataLoadingError
 
 from .baseline_manager import BaselineManager
 from .benchmark import SyntheticDriftBenchmark
@@ -77,7 +78,7 @@ def run_check(
                     min_votes=min_votes,
                     stack_threshold=stack_threshold,
                 )
-        except ValueError as exc:
+        except (ValueError, DataLoadingError) as exc:
             _raise_click(str(exc), "config")
 
         base_df = _load_baseline_frame(
