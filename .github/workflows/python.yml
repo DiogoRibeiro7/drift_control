@@ -37,15 +37,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@34294e92775c38c360002c805916432fc4a55e60 # v1
         with:
           python-version: ${{ matrix.python-version }}
+          poetry-version: '2.5.1'
+          install-deps: 'false'
       - name: Install with dev tooling + test-relevant extras
         # This is every extra there is. The Airflow wrapper needs no extra:
         # it imports airflow lazily and the tests fake the module.
-        run: |
-          python -m pip install --upgrade pip poetry
-          poetry install --with dev --extras "viz concept ml polars stream mlflow"
+        run: poetry install --with dev --extras "viz concept ml polars stream mlflow"
       - name: Run tests
         run: poetry run pytest -q --cov --cov-report=term-missing
 
