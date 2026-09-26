@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import click
+from dataexcept import DataLoadingError, FileWriteError
 
 from ._cli_app import run_benchmark_report, run_check, run_report_command, write_output_file
 from .baseline_store import LocalBaselineStore, S3BaselineStore
@@ -219,10 +220,13 @@ def check(
     )
     _emit_check_output(payload, output_json)
 
-    if html_report is not None:
-        report.render(html_report)
-    if markdown_report is not None:
-        report.render_markdown(markdown_report, limit=report_top_n)
+    try:
+        if html_report is not None:
+            report.render(html_report)
+        if markdown_report is not None:
+            report.render_markdown(markdown_report, limit=report_top_n)
+    except FileWriteError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     if use_mlflow:
         _log_mlflow_metrics(payload["columns"])
@@ -317,7 +321,10 @@ def benchmark_report(
         telemetry=DriftTelemetry(namespace="drift_control.benchmark"),
     )
     if output_path is not None:
-        write_output_file(output_path, content)
+        try:
+            write_output_file(output_path, content)
+        except FileWriteError as exc:
+            raise click.ClickException(str(exc)) from exc
     click.echo(content)
 
 
@@ -381,18 +388,24 @@ def report_command(
     fail_on_drift: bool,
 ) -> None:
     """Feature-wise drift report over two CSVs using the structured detectors."""
-    content, any_drift = run_report_command(
-        baseline=baseline,
-        current=current,
-        numeric_method=numeric_method,
-        alpha=alpha,
-        threshold=threshold,
-        bins=bins,
-        correction=correction,
-        output_format=output_format,
-    )
+    try:
+        content, any_drift = run_report_command(
+            baseline=baseline,
+            current=current,
+            numeric_method=numeric_method,
+            alpha=alpha,
+            threshold=threshold,
+            bins=bins,
+            correction=correction,
+            output_format=output_format,
+        )
+    except DataLoadingError as exc:
+        raise click.ClickException(str(exc)) from exc
     if output_path is not None:
-        write_output_file(output_path, content)
+        try:
+            write_output_file(output_path, content)
+        except FileWriteError as exc:
+            raise click.ClickException(str(exc)) from exc
     click.echo(content)
     if fail_on_drift and any_drift:
         raise SystemExit(1)
