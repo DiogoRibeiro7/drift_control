@@ -1,5 +1,8 @@
 import json
 
+import pytest
+from dataexcept import WebhookError
+
 from drift_control.alert_sinks import (
     ColumnFilterAlertSink,
     CompositeAlertSink,
@@ -35,6 +38,44 @@ def test_webhook_alert_sink_posts_json(monkeypatch):
     assert captured["method"] == "POST"
     assert captured["timeout"] == 3.0
     assert json.loads(captured["body"].decode("utf-8"))["x"]["drift"] is True
+
+
+def test_webhook_transport_failure_preserves_cause_and_redacts_url(monkeypatch):
+    failure = OSError("connection refused")
+
+    def fail_post(req, timeout):
+        raise failure
+
+    monkeypatch.setattr("drift_control.alert_sinks.request.urlopen", fail_post)
+    sink = WebhookAlertSink("https://hooks.slack.test/private-token")
+
+    with pytest.raises(WebhookError) as error:
+        sink.send({"x": {"drift": True}})
+
+    assert error.value.__cause__ is failure
+    assert "private-token" not in str(error.value)
+    assert "hooks.slack.test" in str(error.value)
+
+
+def test_retrying_webhook_preserves_typed_terminal_failure(monkeypatch):
+    attempts = 0
+    failure = OSError("connection refused")
+
+    def fail_post(req, timeout):
+        nonlocal attempts
+        attempts += 1
+        raise failure
+
+    monkeypatch.setattr("drift_control.alert_sinks.request.urlopen", fail_post)
+    sink = RetryingWebhookAlertSink(
+        "https://example.test/private", max_retries=2, backoff_seconds=0
+    )
+
+    with pytest.raises(WebhookError) as error:
+        sink.send({"x": {"drift": True}})
+
+    assert attempts == 3
+    assert error.value.__cause__ is failure
 
 
 def test_slack_webhook_alert_sink_formats_text(monkeypatch):

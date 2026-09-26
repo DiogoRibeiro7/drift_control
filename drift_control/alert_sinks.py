@@ -9,6 +9,8 @@ from collections.abc import Iterable
 from typing import Any, Protocol
 from urllib import request
 
+from dataexcept import WebhookError
+
 AlertResult = dict[str, dict[str, Any]]
 
 
@@ -96,8 +98,13 @@ class WebhookAlertSink:
 
     def send_payload(self, payload: bytes) -> None:
         req = _build_json_request(self.url, payload)
-        with request.urlopen(req, timeout=self.timeout_seconds):
-            return
+        try:
+            with request.urlopen(req, timeout=self.timeout_seconds):
+                return
+        except OSError as exc:
+            # URL errors include HTTP failures and timeouts. WebhookError
+            # removes credential-bearing URL paths from error messages.
+            raise WebhookError(self.url, original_exception=exc) from exc
 
 
 class SlackWebhookAlertSink(WebhookAlertSink):
