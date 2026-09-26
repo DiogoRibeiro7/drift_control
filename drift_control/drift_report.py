@@ -5,6 +5,17 @@ from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 
+from dataexcept import FileWriteError
+
+
+def _write_report(path: Path, content: str) -> Path:
+    """Write a rendered report with the output path and original I/O cause."""
+    try:
+        path.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        raise FileWriteError(str(path), original=exc) from exc
+    return path
+
 
 def _format_score(value: object) -> str:
     return f"{float(value):.6f}" if isinstance(value, (int, float)) else "-"
@@ -107,8 +118,7 @@ class HtmlDriftReport:
 
     def render(self, path: str | Path) -> Path:
         out = Path(path)
-        out.write_text(self.to_html(), encoding="utf-8")
-        return out
+        return _write_report(out, self.to_html())
 
     def top_drifting_markdown(self, limit: int | None = None) -> str:
         rows = [
@@ -120,8 +130,7 @@ class HtmlDriftReport:
 
     def render_markdown(self, path: str | Path, limit: int | None = None) -> Path:
         out = Path(path)
-        out.write_text(self.top_drifting_markdown(limit=limit), encoding="utf-8")
-        return out
+        return _write_report(out, self.top_drifting_markdown(limit=limit))
 
     def _heatmap_matrix(
         self,
@@ -186,8 +195,7 @@ class HtmlDriftReport:
 </body>
 </html>"""
         out = Path(path)
-        out.write_text(html, encoding="utf-8")
-        return out
+        return _write_report(out, html)
 
 
 DriftReport = HtmlDriftReport

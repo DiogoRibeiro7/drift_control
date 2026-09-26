@@ -9,7 +9,7 @@ from typing import Any, NoReturn
 
 import click
 import pandas as pd
-from dataexcept import DataLoadingError
+from dataexcept import DataLoadingError, FileWriteError
 
 from .baseline_manager import BaselineManager
 from .benchmark import SyntheticDriftBenchmark
@@ -26,6 +26,14 @@ from .validation import (
 )
 
 CLI_JSON_SCHEMA_VERSION = "1.0"
+
+
+def read_csv_file(path: str) -> pd.DataFrame:
+    """Read a CLI CSV, retaining the source and underlying parse or I/O error."""
+    try:
+        return pd.read_csv(path)
+    except (OSError, UnicodeError, pd.errors.ParserError) as exc:
+        raise DataLoadingError(path, exc) from exc
 
 
 def run_check(
@@ -92,7 +100,10 @@ def run_check(
             s3_store_factory=s3_store_factory,
             raise_click=_raise_click,
         )
-        cur_df = pd.read_csv(current)
+        try:
+            cur_df = read_csv_file(current)
+        except DataLoadingError as exc:
+            _raise_click(str(exc), "current")
         try:
             validate_matching_columns(base_df, cur_df)
         except ValueError as exc:
@@ -185,8 +196,8 @@ def run_report_command(
 ) -> tuple[str, bool]:
     from .detectors import MixedTypeDriftDetector
 
-    base_df = pd.read_csv(baseline)
-    cur_df = pd.read_csv(current)
+    base_df = read_csv_file(baseline)
+    cur_df = read_csv_file(current)
     try:
         report = (
             MixedTypeDriftDetector(
@@ -206,8 +217,12 @@ def run_report_command(
 
 
 def write_output_file(path: str, content: str) -> None:
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        f.write(content)
+    """Write a CLI report and retain any filesystem failure."""
+    try:
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(content)
+    except OSError as exc:
+        raise FileWriteError(path, original=exc) from exc
 
 
 def _load_baseline_frame(
@@ -228,7 +243,10 @@ def _load_baseline_frame(
         raise_click("Use either --baseline or --baseline-version, not both.", "baseline")
     if baseline_version is None:
         assert baseline is not None
-        return pd.read_csv(baseline)
+        try:
+            return read_csv_file(baseline)
+        except DataLoadingError as exc:
+            raise_click(str(exc), "baseline")
     if "@" not in baseline_version:
         raise_click("--baseline-version must be in the form name@version.", "baseline")
     name, version = baseline_version.split("@", 1)

@@ -81,6 +81,9 @@ Unknown baseline versions still raise `FileNotFoundError`.
 Unreadable or malformed JSON, TOML and YAML configuration files raise
 `DataLoadingError` with the file path and original cause. Valid files with
 unsupported settings still raise `ValueError`.
+CSV input failures and report output failures also carry the affected path and
+original cause (`DataLoadingError` and `FileWriteError`, respectively). The CLI
+displays these failures as concise errors rather than tracebacks.
 
 Feature-wise report over a mixed-type table (structured detectors → `DriftReport`):
 
