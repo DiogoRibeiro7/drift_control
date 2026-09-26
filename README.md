@@ -87,6 +87,8 @@ displays these failures as concise errors rather than tracebacks.
 For local and S3 baseline stores, read and write failures likewise identify the
 file or `s3://` object. Missing baseline versions retain `FileNotFoundError`,
 and failed integrity checks retain `ValueError`.
+Webhook transport failures raise `WebhookError`, preserve the network cause and
+redact private webhook URL paths. Retry exhaustion retains that typed error.
 
 Feature-wise report over a mixed-type table (structured detectors → `DriftReport`):
 
