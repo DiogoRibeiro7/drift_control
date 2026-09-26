@@ -52,6 +52,19 @@ def test_local_store_invalid_metadata_preserves_loading_cause(tmp_path):
     assert isinstance(captured.value.__cause__, ValueError)
 
 
+def test_local_store_invalid_metadata_encoding_preserves_loading_cause(tmp_path):
+    store = LocalBaselineStore(directory=tmp_path, default_format="csv")
+    store.save(pd.DataFrame({"a": [1]}), name="data", version="1")
+    meta_path = tmp_path / "data_v1.csv.meta.json"
+    meta_path.write_bytes(b"\xff")
+
+    with pytest.raises(DataLoadingError) as error:
+        store.metadata("data", "1")
+
+    assert error.value.source == str(meta_path)
+    assert isinstance(error.value.__cause__, UnicodeError)
+
+
 def test_local_store_write_failure_preserves_original(tmp_path, monkeypatch):
     store = LocalBaselineStore(directory=tmp_path, default_format="csv")
     failure = PermissionError("read-only baseline directory")
@@ -66,3 +79,30 @@ def test_local_store_write_failure_preserves_original(tmp_path, monkeypatch):
 
     assert captured.value.path == str(tmp_path / "data_v1.csv")
     assert captured.value.__cause__ is failure
+
+
+def test_local_store_directory_failure_preserves_destination(tmp_path):
+    blocked = tmp_path / "blocked"
+    blocked.write_text("ordinary file", encoding="utf-8")
+
+    with pytest.raises(FileWriteError) as error:
+        LocalBaselineStore(directory=blocked / "baselines")
+
+    assert error.value.path == str(blocked / "baselines")
+    assert isinstance(error.value.__cause__, OSError)
+
+
+def test_local_store_delete_failure_preserves_destination(tmp_path, monkeypatch):
+    store = LocalBaselineStore(directory=tmp_path, default_format="csv")
+    path = store.save(pd.DataFrame({"a": [1]}), name="data", version="1")
+    failure = PermissionError("read-only baseline directory")
+
+    def fail_remove(target: str) -> None:
+        raise failure
+
+    monkeypatch.setattr("drift_control.baseline_store.os.remove", fail_remove)
+    with pytest.raises(FileWriteError) as error:
+        store.delete("data", "1")
+
+    assert error.value.path == path
+    assert error.value.__cause__ is failure

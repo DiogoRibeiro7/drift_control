@@ -84,6 +84,9 @@ unsupported settings still raise `ValueError`.
 CSV input failures and report output failures also carry the affected path and
 original cause (`DataLoadingError` and `FileWriteError`, respectively). The CLI
 displays these failures as concise errors rather than tracebacks.
+For local and S3 baseline stores, read and write failures likewise identify the
+file or `s3://` object. Missing baseline versions retain `FileNotFoundError`,
+and failed integrity checks retain `ValueError`.
 
 Feature-wise report over a mixed-type table (structured detectors → `DriftReport`):
 
