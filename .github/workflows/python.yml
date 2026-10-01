@@ -8,7 +8,7 @@ jobs:
   lint-typecheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@34294e92775c38c360002c805916432fc4a55e60 # v1
@@ -34,7 +34,7 @@ jobs:
         # Matches requires-python (>=3.10) and the advertised classifiers.
         python-version: ['3.10', '3.11', '3.12']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@34294e92775c38c360002c805916432fc4a55e60 # v1
@@ -52,7 +52,7 @@ jobs:
   notebooks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: DiogoRibeiro7/git-actions-collection/.github/actions/setup-poetry@34294e92775c38c360002c805916432fc4a55e60 # v1
@@ -74,7 +74,7 @@ jobs:
       matrix:
         python-version: ['3.10', '3.11', '3.12']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-python@v5
@@ -93,7 +93,7 @@ jobs:
   roadmap-milestones:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-python@v5
