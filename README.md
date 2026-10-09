@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/project-logo.png" alt="drift_control project logo" width="160" height="160">
+</p>
+
 # Drift Control
 
 Drift Control is a Python package for production monitoring of **data drift** and **concept drift** in machine learning systems.

@@ -1,0 +1,7 @@
+Tool: built-in image generation
+
+Use case: logo-brand.
+Asset type: square README project logo for drift_control.
+Project purpose: Python toolkit for monitoring data and concept drift in batch and streaming ML workflows. Combines univariate tests, multivariate two-sample methods, online detectors, versioned baselines, and feature-level reports, with scikit-learn interfaces, a JSON CLI, alert routing, and optional telemetry.
+Design direction: Two broad terracotta and mint dune-like distribution silhouettes shift past a perfectly straight dark-plum plumb line with a small weight. Minimal pastel-paper relief, warm white background, soft raking shadows, a calm asymmetrical composition. Monitoring movement against a stable reference; no arrows or chart labels.
+Composition: create one finished square artwork with a strong silhouette, readable at 160 pixels, and comfortable margins. This is the logo itself, not a presentation or product mockup. No text, words, letters, numbers, captions or watermark anywhere in the image. Do not use a generic navy-and-gold metallic badge.
